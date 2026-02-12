@@ -308,3 +308,18 @@ The human producer is learning C# and Unity. When writing code:
 After completing each feature, perform a self-review before moving on.
 Check for: GC allocations in Update loops, null safety, memory leaks, 
 magic numbers, and event-bus architecture compliance.
+
+---
+
+## Working with the Task Board
+- when done with an issue, find the next one by looking in the ToDo column for the top item of type "Story" in the column "ToDo"
+- plan the implementation work by creating sub-issues of type "Task" for the given story
+- then set the story and the first task to "In Progress"
+- finished tasks can be set to done directly
+- when all tasks of a story are done, write a comment into the story about what has been done
+- then plan the QA work by creating more sub-issues of type "Task" for the given story. Use the acceptance criteria as an orientation for creating the QA tasks
+- then set the story and the first (new) task to "QA"
+- finished tasks can be set to done
+- when all QA tasks are done, the story can also be set to done
+- repeat the process until all stories of a feature are done
+- then inform me so I can do the testing in Unity
