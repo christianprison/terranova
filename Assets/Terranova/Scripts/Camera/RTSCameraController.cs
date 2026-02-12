@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Terranova.Camera
 {
@@ -93,8 +94,16 @@ namespace Terranova.Camera
         /// </summary>
         private void HandlePan()
         {
-            float horizontal = Input.GetAxisRaw("Horizontal"); // A/D or Left/Right
-            float vertical = Input.GetAxisRaw("Vertical");     // W/S or Up/Down
+            var kb = Keyboard.current;
+            if (kb == null) return;
+
+            float horizontal = 0f;
+            if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) horizontal += 1f;
+            if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) horizontal -= 1f;
+
+            float vertical = 0f;
+            if (kb.wKey.isPressed || kb.upArrowKey.isPressed) vertical += 1f;
+            if (kb.sKey.isPressed || kb.downArrowKey.isPressed) vertical -= 1f;
 
             if (Mathf.Approximately(horizontal, 0) && Mathf.Approximately(vertical, 0))
                 return;
@@ -110,7 +119,7 @@ namespace Terranova.Camera
             float speed = _panSpeed * speedFactor;
 
             // Hold Shift to move faster
-            if (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift))
+            if (kb.leftShiftKey.isPressed || kb.rightShiftKey.isPressed)
                 speed *= _fastMultiplier;
 
             _pivotPosition += move * speed * Time.deltaTime;
@@ -121,10 +130,15 @@ namespace Terranova.Camera
         /// </summary>
         private void HandleZoom()
         {
-            float scroll = Input.GetAxis("Mouse ScrollWheel");
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            float scroll = mouse.scroll.ReadValue().y;
             if (!Mathf.Approximately(scroll, 0))
             {
-                _targetZoom -= scroll * _zoomSpeed * (_targetZoom * 0.3f);
+                // scroll.y is typically +-120 per notch, normalize it
+                float normalizedScroll = scroll / 120f;
+                _targetZoom -= normalizedScroll * _zoomSpeed * (_targetZoom * 0.3f);
                 _targetZoom = Mathf.Clamp(_targetZoom, _minZoom, _maxZoom);
             }
 
@@ -137,10 +151,13 @@ namespace Terranova.Camera
         /// </summary>
         private void HandleRotation()
         {
-            if (Input.GetMouseButton(2)) // Middle mouse button
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            if (mouse.middleButton.isPressed)
             {
-                float mouseX = Input.GetAxis("Mouse X");
-                _yaw += mouseX * _rotateSpeed * 100f * Time.deltaTime;
+                float mouseX = mouse.delta.ReadValue().x;
+                _yaw += mouseX * _rotateSpeed * Time.deltaTime;
             }
         }
 

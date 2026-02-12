@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.InputSystem;
 using Terranova.Core;
 using Terranova.Terrain;
 
@@ -59,12 +60,16 @@ namespace Terranova.Buildings
 
             UpdatePreviewPosition();
 
+            var mouse = Mouse.current;
+            var kb = Keyboard.current;
+
             // Left-click to place
-            if (Input.GetMouseButtonDown(0) && _isValidPosition)
+            if (mouse != null && mouse.leftButton.wasPressedThisFrame && _isValidPosition)
                 PlaceBuilding();
 
             // Right-click or Escape to cancel
-            if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
+            if ((mouse != null && mouse.rightButton.wasPressedThisFrame) ||
+                (kb != null && kb.escapeKey.wasPressedThisFrame))
                 CancelPlacement();
         }
 
@@ -100,7 +105,10 @@ namespace Terranova.Buildings
             if (_preview == null || UnityEngine.Camera.main == null)
                 return;
 
-            Ray ray = UnityEngine.Camera.main.ScreenPointToRay(Input.mousePosition);
+            var mouse = Mouse.current;
+            if (mouse == null) return;
+
+            Ray ray = UnityEngine.Camera.main.ScreenPointToRay(mouse.position.ReadValue());
 
             if (Physics.Raycast(ray, out RaycastHit hit, 500f))
             {
