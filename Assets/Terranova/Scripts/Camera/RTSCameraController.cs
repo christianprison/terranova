@@ -41,6 +41,9 @@ namespace Terranova.Camera
         [Tooltip("Mouse rotation speed (degrees per pixel of mouse movement).")]
         [SerializeField] private float _rotateSpeed = 0.3f;
 
+        [Tooltip("Smoothing speed for snap-to-90° when releasing MMB.")]
+        [SerializeField] private float _snapSmoothing = 10f;
+
         [Header("Initial Position")]
         [Tooltip("Starting camera angle (degrees from horizontal). 60 = steep top-down, 30 = more side view.")]
         [SerializeField] private float _defaultPitch = 50f;
@@ -56,6 +59,9 @@ namespace Terranova.Camera
         // the actual camera is offset from this point.
         private Vector3 _pivotPosition;
         private float _yaw;
+        private float _targetYaw;
+        private bool _isRotatingWithMouse;
+        private bool _isSnapping;
         private bool _initialized;
 
         private void Start()
@@ -154,19 +160,60 @@ namespace Terranova.Camera
         }
 
         /// <summary>
-        /// Q/E keys to rotate the camera around the pivot.
+        /// Rotate the camera via MMB drag or Q/E keys.
+        /// MMB drag: free rotation while held, snaps to nearest 90° on release.
+        /// Q/E keys: instant snap to next 90° step.
+        /// Ref: Gesture Lexicon v0.4, CAM-03.
         /// </summary>
         private void HandleRotation()
         {
+            var mouse = Mouse.current;
             var kb = Keyboard.current;
-            if (kb == null) return;
 
-            float rotateInput = 0f;
-            if (kb.eKey.isPressed) rotateInput += 1f;
-            if (kb.qKey.isPressed) rotateInput -= 1f;
+            // MMB drag rotation (free rotation while held, snap on release)
+            if (mouse != null)
+            {
+                if (mouse.middleButton.isPressed)
+                {
+                    float mouseDelta = mouse.delta.ReadValue().x;
+                    _yaw += mouseDelta * _rotateSpeed;
+                    _isRotatingWithMouse = true;
+                    _isSnapping = false;
+                }
+                else if (_isRotatingWithMouse)
+                {
+                    // MMB released – start snapping to nearest 90°
+                    _isRotatingWithMouse = false;
+                    _targetYaw = Mathf.Round(_yaw / 90f) * 90f;
+                    _isSnapping = true;
+                }
+            }
 
-            if (!Mathf.Approximately(rotateInput, 0f))
-                _yaw += rotateInput * _rotateSpeed * 100f * Time.deltaTime;
+            // Q/E keys: instant snap to next 90° step
+            if (kb != null && !_isRotatingWithMouse)
+            {
+                if (kb.eKey.wasPressedThisFrame)
+                {
+                    _targetYaw = Mathf.Ceil((_yaw + 1f) / 90f) * 90f;
+                    _isSnapping = true;
+                }
+                else if (kb.qKey.wasPressedThisFrame)
+                {
+                    _targetYaw = Mathf.Floor((_yaw - 1f) / 90f) * 90f;
+                    _isSnapping = true;
+                }
+            }
+
+            // Smoothly interpolate to snap target
+            if (_isSnapping)
+            {
+                _yaw = Mathf.Lerp(_yaw, _targetYaw, Time.deltaTime * _snapSmoothing);
+                if (Mathf.Abs(_yaw - _targetYaw) < 0.5f)
+                {
+                    _yaw = _targetYaw;
+                    _isSnapping = false;
+                }
+            }
         }
 
         /// <summary>
