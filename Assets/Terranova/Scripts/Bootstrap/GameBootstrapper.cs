@@ -65,24 +65,30 @@ namespace Terranova.Core
 
         private static void EnsureBuildingPlacer()
         {
-            if (Object.FindFirstObjectByType<BuildingPlacer>() != null)
-                return;
+            var placer = Object.FindFirstObjectByType<BuildingPlacer>();
 
-            var go = new GameObject("GameManager");
-            var placer = go.AddComponent<BuildingPlacer>();
+            if (placer == null)
+            {
+                var go = new GameObject("GameManager");
+                placer = go.AddComponent<BuildingPlacer>();
+                Debug.Log("GameBootstrapper: Created BuildingPlacer.");
+            }
 
-            // Create a default Campfire definition so building works out of the box
-            var campfire = ScriptableObject.CreateInstance<BuildingDefinition>();
-            campfire.DisplayName = "Campfire";
-            campfire.Description = "A simple campfire. The heart of your settlement.";
-            campfire.WoodCost = 5;
-            campfire.StoneCost = 0;
-            campfire.FootprintSize = Vector2Int.one;
-            campfire.PreviewColor = new Color(1f, 0.8f, 0.2f); // Warm yellow
-            campfire.VisualHeight = 1f;
+            // Always ensure a building is assigned (even on manually-added placers)
+            if (!placer.HasBuilding)
+            {
+                var campfire = ScriptableObject.CreateInstance<BuildingDefinition>();
+                campfire.DisplayName = "Campfire";
+                campfire.Description = "A simple campfire. The heart of your settlement.";
+                campfire.WoodCost = 5;
+                campfire.StoneCost = 0;
+                campfire.FootprintSize = Vector2Int.one;
+                campfire.PreviewColor = new Color(1f, 0.8f, 0.2f); // Warm yellow
+                campfire.VisualHeight = 1f;
 
-            placer.SetBuilding(campfire);
-            Debug.Log("GameBootstrapper: Created BuildingPlacer with default Campfire.");
+                placer.SetBuilding(campfire);
+                Debug.Log("GameBootstrapper: Assigned default Campfire to BuildingPlacer.");
+            }
         }
 
         private static void EnsureUI()

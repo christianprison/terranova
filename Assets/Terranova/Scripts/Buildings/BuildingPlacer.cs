@@ -121,6 +121,9 @@ namespace Terranova.Buildings
                 CancelPlacement();
         }
 
+        /// <summary>Whether a building definition is currently assigned.</summary>
+        public bool HasBuilding => _selectedBuilding != null;
+
         /// <summary>
         /// Assign a building definition (used by GameBootstrapper for auto-setup).
         /// If Start() has already run, also begins placement mode immediately.
