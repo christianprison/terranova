@@ -154,18 +154,19 @@ namespace Terranova.Camera
         }
 
         /// <summary>
-        /// Hold middle mouse button + move mouse to rotate the camera around the pivot.
+        /// Q/E keys to rotate the camera around the pivot.
         /// </summary>
         private void HandleRotation()
         {
-            var mouse = Mouse.current;
-            if (mouse == null) return;
+            var kb = Keyboard.current;
+            if (kb == null) return;
 
-            if (mouse.middleButton.isPressed)
-            {
-                float mouseX = mouse.delta.ReadValue().x;
-                _yaw += mouseX * _rotateSpeed * Time.deltaTime;
-            }
+            float rotateInput = 0f;
+            if (kb.eKey.isPressed) rotateInput += 1f;
+            if (kb.qKey.isPressed) rotateInput -= 1f;
+
+            if (!Mathf.Approximately(rotateInput, 0f))
+                _yaw += rotateInput * _rotateSpeed * 100f * Time.deltaTime;
         }
 
         /// <summary>
