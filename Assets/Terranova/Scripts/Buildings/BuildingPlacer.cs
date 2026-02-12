@@ -40,11 +40,42 @@ namespace Terranova.Buildings
         private MeshRenderer _previewRenderer;
         private Material _previewMaterial;
 
+        // Cached material for placed buildings (shared, avoids per-placement allocation)
+        private Material _buildingMaterial;
+        private MaterialPropertyBlock _buildingPropBlock;
+        private static readonly int ColorID = Shader.PropertyToID("_BaseColor");
+
         // Whether the current preview position is valid for placement
         private bool _isValidPosition;
 
         // Is the placement mode active?
         private bool _isPlacing;
+
+        private void Awake()
+        {
+            // Cache materials once at startup – Shader.Find is expensive and
+            // can return null in builds if the shader isn't in "Always Included Shaders".
+            Shader litShader = Shader.Find("Universal Render Pipeline/Lit");
+            if (litShader == null)
+            {
+                Debug.LogError("BuildingPlacer: Could not find URP/Lit shader. Assign materials manually.");
+                return;
+            }
+
+            _buildingMaterial = new Material(litShader);
+            _buildingMaterial.name = "Building_Shared (Auto)";
+
+            _previewMaterial = new Material(litShader);
+            _previewMaterial.name = "BuildingPreview (Auto)";
+            _previewMaterial.SetFloat("_Surface", 1f);  // Transparent mode
+            _previewMaterial.SetFloat("_Blend", 0f);    // Alpha blend
+            _previewMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            _previewMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            _previewMaterial.SetInt("_ZWrite", 0);
+            _previewMaterial.renderQueue = 3000;
+
+            _buildingPropBlock = new MaterialPropertyBlock();
+        }
 
         private void Start()
         {
@@ -179,10 +210,12 @@ namespace Terranova.Buildings
                 _selectedBuilding.FootprintSize.y
             );
 
-            // Apply building color
+            // Apply building color via shared material + per-instance PropertyBlock
+            // (avoids creating a new Material per placement → no material leak)
             var renderer = building.GetComponent<MeshRenderer>();
-            renderer.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            renderer.material.color = _selectedBuilding.PreviewColor;
+            renderer.sharedMaterial = _buildingMaterial;
+            _buildingPropBlock.SetColor(ColorID, _selectedBuilding.PreviewColor);
+            renderer.SetPropertyBlock(_buildingPropBlock);
 
             // Notify other systems via event bus
             EventBus.Publish(new BuildingPlacedEvent
@@ -218,15 +251,8 @@ namespace Terranova.Buildings
             if (collider != null)
                 collider.enabled = false;
 
-            // Semi-transparent material for the ghost effect
+            // Reuse the cached preview material (created once in Awake)
             _previewRenderer = _preview.GetComponent<MeshRenderer>();
-            _previewMaterial = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            _previewMaterial.SetFloat("_Surface", 1f);  // Transparent mode
-            _previewMaterial.SetFloat("_Blend", 0f);    // Alpha blend
-            _previewMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-            _previewMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-            _previewMaterial.SetInt("_ZWrite", 0);
-            _previewMaterial.renderQueue = 3000;
             _previewMaterial.color = _validColor;
             _previewRenderer.material = _previewMaterial;
         }
@@ -235,6 +261,12 @@ namespace Terranova.Buildings
         {
             if (_preview != null)
                 Destroy(_preview);
+
+            // Clean up dynamically created materials to prevent VRAM leaks
+            if (_previewMaterial != null)
+                Destroy(_previewMaterial);
+            if (_buildingMaterial != null)
+                Destroy(_buildingMaterial);
         }
     }
 }
