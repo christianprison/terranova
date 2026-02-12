@@ -105,6 +105,15 @@ namespace Terranova.Buildings
         }
 
         /// <summary>
+        /// Assign a building definition (used by GameBootstrapper for auto-setup).
+        /// If Start() has already run, also begins placement mode immediately.
+        /// </summary>
+        public void SetBuilding(BuildingDefinition building)
+        {
+            _selectedBuilding = building;
+        }
+
+        /// <summary>
         /// Begin placement mode for a specific building type.
         /// Creates a ghost preview that follows the mouse.
         /// </summary>
