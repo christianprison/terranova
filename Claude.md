@@ -288,6 +288,8 @@ The human producer is learning C# and Unity. When writing code:
 5. **Write code that teaches.** The producer learns from reading your output.
 6. **Reference the GDD.** The design documents in `docs/` are the source of truth. If a design decision is unclear, ask rather than assume.
 7. **Flag scope creep.** If implementing something "right" would take significantly longer than a simpler version, say so and suggest the simpler version for now.
+8. Remember that the human producer is using **GitHub Desktop** for all push/merge/pull activities
+9. Always develop on the **main branch** in GitHub to avoid merge activities. **Never open a separate branch** unless explicitly told so by the human producer.
 
 ---
 
