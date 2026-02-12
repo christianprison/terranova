@@ -44,6 +44,10 @@ namespace Terranova.Camera
         [Tooltip("Smoothing speed for snap-to-90° when releasing MMB.")]
         [SerializeField] private float _snapSmoothing = 10f;
 
+        [Header("Touch Preparation (MS4)")]
+        [Tooltip("Safe zone in points from screen edges. Touch input inside this zone is ignored to prevent accidental gestures. GDD spec: 20pt.")]
+        [SerializeField] private float _safeZonePoints = 20f;
+
         [Header("Initial Position")]
         [Tooltip("Starting camera angle (degrees from horizontal). 60 = steep top-down, 30 = more side view.")]
         [SerializeField] private float _defaultPitch = 50f;
@@ -228,6 +232,22 @@ namespace Terranova.Camera
             float padding = 10f;
             _pivotPosition.x = Mathf.Clamp(_pivotPosition.x, -padding, world.WorldBlocksX + padding);
             _pivotPosition.z = Mathf.Clamp(_pivotPosition.z, -padding, world.WorldBlocksZ + padding);
+        }
+
+        /// <summary>
+        /// Check if a screen position falls within the safe zone (too close to edges).
+        /// Touch input in the safe zone should be ignored to prevent accidental gestures.
+        /// In MS1 this is not used (mouse input), but prepared for MS4 touch integration.
+        /// </summary>
+        public bool IsInSafeZone(Vector2 screenPosition)
+        {
+            // Convert points to pixels (on iPad, 1pt ≈ 2px at 2x scale)
+            float safePixels = _safeZonePoints * (Screen.dpi > 0 ? Screen.dpi / 163f : 1f);
+
+            return screenPosition.x < safePixels
+                || screenPosition.x > Screen.width - safePixels
+                || screenPosition.y < safePixels
+                || screenPosition.y > Screen.height - safePixels;
         }
 
         /// <summary>
