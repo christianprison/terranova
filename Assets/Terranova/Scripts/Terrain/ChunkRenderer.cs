@@ -62,9 +62,14 @@ namespace Terranova.Terrain
                 return;
             }
 
+            // Destroy the old mesh to prevent memory leaks
+            // (important once terraforming allows runtime mesh rebuilds)
+            if (_meshFilter.sharedMesh != null)
+                Destroy(_meshFilter.sharedMesh);
+
             // Build mesh from voxel data
             Mesh mesh = ChunkMeshBuilder.Build(Data, neighborLookup);
-            _meshFilter.mesh = mesh;
+            _meshFilter.sharedMesh = mesh;
 
             // Update collider for raycasting (building placement, camera ground detection).
             // We only use the solid submesh (index 0) for collision.

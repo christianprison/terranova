@@ -37,6 +37,10 @@ namespace Terranova.Terrain
         [Tooltip("Material for water (transparent, vertex colors). Auto-created if not assigned.")]
         [SerializeField] private Material _waterMaterial;
 
+        // Track whether materials were auto-created (so we can clean them up)
+        private bool _ownsSolidMaterial;
+        private bool _ownsWaterMaterial;
+
         // All chunks indexed by (chunkX, chunkZ) coordinates
         private readonly Dictionary<Vector2Int, ChunkRenderer> _chunks = new();
 
@@ -67,6 +71,13 @@ namespace Terranova.Terrain
         private void Start()
         {
             EnsureMaterials();
+
+            if (_solidMaterial == null || _waterMaterial == null)
+            {
+                Debug.LogError("WorldManager: Cannot generate world – materials missing. Assign them in the Inspector.");
+                return;
+            }
+
             GenerateWorld();
         }
 
@@ -199,6 +210,7 @@ namespace Terranova.Terrain
 
                 _solidMaterial = new Material(shader);
                 _solidMaterial.name = "Terrain_Solid (Auto)";
+                _ownsSolidMaterial = true;
             }
 
             if (_waterMaterial == null)
@@ -214,6 +226,7 @@ namespace Terranova.Terrain
 
                 _waterMaterial = new Material(shader);
                 _waterMaterial.name = "Water_Transparent (Auto)";
+                _ownsWaterMaterial = true;
 
                 // Configure transparency for the fallback particle shader
                 if (_waterMaterial.HasProperty("_Surface"))
@@ -227,6 +240,12 @@ namespace Terranova.Terrain
 
         private void OnDestroy()
         {
+            // Clean up auto-created materials to prevent VRAM leaks
+            if (_ownsSolidMaterial && _solidMaterial != null)
+                Destroy(_solidMaterial);
+            if (_ownsWaterMaterial && _waterMaterial != null)
+                Destroy(_waterMaterial);
+
             if (Instance == this)
                 Instance = null;
         }
