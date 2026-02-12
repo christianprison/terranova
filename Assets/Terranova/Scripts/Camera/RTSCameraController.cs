@@ -65,11 +65,14 @@ namespace Terranova.Camera
             {
                 float centerX = world.WorldBlocksX * 0.5f;
                 float centerZ = world.WorldBlocksZ * 0.5f;
-                _pivotPosition = new Vector3(centerX, 0, centerZ);
+                // Pivot must be at terrain surface height, not y=0.
+                // Terrain surface is around SEA_LEVEL (64).
+                int surfaceY = world.GetHeightAtWorldPos((int)centerX, (int)centerZ);
+                _pivotPosition = new Vector3(centerX, surfaceY, centerZ);
             }
             else
             {
-                _pivotPosition = new Vector3(64, 0, 64);
+                _pivotPosition = new Vector3(64, 64, 64);
             }
 
             _currentZoom = _defaultHeight;
