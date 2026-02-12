@@ -139,7 +139,7 @@ namespace Terranova.Population
                 settlerObj.transform.position = new Vector3(x, 0f, z); // Y set by Initialize
 
                 var settler = settlerObj.AddComponent<Settler>();
-                settler.Initialize(i);
+                settler.Initialize(i, campfirePos);
             }
 
             // Notify UI about population
