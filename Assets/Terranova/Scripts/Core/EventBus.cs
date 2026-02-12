@@ -95,4 +95,31 @@ namespace Terranova.Core
     {
         public int CurrentPopulation;
     }
+
+    /// <summary>
+    /// Fired when a settler delivers a resource at the base (campfire/storage).
+    /// The economy system (Story 3.x) will listen to this to update resource counts.
+    /// </summary>
+    public struct ResourceDeliveredEvent
+    {
+        /// <summary>What type of task produced this delivery.</summary>
+        public SettlerTaskType TaskType;
+        public UnityEngine.Vector3 Position;
+    }
+
+    // ─── Shared Enums ────────────────────────────────────────
+    // Placed in Core to avoid circular dependencies between assemblies.
+
+    /// <summary>
+    /// The types of tasks a settler can perform.
+    /// Defined in Core so both Population and UI assemblies can reference it.
+    /// </summary>
+    public enum SettlerTaskType
+    {
+        None,           // No task (settler is idle)
+        GatherWood,     // Go to tree, chop, bring wood back
+        GatherStone,    // Go to rock, mine, bring stone back
+        Hunt,           // Go to hunting ground, hunt, bring food back
+        Build           // Go to construction site, build
+    }
 }

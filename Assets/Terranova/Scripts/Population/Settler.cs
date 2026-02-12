@@ -1,4 +1,5 @@
 using UnityEngine;
+using Terranova.Core;
 using Terranova.Terrain;
 
 namespace Terranova.Population
@@ -8,23 +9,22 @@ namespace Terranova.Population
     ///
     /// Story 1.1: Colored capsule standing on terrain.
     /// Story 1.2: Idle wander behavior around the campfire.
-    /// Later: task system (1.3), work cycles (1.4), hunger (5.x).
+    /// Story 1.3: Task system (can receive and hold one task).
+    /// Story 1.4: Work cycle (walk to target -> work -> return -> deliver -> repeat).
     /// </summary>
     public class Settler : MonoBehaviour
     {
-        // ─── Idle Behavior Settings ──────────────────────────────
-        // These could be SerializeFields on a config SO later,
-        // but hardcoded is fine for now (no premature abstraction).
+        // ─── Movement & Idle Settings ────────────────────────────
 
-        private const float IDLE_RADIUS = 8f;        // Max wander distance from campfire
-        private const float WALK_SPEED = 1.5f;        // Blocks per second
-        private const float MIN_PAUSE = 1f;            // Minimum pause duration
-        private const float MAX_PAUSE = 3.5f;          // Maximum pause duration
-        private const float ARRIVAL_THRESHOLD = 0.3f;  // Close enough to target
+        private const float IDLE_RADIUS = 8f;
+        private const float WALK_SPEED = 1.5f;
+        private const float TASK_WALK_SPEED = 2f;       // Faster when on a task
+        private const float MIN_PAUSE = 1f;
+        private const float MAX_PAUSE = 3.5f;
+        private const float ARRIVAL_THRESHOLD = 0.3f;
 
         // ─── Visual Settings ─────────────────────────────────────
 
-        // 5 distinct colors so settlers are visually distinguishable
         private static readonly Color[] SETTLER_COLORS =
         {
             new Color(0.85f, 0.25f, 0.25f), // Red
@@ -34,35 +34,58 @@ namespace Terranova.Population
             new Color(0.70f, 0.30f, 0.75f), // Purple
         };
 
-        // Shared material for all settlers (avoids per-settler material allocations)
         private static Material _sharedMaterial;
         private static readonly int ColorID = Shader.PropertyToID("_BaseColor");
 
-        // ─── Idle State Machine ──────────────────────────────────
+        // ─── State Machine ───────────────────────────────────────
 
-        private enum IdleState { Pausing, Walking }
+        /// <summary>
+        /// All possible settler states. The first two are idle behavior,
+        /// the rest form the work cycle (Story 1.3/1.4).
+        /// </summary>
+        private enum SettlerState
+        {
+            // Idle behavior (Story 1.2)
+            IdlePausing,
+            IdleWalking,
 
-        private IdleState _state = IdleState.Pausing;
+            // Work cycle (Story 1.3/1.4)
+            WalkingToTarget,    // Moving to work location (tree, rock, site)
+            Working,            // At target, performing work (gathering, building)
+            ReturningToBase,    // Walking back to campfire/storage
+            Delivering          // At base, dropping off resources
+        }
+
+        private SettlerState _state = SettlerState.IdlePausing;
         private Vector3 _campfirePosition;
         private Vector3 _walkTarget;
         private float _stateTimer;
+
+        // ─── Task System (Story 1.3) ─────────────────────────────
+
+        private SettlerTask _currentTask;
+
+        /// <summary>The settler's current task, or null if idle.</summary>
+        public SettlerTask CurrentTask => _currentTask;
+
+        /// <summary>Whether the settler is currently busy with a task.</summary>
+        public bool HasTask => _currentTask != null;
+
+        /// <summary>Current state name (for UI/debug display).</summary>
+        public string StateName => _state.ToString();
 
         // ─── Instance Data ───────────────────────────────────────
 
         private MaterialPropertyBlock _propBlock;
         private int _colorIndex;
 
-        /// <summary>
-        /// Which color index this settler uses (0-4).
-        /// </summary>
         public int ColorIndex => _colorIndex;
 
+        // ─── Initialization ──────────────────────────────────────
+
         /// <summary>
-        /// Initialize the settler's visual appearance and snap to terrain.
-        /// Call this right after instantiation.
+        /// Initialize the settler. Called right after instantiation.
         /// </summary>
-        /// <param name="colorIndex">Index into the color palette (0-4).</param>
-        /// <param name="campfirePosition">World position of the campfire (wander center).</param>
         public void Initialize(int colorIndex, Vector3 campfirePosition)
         {
             _colorIndex = colorIndex;
@@ -71,9 +94,38 @@ namespace Terranova.Population
             CreateVisual();
             SnapToTerrain();
 
-            // Start each settler with a random pause so they don't all move at once
-            _state = IdleState.Pausing;
+            // Start with random pause (desync settlers)
+            _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(0f, MAX_PAUSE);
+        }
+
+        // ─── Task Assignment (Story 1.3) ─────────────────────────
+
+        /// <summary>
+        /// Assign a task to this settler. Interrupts idle behavior
+        /// and starts the work cycle (Story 1.4).
+        /// Returns false if the settler already has a task.
+        /// </summary>
+        public bool AssignTask(SettlerTask task)
+        {
+            if (_currentTask != null)
+                return false;
+
+            _currentTask = task;
+            _state = SettlerState.WalkingToTarget;
+            _walkTarget = task.TargetPosition;
+            return true;
+        }
+
+        /// <summary>
+        /// Clear the current task and return to idle.
+        /// Called when a task is canceled or can no longer be performed.
+        /// </summary>
+        public void ClearTask()
+        {
+            _currentTask = null;
+            _state = SettlerState.IdlePausing;
+            _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
         }
 
         // ─── Update Loop ─────────────────────────────────────────
@@ -82,92 +134,190 @@ namespace Terranova.Population
         {
             switch (_state)
             {
-                case IdleState.Pausing:
-                    UpdatePausing();
+                case SettlerState.IdlePausing:
+                    UpdateIdlePausing();
                     break;
-                case IdleState.Walking:
-                    UpdateWalking();
+                case SettlerState.IdleWalking:
+                    UpdateIdleWalking();
+                    break;
+                case SettlerState.WalkingToTarget:
+                    UpdateWalkingToTarget();
+                    break;
+                case SettlerState.Working:
+                    UpdateWorking();
+                    break;
+                case SettlerState.ReturningToBase:
+                    UpdateReturningToBase();
+                    break;
+                case SettlerState.Delivering:
+                    UpdateDelivering();
                     break;
             }
         }
 
-        /// <summary>
-        /// Wait for the pause timer to expire, then pick a new walk target.
-        /// </summary>
-        private void UpdatePausing()
+        // ─── Idle States (Story 1.2) ─────────────────────────────
+
+        private void UpdateIdlePausing()
         {
             _stateTimer -= Time.deltaTime;
             if (_stateTimer > 0f)
                 return;
 
-            // Pick a random target within idle radius of the campfire
             if (TryPickWalkTarget())
-            {
-                _state = IdleState.Walking;
-            }
+                _state = SettlerState.IdleWalking;
             else
-            {
-                // Couldn't find valid target, try again next frame
                 _stateTimer = 0.5f;
+        }
+
+        private void UpdateIdleWalking()
+        {
+            if (MoveToward(_walkTarget, WALK_SPEED))
+            {
+                _state = SettlerState.IdlePausing;
+                _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
+            }
+        }
+
+        // ─── Work Cycle States (Story 1.3/1.4) ──────────────────
+
+        /// <summary>
+        /// Walk toward the work target (tree, rock, building site).
+        /// If the target becomes invalid, return to idle.
+        /// </summary>
+        private void UpdateWalkingToTarget()
+        {
+            if (_currentTask == null || !_currentTask.IsTargetValid)
+            {
+                ClearTask();
+                return;
+            }
+
+            if (MoveToward(_currentTask.TargetPosition, TASK_WALK_SPEED))
+            {
+                // Arrived at work target - start working
+                _state = SettlerState.Working;
+                _stateTimer = _currentTask.WorkDuration;
             }
         }
 
         /// <summary>
-        /// Move toward the walk target. On arrival, switch to pausing.
+        /// Perform work at the target location.
+        /// For now just a timer. Later: animation, resource depletion.
         /// </summary>
-        private void UpdateWalking()
+        private void UpdateWorking()
+        {
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer > 0f)
+                return;
+
+            // Work complete - head back to base
+            _state = SettlerState.ReturningToBase;
+            _walkTarget = _currentTask.BasePosition;
+        }
+
+        /// <summary>
+        /// Walk back to the campfire/storage with gathered resources.
+        /// </summary>
+        private void UpdateReturningToBase()
+        {
+            if (MoveToward(_currentTask.BasePosition, TASK_WALK_SPEED))
+            {
+                // Arrived at base - deliver resources
+                _state = SettlerState.Delivering;
+                _stateTimer = 0.5f; // Brief delivery pause
+            }
+        }
+
+        /// <summary>
+        /// Deliver resources at the base. Then either repeat the cycle
+        /// (if task is still valid) or return to idle.
+        /// </summary>
+        private void UpdateDelivering()
+        {
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer > 0f)
+                return;
+
+            // Fire delivery event so UI and economy systems can react
+            if (_currentTask != null)
+            {
+                EventBus.Publish(new ResourceDeliveredEvent
+                {
+                    TaskType = _currentTask.TaskType,
+                    Position = transform.position
+                });
+            }
+
+            // Repeat cycle if target is still valid, otherwise go idle
+            if (_currentTask != null && _currentTask.IsTargetValid)
+            {
+                _state = SettlerState.WalkingToTarget;
+                _walkTarget = _currentTask.TargetPosition;
+            }
+            else
+            {
+                ClearTask();
+            }
+        }
+
+        // ─── Shared Movement ─────────────────────────────────────
+
+        /// <summary>
+        /// Move toward a target position with terrain snapping.
+        /// Returns true when the target is reached.
+        /// </summary>
+        private bool MoveToward(Vector3 target, float speed)
         {
             Vector3 pos = transform.position;
-            Vector3 direction = _walkTarget - pos;
-            direction.y = 0f; // Move horizontally only
+            Vector3 direction = target - pos;
+            direction.y = 0f;
 
             float distance = direction.magnitude;
 
             if (distance < ARRIVAL_THRESHOLD)
-            {
-                // Arrived at target - start pausing
-                _state = IdleState.Pausing;
-                _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
-                return;
-            }
+                return true;
 
-            // Move toward target
-            Vector3 step = direction.normalized * WALK_SPEED * Time.deltaTime;
-
-            // Don't overshoot
+            Vector3 step = direction.normalized * speed * Time.deltaTime;
             if (step.magnitude > distance)
                 step = direction;
 
             Vector3 newPos = pos + step;
 
             // Snap Y to terrain
-            int blockX = Mathf.FloorToInt(newPos.x);
-            int blockZ = Mathf.FloorToInt(newPos.z);
             var world = WorldManager.Instance;
-
             if (world != null)
             {
+                int blockX = Mathf.FloorToInt(newPos.x);
+                int blockZ = Mathf.FloorToInt(newPos.z);
                 int height = world.GetHeightAtWorldPos(blockX, blockZ);
                 VoxelType surface = world.GetSurfaceTypeAtWorldPos(blockX, blockZ);
 
                 if (height < 0 || !surface.IsSolid())
                 {
-                    // Hit water or invalid terrain - pick a new target instead
-                    _state = IdleState.Pausing;
-                    _stateTimer = Random.Range(0.5f, 1f);
-                    return;
+                    // Hit impassable terrain
+                    if (_currentTask != null)
+                    {
+                        // On a task: target may be unreachable, go idle
+                        ClearTask();
+                    }
+                    else
+                    {
+                        // Idle: just pick a new target
+                        _state = SettlerState.IdlePausing;
+                        _stateTimer = Random.Range(0.5f, 1f);
+                    }
+                    return false;
                 }
 
                 newPos.y = height + 1f;
             }
 
             transform.position = newPos;
+            return false;
         }
 
         /// <summary>
-        /// Pick a random walk target within the idle radius of the campfire.
-        /// Validates that the target is on solid, walkable terrain.
-        /// Tries up to 5 times to find a valid position.
+        /// Pick a random idle walk target within the campfire radius.
         /// </summary>
         private bool TryPickWalkTarget()
         {
@@ -177,7 +327,6 @@ namespace Terranova.Population
 
             for (int attempt = 0; attempt < 5; attempt++)
             {
-                // Random point within circle around campfire
                 float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
                 float radius = Random.Range(1f, IDLE_RADIUS);
                 float x = _campfirePosition.x + Mathf.Cos(angle) * radius;
@@ -188,7 +337,6 @@ namespace Terranova.Population
                 int height = world.GetHeightAtWorldPos(blockX, blockZ);
                 VoxelType surface = world.GetSurfaceTypeAtWorldPos(blockX, blockZ);
 
-                // Must be solid terrain (not water, not out of bounds)
                 if (height >= 0 && surface.IsSolid())
                 {
                     _walkTarget = new Vector3(x, height + 1f, z);
@@ -201,32 +349,20 @@ namespace Terranova.Population
 
         // ─── Visual Setup ────────────────────────────────────────
 
-        /// <summary>
-        /// Build the capsule mesh and apply a unique color.
-        /// Uses a shared material with per-instance MaterialPropertyBlock
-        /// to avoid material leaks (same pattern as BuildingPlacer).
-        /// </summary>
         private void CreateVisual()
         {
-            // Create capsule as child object (keeps settler root clean for future components)
             var visual = GameObject.CreatePrimitive(PrimitiveType.Capsule);
             visual.name = "Visual";
             visual.transform.SetParent(transform, false);
-
-            // Scale: 0.4m wide, 0.8m tall (settler is smaller than a 1m voxel)
             visual.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
-            // Capsule pivot is at center, so offset up by half height
             visual.transform.localPosition = new Vector3(0f, 0.4f, 0f);
 
-            // Disable capsule collider (settlers don't need physics collision yet)
             var collider = visual.GetComponent<Collider>();
             if (collider != null)
                 Destroy(collider);
 
-            // Ensure shared material exists
             EnsureSharedMaterial();
 
-            // Apply unique color via PropertyBlock (no material clone)
             var meshRenderer = visual.GetComponent<MeshRenderer>();
             meshRenderer.sharedMaterial = _sharedMaterial;
 
@@ -236,9 +372,6 @@ namespace Terranova.Population
             meshRenderer.SetPropertyBlock(_propBlock);
         }
 
-        /// <summary>
-        /// Position the settler on top of the terrain surface.
-        /// </summary>
         private void SnapToTerrain()
         {
             var world = WorldManager.Instance;
@@ -262,9 +395,6 @@ namespace Terranova.Population
             );
         }
 
-        /// <summary>
-        /// Create the shared material once. All settlers reference this same material.
-        /// </summary>
         private static void EnsureSharedMaterial()
         {
             if (_sharedMaterial != null)
