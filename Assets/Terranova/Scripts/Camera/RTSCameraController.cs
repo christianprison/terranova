@@ -56,34 +56,38 @@ namespace Terranova.Camera
         // the actual camera is offset from this point.
         private Vector3 _pivotPosition;
         private float _yaw;
+        private bool _initialized;
 
         private void Start()
         {
-            // Start the camera centered on the world (if WorldManager exists)
-            var world = Terranova.Terrain.WorldManager.Instance;
-            if (world != null)
-            {
-                float centerX = world.WorldBlocksX * 0.5f;
-                float centerZ = world.WorldBlocksZ * 0.5f;
-                // Pivot must be at terrain surface height, not y=0.
-                // Terrain surface is around SEA_LEVEL (64).
-                int surfaceY = world.GetHeightAtWorldPos((int)centerX, (int)centerZ);
-                _pivotPosition = new Vector3(centerX, surfaceY, centerZ);
-            }
-            else
-            {
-                _pivotPosition = new Vector3(64, 64, 64);
-            }
-
             _currentZoom = _defaultHeight;
             _targetZoom = _defaultHeight;
             _yaw = 0f;
-
+            _pivotPosition = new Vector3(64, 64, 64);
             UpdateCameraTransform();
         }
 
         private void Update()
         {
+            // Defer position setup until the world is generated
+            // (WorldManager.Start may run after this script's Start)
+            if (!_initialized)
+            {
+                var world = Terranova.Terrain.WorldManager.Instance;
+                if (world != null && world.WorldBlocksX > 0)
+                {
+                    float centerX = world.WorldBlocksX * 0.5f;
+                    float centerZ = world.WorldBlocksZ * 0.5f;
+                    int surfaceY = world.GetHeightAtWorldPos((int)centerX, (int)centerZ);
+                    if (surfaceY >= 0)
+                    {
+                        _pivotPosition = new Vector3(centerX, surfaceY, centerZ);
+                        _initialized = true;
+                        Debug.Log($"Camera initialized: pivot=({centerX}, {surfaceY}, {centerZ})");
+                    }
+                }
+            }
+
             HandlePan();
             HandleZoom();
             HandleRotation();
