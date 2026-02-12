@@ -208,6 +208,9 @@ namespace Terranova.UI
         /// </summary>
         private void SetSpeed(int speedIndex)
         {
+            if (speedIndex < 0 || speedIndex >= SPEED_VALUES.Length)
+                return;
+
             _currentSpeedIndex = speedIndex;
             Time.timeScale = SPEED_VALUES[speedIndex];
             UpdateSpeedButtons();
@@ -280,6 +283,19 @@ namespace Terranova.UI
         private void OnDestroy()
         {
             EventBus.Unsubscribe<BuildingPlacedEvent>(OnBuildingPlaced);
+
+            // Clean up button listeners to prevent memory leaks
+            if (_speedButtons != null)
+            {
+                foreach (var btn in _speedButtons)
+                {
+                    if (btn != null)
+                        btn.onClick.RemoveAllListeners();
+                }
+            }
+
+            // Restore normal time scale if this UI is destroyed while paused
+            Time.timeScale = 1f;
         }
     }
 }
