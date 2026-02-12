@@ -93,43 +93,8 @@ namespace Terranova.Terrain
                 chunk.RebuildMesh(GetBlockAtWorldPos);
             }
 
-            // Diagnostics: verify mesh generation
-            int totalVerts = 0;
-            foreach (var c in _chunks.Values)
-            {
-                var mf = c.GetComponent<MeshFilter>();
-                int verts = mf != null && mf.mesh != null ? mf.mesh.vertexCount : 0;
-                totalVerts += verts;
-                if (verts == 0)
-                    Debug.LogWarning($"{c.gameObject.name} has 0 vertices!");
-            }
             Debug.Log($"World generated: {_worldSizeX}×{_worldSizeZ} chunks " +
-                      $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={_seed}, " +
-                      $"total vertices={totalVerts}");
-            Debug.Log($"Materials: solid={_solidMaterial?.shader?.name ?? "NULL"}, " +
-                      $"water={_waterMaterial?.shader?.name ?? "NULL"}");
-
-            // DEBUG: Place a red reference cube at world center at terrain height
-            // If you can see this cube but not the terrain, the shader is the problem
-            var debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            debugCube.name = "DEBUG_TerrainHeightMarker";
-            float centerWorldX = WorldBlocksX * 0.5f;
-            float centerWorldZ = WorldBlocksZ * 0.5f;
-            int h = GetHeightAtWorldPos((int)centerWorldX, (int)centerWorldZ);
-            debugCube.transform.position = new Vector3(centerWorldX, h + 2, centerWorldZ);
-            debugCube.transform.localScale = new Vector3(5, 5, 5);
-            var debugMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
-            debugMat.color = Color.red;
-            debugCube.GetComponent<MeshRenderer>().material = debugMat;
-            Debug.Log($"DEBUG cube placed at ({centerWorldX}, {h + 2}, {centerWorldZ})");
-
-            // DEBUG: Also log first chunk mesh bounds
-            var firstChunk = _chunks[new Vector2Int(0, 0)];
-            var firstMF = firstChunk.GetComponent<MeshFilter>();
-            if (firstMF != null && firstMF.mesh != null)
-                Debug.Log($"Chunk(0,0) mesh bounds: {firstMF.mesh.bounds}, " +
-                          $"renderer bounds: {firstChunk.GetComponent<MeshRenderer>().bounds}, " +
-                          $"renderer enabled: {firstChunk.GetComponent<MeshRenderer>().enabled}");
+                      $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={_seed}");
         }
 
         /// <summary>
