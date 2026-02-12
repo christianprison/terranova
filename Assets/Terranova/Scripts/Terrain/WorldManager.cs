@@ -108,6 +108,28 @@ namespace Terranova.Terrain
                       $"total vertices={totalVerts}");
             Debug.Log($"Materials: solid={_solidMaterial?.shader?.name ?? "NULL"}, " +
                       $"water={_waterMaterial?.shader?.name ?? "NULL"}");
+
+            // DEBUG: Place a red reference cube at world center at terrain height
+            // If you can see this cube but not the terrain, the shader is the problem
+            var debugCube = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            debugCube.name = "DEBUG_TerrainHeightMarker";
+            float cx = WorldBlocksX * 0.5f;
+            float cz = WorldBlocksZ * 0.5f;
+            int h = GetHeightAtWorldPos((int)cx, (int)cz);
+            debugCube.transform.position = new Vector3(cx, h + 2, cz);
+            debugCube.transform.localScale = new Vector3(5, 5, 5);
+            var debugMat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            debugMat.color = Color.red;
+            debugCube.GetComponent<MeshRenderer>().material = debugMat;
+            Debug.Log($"DEBUG cube placed at ({cx}, {h + 2}, {cz})");
+
+            // DEBUG: Also log first chunk mesh bounds
+            var firstChunk = _chunks[new Vector2Int(0, 0)];
+            var firstMF = firstChunk.GetComponent<MeshFilter>();
+            if (firstMF != null && firstMF.mesh != null)
+                Debug.Log($"Chunk(0,0) mesh bounds: {firstMF.mesh.bounds}, " +
+                          $"renderer bounds: {firstChunk.GetComponent<MeshRenderer>().bounds}, " +
+                          $"renderer enabled: {firstChunk.GetComponent<MeshRenderer>().enabled}");
         }
 
         /// <summary>
