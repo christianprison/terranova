@@ -835,9 +835,8 @@ namespace Terranova.Population
             visual.transform.localScale = new Vector3(0.4f, 0.4f, 0.4f);
             visual.transform.localPosition = new Vector3(0f, 0.4f, 0f);
 
-            var collider = visual.GetComponent<Collider>();
-            if (collider != null)
-                Destroy(collider);
+            // Keep collider for raycast selection (Story 6.1).
+            // Collider is on the child visual, so it doesn't affect NavMeshAgent on parent.
 
             EnsureSharedMaterial();
 

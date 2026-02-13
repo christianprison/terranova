@@ -7,6 +7,7 @@ using Terranova.Camera;
 using Terranova.UI;
 using Terranova.Population;
 using Terranova.Resources;
+using Terranova.Input;
 
 namespace Terranova.Core
 {
@@ -43,6 +44,7 @@ namespace Terranova.Core
             EnsureConstructionTaskAssigner();
             EnsureBuildingFunctionManager();
             EnsureDebugTerrainModifier();
+            EnsureSelectionManager();
 
             Debug.Log("GameBootstrapper: All systems ready.");
         }
@@ -139,7 +141,9 @@ namespace Terranova.Core
             go.AddComponent<ResourceDisplay>();
             // Story 4.5: Build menu lives on the same Canvas
             go.AddComponent<BuildMenu>();
-            Debug.Log("GameBootstrapper: Created HUD with ResourceDisplay and BuildMenu.");
+            // Story 6.1: Info panel for selection
+            go.AddComponent<InfoPanel>();
+            Debug.Log("GameBootstrapper: Created HUD with ResourceDisplay, BuildMenu, and InfoPanel.");
         }
 
         private static void EnsureEventSystem()
@@ -228,6 +232,20 @@ namespace Terranova.Core
             var go = new GameObject("BuildingFunctionManager");
             go.AddComponent<BuildingFunctionManager>();
             Debug.Log("GameBootstrapper: Created BuildingFunctionManager.");
+        }
+
+        /// <summary>
+        /// Selection manager for tap/long-press on settlers and buildings.
+        /// Story 6.1–6.4: Selektion & Info-Panel
+        /// </summary>
+        private static void EnsureSelectionManager()
+        {
+            if (Object.FindFirstObjectByType<SelectionManager>() != null)
+                return;
+
+            var go = new GameObject("SelectionManager");
+            go.AddComponent<SelectionManager>();
+            Debug.Log("GameBootstrapper: Created SelectionManager.");
         }
     }
 }

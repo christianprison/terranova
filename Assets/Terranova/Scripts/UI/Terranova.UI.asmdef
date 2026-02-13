@@ -4,6 +4,7 @@
     "references": [
         "Terranova.Core",
         "Terranova.Buildings",
+        "Terranova.Population",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

@@ -151,6 +151,19 @@ namespace Terranova.Core
         public bool IsWarning;
     }
 
+    /// <summary>
+    /// Fired when the player selects or deselects an object.
+    /// Story 6.1: Tap selection. Story 6.2: Deselection.
+    /// Story 6.3: Long press (IsDetailView = true).
+    /// </summary>
+    public struct SelectionChangedEvent
+    {
+        /// <summary>Selected object (null = deselected).</summary>
+        public UnityEngine.GameObject SelectedObject;
+        /// <summary>True when long press triggered detail view.</summary>
+        public bool IsDetailView;
+    }
+
     // ─── Shared Enums ────────────────────────────────────────
     // Placed in Core to avoid circular dependencies between assemblies.
 
