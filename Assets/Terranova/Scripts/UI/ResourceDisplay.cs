@@ -167,6 +167,21 @@ namespace Terranova.UI
 
             // Speed widget (top-right, below epoch)
             CreateSpeedWidget();
+
+            // Version label (bottom-left) – helps verify correct build
+            var versionText = CreateText("VersionText",
+                new Vector2(10, 10),
+                new Vector2(200, 30),
+                TextAnchor.LowerLeft);
+            versionText.fontSize = 14;
+            versionText.color = new Color(1f, 1f, 1f, 0.4f);
+            // Anchor to bottom-left
+            var vrt = versionText.GetComponent<RectTransform>();
+            vrt.anchorMin = new Vector2(0, 0);
+            vrt.anchorMax = new Vector2(0, 0);
+            vrt.pivot = new Vector2(0, 0);
+            vrt.anchoredPosition = new Vector2(10, 10);
+            versionText.text = "v0.2.0-visual";
         }
 
         /// <summary>
