@@ -381,7 +381,9 @@ namespace Terranova.Population
             }
 
             // Re-evaluate priorities: construction sites take precedence over gathering
-            if (_currentTask != null && _currentTask.TaskType != SettlerTaskType.Build
+            // BUT specialized workers stay at their building — they don't get reassigned
+            if (_currentTask != null && !_currentTask.IsSpecialized
+                && _currentTask.TaskType != SettlerTaskType.Build
                 && HasPendingConstructionSite())
             {
                 Debug.Log($"[{name}] Construction site waiting - dropping gather task");
@@ -396,6 +398,10 @@ namespace Terranova.Population
                 {
                     if (!_currentTask.TargetResource.TryReserve())
                     {
+                        // Specialized workers search for a new resource instead of going idle
+                        if (_currentTask.IsSpecialized && TryFindNewResource())
+                            return;
+
                         Debug.Log($"[{name}] Resource no longer available - going idle");
                         ClearTask();
                         return;
@@ -414,6 +420,10 @@ namespace Terranova.Population
             }
             else
             {
+                // Specialized workers search for a new resource instead of going idle
+                if (_currentTask != null && _currentTask.IsSpecialized && TryFindNewResource())
+                    return;
+
                 Debug.Log($"[{name}] Target no longer valid - going idle");
                 ClearTask();
             }
@@ -633,6 +643,55 @@ namespace Terranova.Population
 
             _sharedMaterial = new Material(shader);
             _sharedMaterial.name = "Settler_Shared (Auto)";
+        }
+
+        // ─── Specialized Worker Helpers ─────────────────────────
+
+        /// <summary>
+        /// Find a new resource for a specialized worker whose current target
+        /// is depleted. Keeps the task (and color/speed) but swaps the resource.
+        /// </summary>
+        private bool TryFindNewResource()
+        {
+            if (_currentTask == null) return false;
+
+            ResourceType resType = _currentTask.TaskType switch
+            {
+                SettlerTaskType.GatherWood => ResourceType.Wood,
+                SettlerTaskType.Hunt => ResourceType.Food,
+                _ => ResourceType.Wood
+            };
+
+            var nodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+            ResourceNode nearest = null;
+            float nearestDist = float.MaxValue;
+
+            foreach (var node in nodes)
+            {
+                if (node.Type != resType || !node.IsAvailable) continue;
+                float dist = Vector3.Distance(_currentTask.BasePosition, node.transform.position);
+                if (dist < nearestDist)
+                {
+                    nearestDist = dist;
+                    nearest = node;
+                }
+            }
+
+            if (nearest == null || !nearest.TryReserve()) return false;
+
+            _currentTask.TargetResource = nearest;
+            _currentTask.SetNewTarget(nearest.transform.position);
+
+            if (!SetAgentDestination(nearest.transform.position))
+            {
+                nearest.Release();
+                return false;
+            }
+
+            _state = SettlerState.WalkingToTarget;
+            _agent.speed = TASK_WALK_SPEED * _currentTask.SpeedMultiplier;
+            Debug.Log($"[{name}] Specialized worker found new {resType} target");
+            return true;
         }
 
         // ─── Priority Check ──────────────────────────────────────
