@@ -34,7 +34,11 @@ namespace Terranova.UI
 
         // ─── UI References ─────────────────────────────────────
 
+        private static readonly Color PANEL_COLOR_BASIC = new Color(0.1f, 0.1f, 0.1f, 0.85f);
+        private static readonly Color PANEL_COLOR_DETAIL = new Color(0.08f, 0.12f, 0.2f, 0.92f);
+
         private GameObject _panelRoot;
+        private Image _panelImage;
         private Text _titleText;
         private Text _infoText;
         private RectTransform _hungerBarFill;
@@ -75,6 +79,8 @@ namespace Terranova.UI
             }
             else
             {
+                // Visual distinction: detail view has a different panel color
+                _panelImage.color = _isDetailView ? PANEL_COLOR_DETAIL : PANEL_COLOR_BASIC;
                 ShowPanel();
                 RefreshContent();
             }
@@ -115,8 +121,6 @@ namespace Terranova.UI
         /// </summary>
         private void RefreshSettlerInfo(Settler settler)
         {
-            _titleText.text = settler.name;
-
             // Hunger bar
             _hungerBarRoot.SetActive(true);
             float hungerPct = settler.HungerPercent; // 0 = satt, 1 = starving
@@ -136,15 +140,42 @@ namespace Terranova.UI
                 : "Idle";
             string state = settler.StateName;
 
-            string info = $"Task: {task}\nState: {state}";
-
             if (_isDetailView)
             {
-                info += $"\nHunger: {settler.Hunger:F0} / 100";
-                info += settler.IsStarving ? "\n<color=red>STARVING!</color>" : "";
-            }
+                // Detail view: comprehensive stats
+                _titleText.text = $"-- {settler.name} --";
 
-            _infoText.text = info;
+                string info = $"State: {state}";
+                info += $"\nTask: {task}";
+                info += $"\n\nHunger: {settler.Hunger:F0} / 100";
+
+                if (settler.IsStarving)
+                    info += "\nSTARVING!";
+
+                // Show task target if available
+                if (settler.CurrentTask != null)
+                {
+                    var taskObj = settler.CurrentTask;
+                    info += $"\n\nTask Details:";
+                    info += $"\n  Type: {taskObj.TaskType}";
+                    info += $"\n  Work Time: {taskObj.WorkDuration:F1}s";
+                    if (taskObj.IsSpecialized)
+                        info += "\n  Specialized: Yes";
+                    info += $"\n  Speed: {taskObj.SpeedMultiplier:F1}x";
+                }
+
+                // Position
+                var pos = settler.transform.position;
+                info += $"\n\nPosition: ({pos.x:F0}, {pos.z:F0})";
+
+                _infoText.text = info;
+            }
+            else
+            {
+                // Basic view: quick overview
+                _titleText.text = settler.name;
+                _infoText.text = $"Task: {task}\nState: {state}";
+            }
         }
 
         /// <summary>
@@ -155,44 +186,84 @@ namespace Terranova.UI
         {
             string displayName = building.Definition != null
                 ? building.Definition.DisplayName : building.name;
-            _titleText.text = displayName;
 
             // No hunger bar for buildings
             _hungerBarRoot.SetActive(false);
 
-            string info;
-
+            // Basic status
+            string statusLine;
             if (!building.IsConstructed)
             {
                 float progress = building.ConstructionProgress * 100f;
-                info = $"Under construction: {progress:F0}%";
-                info += building.IsBeingBuilt ? "\nBuilder assigned" : "\nWaiting for builder";
+                statusLine = $"Under construction: {progress:F0}%";
+                statusLine += building.IsBeingBuilt ? "\nBuilder assigned" : "\nWaiting for builder";
             }
             else
             {
-                info = "Operational";
+                statusLine = "Operational";
 
                 if (building.HasWorker && building.AssignedWorker != null)
                 {
                     var worker = building.AssignedWorker.GetComponent<Settler>();
                     string workerName = worker != null ? worker.name : building.AssignedWorker.name;
-                    info += $"\nWorker: {workerName}";
+                    statusLine += $"\nWorker: {workerName}";
                 }
                 else if (building.Definition != null
                          && building.Definition.Type != BuildingType.Campfire
                          && building.Definition.Type != BuildingType.SimpleHut)
                 {
-                    info += "\nNo worker assigned";
+                    statusLine += "\nNo worker assigned";
                 }
             }
 
-            if (_isDetailView && building.Definition != null)
+            if (_isDetailView)
             {
-                info += $"\n\nCost: {building.Definition.WoodCost} Wood, {building.Definition.StoneCost} Stone";
-                info += $"\nType: {building.Definition.Type}";
-            }
+                // Detail view: all stats
+                _titleText.text = $"-- {displayName} --";
 
-            _infoText.text = info;
+                string info = statusLine;
+
+                if (building.Definition != null)
+                {
+                    var def = building.Definition;
+                    info += $"\n\nBuilding Type: {def.Type}";
+                    info += $"\nBuild Cost: {def.WoodCost} Wood, {def.StoneCost} Stone";
+                    info += $"\nFootprint: {def.FootprintSize.x}x{def.FootprintSize.y}";
+                    info += $"\nHeight: {def.VisualHeight:F1}m";
+
+                    if (!building.IsConstructed)
+                    {
+                        float buildTime = building.GetBuildStepDuration();
+                        info += $"\n\nBuild Time: {buildTime:F0}s";
+                        info += $"\nProgress: {building.ConstructionProgress * 100f:F1}%";
+                    }
+                }
+
+                // Worker details
+                if (building.HasWorker && building.AssignedWorker != null)
+                {
+                    var worker = building.AssignedWorker.GetComponent<Settler>();
+                    if (worker != null)
+                    {
+                        info += $"\n\nWorker Details:";
+                        info += $"\n  {worker.name}";
+                        info += $"\n  Hunger: {worker.Hunger:F0}/100";
+                        info += $"\n  State: {worker.StateName}";
+                    }
+                }
+
+                // Position
+                var pos = building.transform.position;
+                info += $"\n\nPosition: ({pos.x:F0}, {pos.z:F0})";
+
+                _infoText.text = info;
+            }
+            else
+            {
+                // Basic view: quick overview
+                _titleText.text = displayName;
+                _infoText.text = statusLine;
+            }
         }
 
         // ─── Panel Visibility ───────────────────────────────────
@@ -230,8 +301,8 @@ namespace Terranova.UI
             panelRect.anchoredPosition = new Vector2(16, 16);
             panelRect.sizeDelta = new Vector2(PANEL_WIDTH, 160);
 
-            var panelImage = _panelRoot.AddComponent<Image>();
-            panelImage.color = new Color(0.1f, 0.1f, 0.1f, 0.85f);
+            _panelImage = _panelRoot.AddComponent<Image>();
+            _panelImage.color = PANEL_COLOR_BASIC;
 
             // Vertical layout
             var layout = _panelRoot.AddComponent<VerticalLayoutGroup>();
