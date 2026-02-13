@@ -35,10 +35,12 @@ namespace Terranova.UI
         private int _currentSpeedIndex = 1; // Start at 1x
 
         private int _settlers;
+        private bool _foodWarning;
 
         private Text _resourceText;
         private Text _eventText;
         private Text _epochText;
+        private Text _warningText;
         private Button[] _speedButtons;
         private Text[] _speedButtonTexts;
         private float _eventDisplayTimer;
@@ -53,6 +55,8 @@ namespace Terranova.UI
             EventBus.Subscribe<BuildingCompletedEvent>(OnBuildingCompleted);
             EventBus.Subscribe<PopulationChangedEvent>(OnPopulationChanged);
             EventBus.Subscribe<ResourceChangedEvent>(OnResourceChanged);
+            EventBus.Subscribe<SettlerDiedEvent>(OnSettlerDied);
+            EventBus.Subscribe<FoodWarningEvent>(OnFoodWarning);
         }
 
         private void Update()
@@ -63,6 +67,26 @@ namespace Terranova.UI
                 _eventDisplayTimer -= Time.deltaTime;
                 if (_eventDisplayTimer <= 0 && _eventText != null)
                     _eventText.text = "";
+            }
+
+            // Check food supply for warning (Story 5.4)
+            CheckFoodWarning();
+        }
+
+        /// <summary>
+        /// Publish food warning when supply drops below threshold.
+        /// Story 5.4: Warning when food < 5 or < 1 per settler.
+        /// </summary>
+        private void CheckFoodWarning()
+        {
+            var rm = ResourceManager.Instance;
+            if (rm == null) return;
+
+            bool shouldWarn = rm.Food < 5 || (_settlers > 0 && rm.Food < _settlers);
+            if (shouldWarn != _foodWarning)
+            {
+                _foodWarning = shouldWarn;
+                EventBus.Publish(new FoodWarningEvent { IsWarning = shouldWarn });
             }
         }
 
@@ -89,6 +113,24 @@ namespace Terranova.UI
                 _eventText.text = $"Building {evt.BuildingName}...";
                 _eventDisplayTimer = 3f;
             }
+        }
+
+        /// <summary>Story 5.4: Notification when settler dies.</summary>
+        private void OnSettlerDied(SettlerDiedEvent evt)
+        {
+            if (_eventText != null)
+            {
+                _eventText.text = $"{evt.SettlerName} died ({evt.CauseOfDeath})";
+                _eventDisplayTimer = 4f;
+            }
+        }
+
+        /// <summary>Story 5.4: Food warning.</summary>
+        private void OnFoodWarning(FoodWarningEvent evt)
+        {
+            _foodWarning = evt.IsWarning;
+            if (_warningText != null)
+                _warningText.text = _foodWarning ? "Food is running low!" : "";
         }
 
         /// <summary>Story 4.2: Notification when construction completes.</summary>
@@ -162,6 +204,15 @@ namespace Terranova.UI
                 new Vector2(200, 40),
                 TextAnchor.UpperRight);
             _epochText.text = "Epoch I.1";
+
+            // Food warning (below resource text)
+            _warningText = CreateText("WarningText",
+                new Vector2(20, -50),
+                new Vector2(400, 30),
+                TextAnchor.UpperLeft);
+            _warningText.color = new Color(1f, 0.3f, 0.3f); // Red warning
+            _warningText.fontSize = _fontSize - 2;
+            _warningText.text = "";
 
             // Speed widget (top-right, below epoch)
             CreateSpeedWidget();
@@ -318,6 +369,8 @@ namespace Terranova.UI
             EventBus.Unsubscribe<BuildingCompletedEvent>(OnBuildingCompleted);
             EventBus.Unsubscribe<PopulationChangedEvent>(OnPopulationChanged);
             EventBus.Unsubscribe<ResourceChangedEvent>(OnResourceChanged);
+            EventBus.Unsubscribe<SettlerDiedEvent>(OnSettlerDied);
+            EventBus.Unsubscribe<FoodWarningEvent>(OnFoodWarning);
 
             // Clean up button listeners to prevent memory leaks
             if (_speedButtons != null)

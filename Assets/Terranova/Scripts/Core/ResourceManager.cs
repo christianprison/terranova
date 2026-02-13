@@ -78,6 +78,18 @@ namespace Terranova.Core
             return true;
         }
 
+        /// <summary>
+        /// Try to consume one unit of food. Returns true if food was available.
+        /// Story 5.2: Settlers eat when hungry.
+        /// </summary>
+        public bool TryConsumeFood()
+        {
+            if (_food <= 0) return false;
+            _food--;
+            PublishChanged();
+            return true;
+        }
+
         /// <summary>Add a gathered resource. Publishes ResourceChangedEvent.</summary>
         public void Add(ResourceType type, int amount = 1)
         {

@@ -31,11 +31,22 @@ namespace Terranova.Population
         // How far to search for a valid NavMesh point when sampling
         private const float NAV_SAMPLE_RADIUS = 5f;
 
+        // ─── Hunger Settings (Story 5.1) ────────────────────────
+
+        private const float MAX_HUNGER = 100f;
+        private const float HUNGER_RATE = 0.55f;            // Per second (~3 min to starve at 1x)
+        private const float HUNGER_EAT_THRESHOLD = 30f;     // Seek food below this %
+        private const float HUNGER_SLOW_THRESHOLD = 25f;    // Speed penalty below this %
+        private const float HUNGER_SPEED_PENALTY = 0.5f;    // Half speed when very hungry
+        private const float STARVATION_GRACE = 30f;          // Seconds at 0 before death
+        private const float EAT_DURATION = 1.5f;             // How long eating takes
+
         // ─── Visual Settings ─────────────────────────────────────
 
         private static readonly Color DEFAULT_COLOR = Color.white;
         private static readonly Color WOODCUTTER_COLOR = new Color(0.55f, 0.33f, 0.14f); // Brown
         private static readonly Color HUNTER_COLOR = new Color(0.20f, 0.65f, 0.20f);     // Green
+        private static readonly Color HUNGRY_COLOR = new Color(0.90f, 0.30f, 0.30f);     // Red (hungry)
 
         private static Material _sharedMaterial;
         private static readonly int ColorID = Shader.PropertyToID("_BaseColor");
@@ -56,7 +67,11 @@ namespace Terranova.Population
             WalkingToTarget,    // Moving to work location (tree, rock, site)
             Working,            // At target, performing work (gathering, building)
             ReturningToBase,    // Walking back to campfire/storage
-            Delivering          // At base, dropping off resources
+            Delivering,         // At base, dropping off resources
+
+            // Hunger (Story 5.1/5.2)
+            WalkingToEat,       // Going to campfire because hungry
+            Eating              // At campfire, consuming food
         }
 
         private SettlerState _state = SettlerState.IdlePausing;
@@ -84,11 +99,25 @@ namespace Terranova.Population
         /// <summary>The settler's current task, or null if idle.</summary>
         public SettlerTask CurrentTask => _currentTask;
 
-        /// <summary>Whether the settler is currently busy with a task.</summary>
-        public bool HasTask => _currentTask != null;
+        /// <summary>Whether the settler is currently busy (has task or is eating with saved task).</summary>
+        public bool HasTask => _currentTask != null || _savedTask != null;
 
         /// <summary>Current state name (for UI/debug display).</summary>
         public string StateName => _state.ToString();
+
+        // ─── Hunger System (Story 5.1) ─────────────────────────
+
+        private float _hunger = MAX_HUNGER;
+        private float _starvationTimer;
+        private bool _isStarving;
+        private SettlerTask _savedTask;       // Task saved while eating
+
+        /// <summary>Current hunger value (0 = starving, 100 = full).</summary>
+        public float Hunger => _hunger;
+        /// <summary>Hunger as percentage (0.0–1.0).</summary>
+        public float HungerPercent => _hunger / MAX_HUNGER;
+        /// <summary>True when hunger is 0 and grace period is ticking.</summary>
+        public bool IsStarving => _isStarving;
 
         // ─── Cargo Visual (Story 3.3) ──────────────────────────
 
@@ -166,7 +195,7 @@ namespace Terranova.Population
 
             _state = SettlerState.WalkingToTarget;
             _agent.speed = TASK_WALK_SPEED * task.SpeedMultiplier;
-            UpdateRoleColor();
+            UpdateVisualColor();
             Debug.Log($"[{name}] ASSIGNED {task.TaskType} - walking to target (speed x{task.SpeedMultiplier})");
             return true;
         }
@@ -193,7 +222,7 @@ namespace Terranova.Population
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
             DestroyCargo();
-            UpdateRoleColor();
+            UpdateVisualColor();
             Debug.Log($"[{name}] Task ended ({wasTask}) - returning to IDLE");
         }
 
@@ -201,6 +230,9 @@ namespace Terranova.Population
 
         private void Update()
         {
+            // Decrease hunger every frame (scales with Time.timeScale automatically)
+            UpdateHunger();
+
             switch (_state)
             {
                 case SettlerState.IdlePausing:
@@ -221,6 +253,12 @@ namespace Terranova.Population
                 case SettlerState.Delivering:
                     UpdateDelivering();
                     break;
+                case SettlerState.WalkingToEat:
+                    UpdateWalkingToEat();
+                    break;
+                case SettlerState.Eating:
+                    UpdateEating();
+                    break;
             }
         }
 
@@ -235,7 +273,8 @@ namespace Terranova.Population
             if (TryPickWalkTarget())
             {
                 _state = SettlerState.IdleWalking;
-                _agent.speed = WALK_SPEED;
+                _agent.speed = _hunger < HUNGER_SLOW_THRESHOLD
+                    ? WALK_SPEED * HUNGER_SPEED_PENALTY : WALK_SPEED;
             }
             else
                 _stateTimer = 0.5f;
@@ -307,7 +346,7 @@ namespace Terranova.Population
                 _agent.speed = WALK_SPEED;
                 _state = SettlerState.IdlePausing;
                 _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
-                UpdateRoleColor();
+                UpdateVisualColor();
                 return;
             }
 
@@ -427,6 +466,212 @@ namespace Terranova.Population
                 Debug.Log($"[{name}] Target no longer valid - going idle");
                 ClearTask();
             }
+        }
+
+        // ─── Hunger System (Story 5.1/5.2) ──────────────────────
+
+        /// <summary>
+        /// Tick hunger down, check for starvation, and trigger eating when hungry.
+        /// Called every frame before the state machine.
+        /// </summary>
+        private void UpdateHunger()
+        {
+            // Decrease hunger
+            if (_hunger > 0f)
+            {
+                _hunger -= HUNGER_RATE * Time.deltaTime;
+                if (_hunger < 0f) _hunger = 0f;
+            }
+
+            // Starvation: grace period before death
+            if (_hunger <= 0f)
+            {
+                if (!_isStarving)
+                {
+                    _isStarving = true;
+                    _starvationTimer = STARVATION_GRACE;
+                    UpdateVisualColor();
+                    Debug.Log($"[{name}] STARVING - grace period {STARVATION_GRACE}s");
+                }
+
+                _starvationTimer -= Time.deltaTime;
+                if (_starvationTimer <= 0f)
+                {
+                    Die();
+                    return;
+                }
+            }
+
+            // Check if should eat (only interrupt safe states)
+            if (_hunger < HUNGER_EAT_THRESHOLD
+                && _state != SettlerState.WalkingToEat
+                && _state != SettlerState.Eating
+                && _state != SettlerState.ReturningToBase
+                && _state != SettlerState.Delivering)
+            {
+                StartEating();
+            }
+        }
+
+        /// <summary>
+        /// Interrupt current activity and walk to campfire to eat.
+        /// Saves the current task so it can be resumed after eating.
+        /// Story 5.2: Nahrungsaufnahme
+        /// </summary>
+        private void StartEating()
+        {
+            // Save task for later (don't release reservations)
+            if (_currentTask != null && _savedTask == null)
+            {
+                _savedTask = _currentTask;
+                _currentTask = null;
+            }
+
+            _isMoving = false;
+            _agent.ResetPath();
+            DestroyCargo();
+
+            if (!SetAgentDestination(_campfirePosition))
+            {
+                // Can't reach campfire — stay put and hope
+                _state = SettlerState.IdlePausing;
+                _stateTimer = 2f;
+                return;
+            }
+
+            float speed = TASK_WALK_SPEED;
+            if (_hunger < HUNGER_SLOW_THRESHOLD)
+                speed *= HUNGER_SPEED_PENALTY;
+            _agent.speed = speed;
+
+            _state = SettlerState.WalkingToEat;
+            Debug.Log($"[{name}] HUNGRY ({_hunger:F0}%) - walking to campfire to eat");
+        }
+
+        /// <summary>Walk to campfire to eat. Story 5.2.</summary>
+        private void UpdateWalkingToEat()
+        {
+            if (HasReachedDestination())
+            {
+                _agent.ResetPath();
+                _isMoving = false;
+                _state = SettlerState.Eating;
+                _stateTimer = EAT_DURATION;
+            }
+        }
+
+        /// <summary>
+        /// Try to consume food at the campfire.
+        /// If food is available: hunger restored, resume previous task.
+        /// If not: return hungry, try again later.
+        /// Story 5.2: Nahrungsaufnahme
+        /// </summary>
+        private void UpdateEating()
+        {
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer > 0f) return;
+
+            var rm = ResourceManager.Instance;
+            if (rm != null && rm.TryConsumeFood())
+            {
+                _hunger = MAX_HUNGER;
+                _isStarving = false;
+                Debug.Log($"[{name}] ATE food - hunger restored to {_hunger:F0}%");
+            }
+            else
+            {
+                Debug.Log($"[{name}] No food available at campfire!");
+            }
+
+            UpdateVisualColor();
+            ResumeAfterEating();
+        }
+
+        /// <summary>
+        /// After eating (or failing to eat), resume the saved task or go idle.
+        /// </summary>
+        private void ResumeAfterEating()
+        {
+            if (_savedTask != null)
+            {
+                var task = _savedTask;
+                _savedTask = null;
+
+                // Check if the saved task is still valid
+                if (task.IsTargetValid)
+                {
+                    _currentTask = task;
+
+                    if (SetAgentDestination(task.TargetPosition))
+                    {
+                        _state = SettlerState.WalkingToTarget;
+                        float speed = TASK_WALK_SPEED * task.SpeedMultiplier;
+                        if (_hunger < HUNGER_SLOW_THRESHOLD)
+                            speed *= HUNGER_SPEED_PENALTY;
+                        _agent.speed = speed;
+                        UpdateVisualColor();
+                        Debug.Log($"[{name}] Resuming {task.TaskType} after eating");
+                        return;
+                    }
+                }
+
+                // Task no longer valid — release reservations
+                if (task.TargetResource != null && task.TargetResource.IsReserved)
+                    task.TargetResource.Release();
+                if (task.TargetBuilding != null && task.TargetBuilding.IsBeingBuilt)
+                    task.TargetBuilding.ReleaseConstruction();
+            }
+
+            // No saved task or it's invalid — go idle
+            _currentTask = null;
+            _agent.speed = WALK_SPEED;
+            _state = SettlerState.IdlePausing;
+            _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
+            UpdateVisualColor();
+        }
+
+        /// <summary>
+        /// Settler dies from starvation. Cleans up task, publishes event, destroys.
+        /// Story 5.4: Tod
+        /// </summary>
+        private void Die()
+        {
+            Debug.Log($"[{name}] DIED of starvation!");
+
+            // Release any held resources
+            if (_currentTask?.TargetResource != null && _currentTask.TargetResource.IsReserved)
+                _currentTask.TargetResource.Release();
+            if (_currentTask?.TargetBuilding != null && _currentTask.TargetBuilding.IsBeingBuilt)
+                _currentTask.TargetBuilding.ReleaseConstruction();
+            if (_savedTask?.TargetResource != null && _savedTask.TargetResource.IsReserved)
+                _savedTask.TargetResource.Release();
+
+            // Free building assignment
+            var buildings = FindObjectsByType<Building>(FindObjectsSortMode.None);
+            foreach (var b in buildings)
+            {
+                if (b.AssignedWorker == gameObject)
+                {
+                    b.HasWorker = false;
+                    b.AssignedWorker = null;
+                }
+            }
+
+            EventBus.Publish(new SettlerDiedEvent
+            {
+                SettlerName = name,
+                Position = transform.position,
+                CauseOfDeath = "Starvation"
+            });
+
+            // Update population count
+            var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
+            EventBus.Publish(new PopulationChangedEvent
+            {
+                CurrentPopulation = settlers.Length - 1 // -1 because we're about to be destroyed
+            });
+
+            Destroy(gameObject);
         }
 
         /// <summary>
@@ -605,22 +850,34 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Update the settler's capsule color to reflect their current role.
-        /// White = idle, Brown = woodcutter, Green = hunter.
+        /// Update the settler's capsule color to reflect role and hunger status.
+        /// Priority: Hungry (red) > Specialized role (brown/green) > Default (white).
+        /// Story 5.5: Visuelles Feedback
         /// </summary>
-        private void UpdateRoleColor()
+        private void UpdateVisualColor()
         {
             if (_visualRenderer == null || _propBlock == null) return;
 
             Color color = DEFAULT_COLOR;
-            if (_currentTask != null && _currentTask.IsSpecialized)
+
+            // Hunger overrides role color when critical
+            if (_hunger < HUNGER_SLOW_THRESHOLD)
             {
-                color = _currentTask.TaskType switch
+                color = HUNGRY_COLOR;
+            }
+            else
+            {
+                // Check specialized role (current or saved task during eating)
+                var roleTask = _currentTask ?? _savedTask;
+                if (roleTask != null && roleTask.IsSpecialized)
                 {
-                    SettlerTaskType.GatherWood => WOODCUTTER_COLOR,
-                    SettlerTaskType.Hunt => HUNTER_COLOR,
-                    _ => DEFAULT_COLOR
-                };
+                    color = roleTask.TaskType switch
+                    {
+                        SettlerTaskType.GatherWood => WOODCUTTER_COLOR,
+                        SettlerTaskType.Hunt => HUNTER_COLOR,
+                        _ => DEFAULT_COLOR
+                    };
+                }
             }
 
             _propBlock.SetColor(ColorID, color);

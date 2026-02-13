@@ -131,6 +131,26 @@ namespace Terranova.Core
         public UnityEngine.Vector3 Position;
     }
 
+    /// <summary>
+    /// Fired when a settler dies (starvation, old age, etc.).
+    /// Story 5.4: Tod
+    /// </summary>
+    public struct SettlerDiedEvent
+    {
+        public string SettlerName;
+        public UnityEngine.Vector3 Position;
+        public string CauseOfDeath;
+    }
+
+    /// <summary>
+    /// Fired when food supply is critically low.
+    /// Story 5.4: Warning UI
+    /// </summary>
+    public struct FoodWarningEvent
+    {
+        public bool IsWarning;
+    }
+
     // ─── Shared Enums ────────────────────────────────────────
     // Placed in Core to avoid circular dependencies between assemblies.
 
