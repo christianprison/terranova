@@ -37,9 +37,10 @@ namespace Terranova.Terrain
         [Tooltip("Material for water (transparent, vertex colors). Auto-created if not assigned.")]
         [SerializeField] private Material _waterMaterial;
 
-        // Track whether materials were auto-created (so we can clean them up)
+        // Track whether materials/textures were auto-created (so we can clean them up)
         private bool _ownsSolidMaterial;
         private bool _ownsWaterMaterial;
+        private readonly List<Texture2D> _autoTextures = new();
 
         // All chunks indexed by (chunkX, chunkZ) coordinates
         private readonly Dictionary<Vector2Int, ChunkRenderer> _chunks = new();
@@ -192,14 +193,16 @@ namespace Terranova.Terrain
 
         /// <summary>
         /// Create fallback materials if none were assigned in Inspector.
-        /// Uses URP Particles/Unlit shader which supports vertex colors.
+        /// Uses TerrainSplat shader for textured terrain with blending,
+        /// falls back to VertexColorOpaque if splatting shader is not available.
         /// </summary>
         private void EnsureMaterials()
         {
             if (_solidMaterial == null)
             {
-                // Try the custom Terranova shader first, fall back to particle shader
-                Shader shader = Shader.Find("Terranova/VertexColorOpaque")
+                // Prefer the terrain splatting shader, fall back to vertex color
+                Shader shader = Shader.Find("Terranova/TerrainSplat")
+                             ?? Shader.Find("Terranova/VertexColorOpaque")
                              ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
 
                 if (shader == null)
@@ -209,8 +212,14 @@ namespace Terranova.Terrain
                 }
 
                 _solidMaterial = new Material(shader);
-                _solidMaterial.name = "Terrain_Solid (Auto)";
+                _solidMaterial.name = "Terrain_Splat (Auto)";
                 _ownsSolidMaterial = true;
+
+                // If using the splatting shader, generate and assign placeholder textures
+                if (shader.name == "Terranova/TerrainSplat")
+                {
+                    AssignPlaceholderTextures(_solidMaterial);
+                }
             }
 
             if (_waterMaterial == null)
@@ -238,9 +247,78 @@ namespace Terranova.Terrain
             }
         }
 
+        /// <summary>
+        /// Generate simple procedural placeholder textures for each terrain type
+        /// and assign them to the splatting material. Each texture is a base color
+        /// with subtle noise variation to avoid a flat, synthetic look.
+        ///
+        /// Story 0.3: Texturierung und Materialien
+        /// </summary>
+        private void AssignPlaceholderTextures(Material material)
+        {
+            const int TEX_SIZE = 128;
+
+            // Base colors matching the vertex color palette
+            var grassBase = new Color(0.30f, 0.65f, 0.20f);
+            var dirtBase  = new Color(0.55f, 0.36f, 0.16f);
+            var stoneBase = new Color(0.52f, 0.52f, 0.52f);
+            var sandBase  = new Color(0.90f, 0.85f, 0.55f);
+
+            material.SetTexture("_GrassTex", CreateNoisyTexture(TEX_SIZE, grassBase, 0.08f, 42));
+            material.SetTexture("_DirtTex",  CreateNoisyTexture(TEX_SIZE, dirtBase,  0.10f, 137));
+            material.SetTexture("_StoneTex", CreateNoisyTexture(TEX_SIZE, stoneBase, 0.12f, 271));
+            material.SetTexture("_SandTex",  CreateNoisyTexture(TEX_SIZE, sandBase,  0.06f, 389));
+            material.SetFloat("_TexScale", 0.25f);
+        }
+
+        /// <summary>
+        /// Create a texture with a base color and subtle Perlin noise variation.
+        /// The noise prevents the flat, synthetic look that solid colors produce.
+        /// </summary>
+        private Texture2D CreateNoisyTexture(int size, Color baseColor, float noiseStrength, int seed)
+        {
+            var tex = new Texture2D(size, size, TextureFormat.RGB24, true);
+            tex.wrapMode = TextureWrapMode.Repeat;
+            tex.filterMode = FilterMode.Bilinear;
+
+            var pixels = new Color[size * size];
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    // Multi-octave Perlin noise for natural variation
+                    float nx = (float)x / size;
+                    float ny = (float)y / size;
+                    float noise = Mathf.PerlinNoise(nx * 8f + seed, ny * 8f + seed) * 0.6f
+                                + Mathf.PerlinNoise(nx * 16f + seed, ny * 16f + seed) * 0.3f
+                                + Mathf.PerlinNoise(nx * 32f + seed, ny * 32f + seed) * 0.1f;
+
+                    // Map noise (0..1) to a brightness variation around the base color
+                    float variation = (noise - 0.5f) * 2f * noiseStrength;
+                    Color pixel = new Color(
+                        Mathf.Clamp01(baseColor.r + variation),
+                        Mathf.Clamp01(baseColor.g + variation),
+                        Mathf.Clamp01(baseColor.b + variation));
+
+                    pixels[y * size + x] = pixel;
+                }
+            }
+
+            tex.SetPixels(pixels);
+            tex.Apply(true); // Generate mipmaps
+            _autoTextures.Add(tex);
+            return tex;
+        }
+
         private void OnDestroy()
         {
-            // Clean up auto-created materials to prevent VRAM leaks
+            // Clean up auto-created textures and materials to prevent VRAM leaks
+            foreach (var tex in _autoTextures)
+            {
+                if (tex != null) Destroy(tex);
+            }
+            _autoTextures.Clear();
+
             if (_ownsSolidMaterial && _solidMaterial != null)
                 Destroy(_solidMaterial);
             if (_ownsWaterMaterial && _waterMaterial != null)

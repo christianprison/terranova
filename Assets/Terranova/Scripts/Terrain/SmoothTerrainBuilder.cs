@@ -22,6 +22,7 @@ namespace Terranova.Terrain
     ///
     /// Story 0.1: Mesh-Generierung aus Voxel-Daten
     /// Story 0.2: Seamless chunk boundaries via custom normals
+    /// Story 0.3: Texture splatting with per-vertex blend weights
     /// </summary>
     public static class SmoothTerrainBuilder
     {
@@ -54,15 +55,16 @@ namespace Terranova.Terrain
             HeightLookup getHeight = null,
             SurfaceLookup getSurface = null)
         {
-            // Step 1: Build vertex data grids
+            // Step 1: Build vertex data grids (heights, colors, blend weights)
             var heightGrid = new float[VERTS_PER_SIDE, VERTS_PER_SIDE];
             var colorGrid = new Color[VERTS_PER_SIDE, VERTS_PER_SIDE];
+            var blendGrid = new Vector4[VERTS_PER_SIDE, VERTS_PER_SIDE];
 
-            FillVertexGrids(chunk, getHeight, getSurface, heightGrid, colorGrid);
+            FillVertexGrids(chunk, getHeight, getSurface, heightGrid, colorGrid, blendGrid);
 
             // Step 2: Generate terrain surface mesh with custom normals
             var terrain = new MeshData();
-            BuildTerrainSurface(heightGrid, colorGrid, terrain);
+            BuildTerrainSurface(chunk, heightGrid, colorGrid, blendGrid, terrain);
             ComputeTerrainNormals(heightGrid, chunk, getHeight, terrain);
 
             // Step 3: Generate water surface mesh (flat normals pointing up)
@@ -76,18 +78,25 @@ namespace Terranova.Terrain
         // ─── Grid Construction ──────────────────────────────────
 
         /// <summary>
-        /// Fill the height and color grids for all 17×17 vertices.
+        /// Fill the height, color, and blend-weight grids for all 17×17 vertices.
         ///
         /// Each vertex sits at a block corner shared by up to 4 columns.
         /// Its height is the average of those columns' heights, which
         /// produces the smooth interpolation between block heights.
+        ///
+        /// Blend weights represent the fraction of each terrain type among the
+        /// surrounding columns. This enables soft texture blending at type transitions.
+        /// Vector4: x=Grass, y=Dirt, z=Stone, w=Sand.
+        ///
+        /// Story 0.3: Texture splatting
         /// </summary>
         private static void FillVertexGrids(
             ChunkData chunk,
             HeightLookup getHeight,
             SurfaceLookup getSurface,
             float[,] heightGrid,
-            Color[,] colorGrid)
+            Color[,] colorGrid,
+            Vector4[,] blendGrid)
         {
             int originX = chunk.ChunkX * ChunkData.WIDTH;
             int originZ = chunk.ChunkZ * ChunkData.DEPTH;
@@ -100,8 +109,9 @@ namespace Terranova.Terrain
                     // offsets (-1,-1), (0,-1), (-1,0), (0,0) relative to vertex
                     float totalHeight = 0f;
                     int count = 0;
-                    VoxelType dominantType = VoxelType.Grass;
-                    int highestSurface = int.MinValue;
+
+                    // Count occurrences of each surface type for blend weights
+                    int grassCount = 0, dirtCount = 0, stoneCount = 0, sandCount = 0;
 
                     for (int dx = -1; dx <= 0; dx++)
                     {
@@ -140,11 +150,15 @@ namespace Terranova.Terrain
                             totalHeight += h;
                             count++;
 
-                            // Track the highest column's surface type for coloring
-                            if (h > highestSurface)
+                            // Tally surface type for blend weight computation
+                            switch (st)
                             {
-                                highestSurface = h;
-                                dominantType = st;
+                                case VoxelType.Grass: grassCount++; break;
+                                case VoxelType.Dirt:  dirtCount++;  break;
+                                case VoxelType.Stone: stoneCount++; break;
+                                case VoxelType.Sand:  sandCount++;  break;
+                                // Water columns below sea level are handled by water mesh
+                                default: grassCount++; break; // fallback
                             }
                         }
                     }
@@ -154,7 +168,24 @@ namespace Terranova.Terrain
                         ? (totalHeight / count) + 1f
                         : SEA_LEVEL + 1f;
 
-                    colorGrid[vx, vz] = GetSurfaceColor(dominantType);
+                    // Blend weights: fraction of each type (sum = 1.0)
+                    float inv = count > 0 ? 1f / count : 1f;
+                    Vector4 weights = new Vector4(
+                        grassCount * inv,
+                        dirtCount * inv,
+                        stoneCount * inv,
+                        sandCount * inv);
+                    blendGrid[vx, vz] = weights;
+
+                    // Vertex color: weighted blend of type colors (fallback for unlit rendering)
+                    Color grassC = GetSurfaceColor(VoxelType.Grass);
+                    Color dirtC  = GetSurfaceColor(VoxelType.Dirt);
+                    Color stoneC = GetSurfaceColor(VoxelType.Stone);
+                    Color sandC  = GetSurfaceColor(VoxelType.Sand);
+                    colorGrid[vx, vz] = grassC * weights.x
+                                      + dirtC  * weights.y
+                                      + stoneC * weights.z
+                                      + sandC  * weights.w;
                 }
             }
         }
@@ -164,17 +195,32 @@ namespace Terranova.Terrain
         /// <summary>
         /// Generate the terrain surface mesh: a smooth triangulated grid.
         /// 16×16 cells × 2 triangles = 512 triangles per chunk.
+        ///
+        /// Per vertex: position, color (weighted blend), UV0 (world-space XZ for
+        /// texture sampling), UV1 (blend weights: x=grass, y=dirt, z=stone, w=sand).
         /// </summary>
         private static void BuildTerrainSurface(
-            float[,] heights, Color[,] colors, MeshData mesh)
+            ChunkData chunk,
+            float[,] heights, Color[,] colors, Vector4[,] blends,
+            MeshData mesh)
         {
-            // Add all vertices
+            // World-space origin for UV computation (seamless across chunk boundaries)
+            float worldOriginX = chunk.ChunkX * ChunkData.WIDTH;
+            float worldOriginZ = chunk.ChunkZ * ChunkData.DEPTH;
+
+            // Add all vertices with UVs and blend weights
             for (int vx = 0; vx < VERTS_PER_SIDE; vx++)
             {
                 for (int vz = 0; vz < VERTS_PER_SIDE; vz++)
                 {
                     mesh.Vertices.Add(new Vector3(vx, heights[vx, vz], vz));
                     mesh.Colors.Add(colors[vx, vz]);
+
+                    // UV0: world-space XZ for seamless texture tiling across chunks
+                    mesh.UVs.Add(new Vector2(worldOriginX + vx, worldOriginZ + vz));
+
+                    // UV1: terrain type blend weights for texture splatting
+                    mesh.BlendWeights.Add(blends[vx, vz]);
                 }
             }
 
@@ -406,9 +452,18 @@ namespace Terranova.Terrain
             var allColors = new List<Color>(terrain.Colors);
             allColors.AddRange(water.Colors);
 
-            // Merge normals: terrain has custom normals, water has flat up normals
             var allNormals = new List<Vector3>(terrain.Normals);
             allNormals.AddRange(water.Normals);
+
+            // Merge UVs: terrain has world-space XZ, water gets zero UVs
+            var allUVs = new List<Vector2>(terrain.UVs);
+            for (int i = 0; i < water.Vertices.Count; i++)
+                allUVs.Add(Vector2.zero);
+
+            // Merge blend weights: terrain has type weights, water gets zero
+            var allBlends = new List<Vector4>(terrain.BlendWeights);
+            for (int i = 0; i < water.Vertices.Count; i++)
+                allBlends.Add(Vector4.zero);
 
             // Offset water triangle indices
             var waterTris = new List<int>(water.Triangles.Count);
@@ -419,10 +474,12 @@ namespace Terranova.Terrain
             mesh.SetVertices(allVerts);
             mesh.SetColors(allColors);
             mesh.SetNormals(allNormals);
+            mesh.SetUVs(0, allUVs);            // UV0: world-space texture coords
+            mesh.SetUVs(1, allBlends);          // UV1: terrain type blend weights
             mesh.SetTriangles(terrain.Triangles, 0);
             mesh.SetTriangles(waterTris, 1);
 
-            // No RecalculateNormals() – we use custom normals for seamless chunk boundaries
+            // No RecalculateNormals() – custom normals for seamless chunk boundaries
             mesh.RecalculateBounds();
 
             return mesh;
@@ -437,6 +494,8 @@ namespace Terranova.Terrain
             public readonly List<int> Triangles = new();
             public readonly List<Color> Colors = new();
             public readonly List<Vector3> Normals = new();
+            public readonly List<Vector2> UVs = new();          // UV0: world-space XZ
+            public readonly List<Vector4> BlendWeights = new(); // UV1: terrain type weights
         }
     }
 }
