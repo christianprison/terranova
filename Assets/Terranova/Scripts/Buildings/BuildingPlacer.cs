@@ -253,6 +253,10 @@ namespace Terranova.Buildings
             _buildingPropBlock.SetColor(ColorID, _selectedBuilding.PreviewColor);
             renderer.SetPropertyBlock(_buildingPropBlock);
 
+            // Story 2.3: Add Building component with NavMeshObstacle and entrance point
+            var buildingComponent = building.AddComponent<Building>();
+            buildingComponent.Initialize(_selectedBuilding);
+
             // Notify other systems via event bus
             EventBus.Publish(new BuildingPlacedEvent
             {

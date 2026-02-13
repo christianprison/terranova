@@ -4,7 +4,8 @@
     "references": [
         "Terranova.Core",
         "Terranova.Terrain",
-        "Unity.InputSystem"
+        "Unity.InputSystem",
+        "Unity.AI.Navigation"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

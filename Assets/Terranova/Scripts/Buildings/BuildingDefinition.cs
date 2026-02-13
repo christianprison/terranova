@@ -35,6 +35,10 @@ namespace Terranova.Buildings
         [Tooltip("Can this building be rotated 90°?")]
         public bool NeedsRotation;
 
+        [Header("Navigation (Story 2.3)")]
+        [Tooltip("Local offset from building center to entrance. Settlers walk here.")]
+        public Vector3 EntranceOffset = new Vector3(0f, 0f, -1f);
+
         [Header("Visuals (Prototype)")]
         [Tooltip("Color for the placeholder cube. Replaced by proper models later.")]
         public Color PreviewColor = Color.yellow;

@@ -69,6 +69,10 @@ namespace Terranova.Population
         private NavMeshAgent _agent;
         private bool _isMoving;
 
+        // True if the last completed path actually reached the destination.
+        // False when the path was partial or invalid (Story 2.2: obstacle handling).
+        private bool _pathReachable;
+
         // ─── Task System (Story 1.3) ─────────────────────────────
 
         // Simple delivery counter (placeholder until economy system in Feature 3.x)
@@ -230,6 +234,7 @@ namespace Terranova.Population
         {
             if (HasReachedDestination())
             {
+                // Path unreachable is fine for idle – just pause and pick a new spot
                 _state = SettlerState.IdlePausing;
                 _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
             }
@@ -239,7 +244,8 @@ namespace Terranova.Population
 
         /// <summary>
         /// Walk toward the work target (tree, rock, building site).
-        /// If the target becomes invalid, return to idle.
+        /// If the target becomes invalid or unreachable, return to idle.
+        /// Story 2.2: Settler stops gracefully when path is blocked.
         /// </summary>
         private void UpdateWalkingToTarget()
         {
@@ -251,6 +257,13 @@ namespace Terranova.Population
 
             if (HasReachedDestination())
             {
+                if (!_pathReachable)
+                {
+                    Debug.Log($"[{name}] Target unreachable (blocked by obstacle) - going idle");
+                    ClearTask();
+                    return;
+                }
+
                 _agent.ResetPath();
                 _isMoving = false;
                 _state = SettlerState.Working;
@@ -282,11 +295,19 @@ namespace Terranova.Population
 
         /// <summary>
         /// Walk back to the campfire/storage with gathered resources.
+        /// Story 2.2: If return path blocked, go idle (don't freeze).
         /// </summary>
         private void UpdateReturningToBase()
         {
             if (HasReachedDestination())
             {
+                if (!_pathReachable)
+                {
+                    Debug.Log($"[{name}] Return path blocked - going idle");
+                    ClearTask();
+                    return;
+                }
+
                 _agent.ResetPath();
                 _isMoving = false;
                 _state = SettlerState.Delivering;
@@ -385,23 +406,27 @@ namespace Terranova.Population
 
         /// <summary>
         /// Check whether the NavMeshAgent has reached its current destination.
-        /// Handles edge cases: path pending, invalid path, not yet moving.
+        /// Handles edge cases: path pending, invalid/partial path, not yet moving.
+        /// Sets _pathReachable so callers know if the destination was truly reached.
+        /// Story 2.2: Settlers stay put when no valid path exists.
         /// </summary>
         private bool HasReachedDestination()
         {
             if (!_isMoving) return true;
             if (_agent.pathPending) return false;
 
-            // Path failed (unreachable)
-            if (_agent.pathStatus == NavMeshPathStatus.PathInvalid)
+            // Path failed or only partially reachable (Story 2.2)
+            if (_agent.pathStatus != NavMeshPathStatus.PathComplete)
             {
                 _isMoving = false;
+                _pathReachable = false;
                 return true;
             }
 
             if (_agent.remainingDistance <= _agent.stoppingDistance)
             {
                 _isMoving = false;
+                _pathReachable = true;
                 return true;
             }
             return false;

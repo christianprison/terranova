@@ -2,6 +2,7 @@
     "name": "Terranova.Population",
     "rootNamespace": "Terranova.Population",
     "references": [
+        "Terranova.Buildings",
         "Terranova.Core",
         "Terranova.Terrain",
         "Unity.InputSystem",
