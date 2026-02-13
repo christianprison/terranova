@@ -37,6 +37,7 @@ namespace Terranova.Core
             EnsureEventSystem();
             EnsureSettlerSpawner();
             EnsureResourceSpawner();
+            EnsureDebugTerrainModifier();
             EnsureDebugTaskAssigner();
 
             Debug.Log("GameBootstrapper: All systems ready.");
@@ -135,6 +136,21 @@ namespace Terranova.Core
             var go = new GameObject("ResourceSpawner");
             go.AddComponent<ResourceSpawner>();
             Debug.Log("GameBootstrapper: Created ResourceSpawner.");
+        }
+
+        /// <summary>
+        /// DEBUG ONLY - Click terrain to modify blocks (left=remove, right=add).
+        /// Remove this when a proper terrain editing tool exists.
+        /// Story 0.5: Terrain-Modifikation aktualisiert Mesh
+        /// </summary>
+        private static void EnsureDebugTerrainModifier()
+        {
+            if (Object.FindFirstObjectByType<DebugTerrainModifier>() != null)
+                return;
+
+            var go = new GameObject("DebugTerrainModifier");
+            go.AddComponent<DebugTerrainModifier>();
+            Debug.Log("GameBootstrapper: Created DebugTerrainModifier (left-click=remove, right-click=add).");
         }
 
         /// <summary>

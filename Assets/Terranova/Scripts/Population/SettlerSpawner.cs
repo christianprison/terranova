@@ -70,26 +70,26 @@ namespace Terranova.Population
         {
             int centerX = world.WorldBlocksX / 2;
             int centerZ = world.WorldBlocksZ / 2;
-            int height = world.GetHeightAtWorldPos(centerX, centerZ);
 
-            // Fallback: if center is water/air, search nearby for solid ground
-            if (height < 0 || !world.GetSurfaceTypeAtWorldPos(centerX, centerZ).IsSolid())
-            {
-                FindNearestSolidGround(world, ref centerX, ref centerZ, ref height);
-            }
+            // Find a flat, solid position near the world center.
+            // Buildings must stand on level terrain – no Y-offset hacks.
+            FindFlatSolidGround(world, ref centerX, ref centerZ);
 
-            // Use smooth mesh height for visual positioning (Story 0.6)
+            // On flat terrain all 4 surrounding columns share the same height,
+            // so the smooth mesh surface is perfectly level at height + 1.
             float y = world.GetSmoothedHeightAtWorldPos(centerX + 0.5f, centerZ + 0.5f);
             Vector3 position = new Vector3(centerX + 0.5f, y, centerZ + 0.5f);
 
-            // Create campfire visual (same style as BuildingPlacer for consistency)
-            var campfire = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            campfire.name = "Campfire";
-            campfire.transform.localScale = new Vector3(1f, 1f, 1f);
-            // Offset Y by half cube height so bottom sits on terrain surface
-            campfire.transform.position = new Vector3(position.x, position.y + 0.5f, position.z);
+            // Create campfire visual as a cone (looks like a campfire)
+            var campfire = new GameObject("Campfire");
+            var meshFilter = campfire.AddComponent<MeshFilter>();
+            meshFilter.sharedMesh = CreateConeMesh(0.5f, 1.2f, 12);
+            campfire.AddComponent<MeshRenderer>();
+            campfire.AddComponent<MeshCollider>().sharedMesh = meshFilter.sharedMesh;
+            // Cone mesh has base at y=0, so position directly on terrain surface
+            campfire.transform.position = position;
 
-            // Apply warm yellow color
+            // Apply warm orange-red color
             var meshRenderer = campfire.GetComponent<MeshRenderer>();
             Shader shader = Shader.Find("Universal Render Pipeline/Lit")
                          ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
@@ -97,7 +97,7 @@ namespace Terranova.Population
             {
                 var material = new Material(shader);
                 material.name = "Campfire_Material (Auto)";
-                material.SetColor("_BaseColor", new Color(1f, 0.8f, 0.2f));
+                material.SetColor("_BaseColor", new Color(0.9f, 0.45f, 0.1f));
                 meshRenderer.material = material;
             }
 
@@ -147,38 +147,125 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Search in a spiral outward from the center to find solid ground.
-        /// Used when the exact world center is water or otherwise unbuildable.
+        /// Search outward from the given position for a flat, solid spot where
+        /// the block at (x,z) and its 3 direct neighbours all share the same
+        /// height. Buildings must stand on level terrain.
+        /// Falls back to "any solid ground" if no perfectly flat spot is found.
         /// </summary>
-        private void FindNearestSolidGround(WorldManager world, ref int x, ref int z, ref int height)
+        private void FindFlatSolidGround(WorldManager world, ref int x, ref int z)
         {
-            // Search in expanding rings up to 16 blocks away
-            for (int radius = 1; radius <= 16; radius++)
+            // Check the starting position first
+            if (IsFlatSolid(world, x, z))
+                return;
+
+            // Search in expanding rings up to 32 blocks away
+            for (int radius = 1; radius <= 32; radius++)
             {
                 for (int dx = -radius; dx <= radius; dx++)
                 {
                     for (int dz = -radius; dz <= radius; dz++)
                     {
-                        // Only check the ring edge (not the filled area)
                         if (Mathf.Abs(dx) != radius && Mathf.Abs(dz) != radius)
                             continue;
 
                         int testX = x + dx;
                         int testZ = z + dz;
-                        int testHeight = world.GetHeightAtWorldPos(testX, testZ);
 
-                        if (testHeight >= 0 && world.GetSurfaceTypeAtWorldPos(testX, testZ).IsSolid())
+                        if (IsFlatSolid(world, testX, testZ))
                         {
                             x = testX;
                             z = testZ;
-                            height = testHeight;
                             return;
                         }
                     }
                 }
             }
 
-            Debug.LogWarning("SettlerSpawner: Could not find solid ground near world center!");
+            Debug.LogWarning("SettlerSpawner: Could not find flat solid ground near world center!");
+        }
+
+        /// <summary>
+        /// Check if a 1×1 footprint at (x,z) is flat (all 4 surrounding columns
+        /// share the same height) and the surface is solid ground.
+        /// </summary>
+        private static bool IsFlatSolid(WorldManager world, int x, int z)
+        {
+            int h = world.GetHeightAtWorldPos(x, z);
+            if (h < 0 || !world.GetSurfaceTypeAtWorldPos(x, z).IsSolid())
+                return false;
+
+            // Check the 3 neighbours that share vertices with this block
+            for (int dx = 0; dx <= 1; dx++)
+            {
+                for (int dz = 0; dz <= 1; dz++)
+                {
+                    if (dx == 0 && dz == 0)
+                        continue;
+
+                    int nh = world.GetHeightAtWorldPos(x + dx, z + dz);
+                    if (nh != h)
+                        return false;
+                    if (!world.GetSurfaceTypeAtWorldPos(x + dx, z + dz).IsSolid())
+                        return false;
+                }
+            }
+
+            return true;
+        }
+
+        /// <summary>
+        /// Create a simple cone mesh with base at y=0 and apex at y=height.
+        /// </summary>
+        private static Mesh CreateConeMesh(float radius, float height, int segments)
+        {
+            var mesh = new Mesh();
+            int vertCount = segments + 2; // base ring + apex + base center
+            var verts = new Vector3[vertCount];
+            var normals = new Vector3[vertCount];
+
+            // Base center vertex
+            verts[0] = Vector3.zero;
+            normals[0] = Vector3.down;
+
+            // Base ring vertices
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / segments;
+                float x = Mathf.Cos(angle) * radius;
+                float z = Mathf.Sin(angle) * radius;
+                verts[i + 1] = new Vector3(x, 0f, z);
+
+                // Approximate outward-up normal for the side
+                Vector3 outward = new Vector3(x, 0f, z).normalized;
+                normals[i + 1] = Vector3.Lerp(outward, Vector3.up, 0.5f).normalized;
+            }
+
+            // Apex vertex
+            verts[segments + 1] = new Vector3(0f, height, 0f);
+            normals[segments + 1] = Vector3.up;
+
+            // Triangles: base disk + side cone
+            var tris = new int[segments * 6];
+            for (int i = 0; i < segments; i++)
+            {
+                int next = (i + 1) % segments;
+
+                // Base triangle (facing down)
+                tris[i * 6 + 0] = 0;
+                tris[i * 6 + 1] = next + 1;
+                tris[i * 6 + 2] = i + 1;
+
+                // Side triangle (facing outward)
+                tris[i * 6 + 3] = i + 1;
+                tris[i * 6 + 4] = next + 1;
+                tris[i * 6 + 5] = segments + 1;
+            }
+
+            mesh.vertices = verts;
+            mesh.normals = normals;
+            mesh.triangles = tris;
+            mesh.RecalculateBounds();
+            return mesh;
         }
     }
 }
