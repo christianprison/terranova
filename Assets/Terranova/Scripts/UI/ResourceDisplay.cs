@@ -139,6 +139,10 @@ namespace Terranova.UI
                 scaler.referenceResolution = new Vector2(1920, 1080);
             }
 
+            // GraphicRaycaster required for button clicks and IsPointerOverGameObject()
+            if (GetComponent<GraphicRaycaster>() == null)
+                gameObject.AddComponent<GraphicRaycaster>();
+
             // Resource counter (top-left)
             _resourceText = CreateText("ResourceText",
                 new Vector2(20, -20),    // Offset from top-left
