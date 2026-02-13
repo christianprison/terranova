@@ -216,6 +216,31 @@ namespace Terranova.UI
 
             // Speed widget (top-right, below epoch)
             CreateSpeedWidget();
+
+            // Version label (bottom-left) with dark background for visibility
+            var versionGo = new GameObject("VersionLabel");
+            versionGo.transform.SetParent(transform, false);
+            var versionBg = versionGo.AddComponent<Image>();
+            versionBg.color = new Color(0f, 0f, 0f, 0.7f);
+            var versionBgRt = versionGo.GetComponent<RectTransform>();
+            versionBgRt.anchorMin = new Vector2(0, 0);
+            versionBgRt.anchorMax = new Vector2(0, 0);
+            versionBgRt.pivot = new Vector2(0, 0);
+            versionBgRt.anchoredPosition = new Vector2(8, 8);
+            versionBgRt.sizeDelta = new Vector2(160, 32);
+
+            var versionText = CreateText("VersionText",
+                Vector2.zero, new Vector2(160, 32), TextAnchor.MiddleCenter);
+            versionText.transform.SetParent(versionGo.transform, false);
+            var vrt = versionText.GetComponent<RectTransform>();
+            vrt.anchorMin = Vector2.zero;
+            vrt.anchorMax = Vector2.one;
+            vrt.offsetMin = Vector2.zero;
+            vrt.offsetMax = Vector2.zero;
+            versionText.fontSize = 18;
+            versionText.fontStyle = FontStyle.Bold;
+            versionText.color = Color.white;
+            versionText.text = "v0.2.0";
         }
 
         /// <summary>
