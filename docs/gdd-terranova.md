@@ -1,6 +1,6 @@
 # Terranova – Game Design Document (GDD)
 
-> **Version**: 0.8
+> **Version**: 0.9
 > **Zuletzt aktualisiert**: 2026-02-11
 > **Status**: Konzeptphase
 
@@ -17,25 +17,25 @@
 ## 1. Vision & Übersicht
 
 ### Elevator Pitch
-Ein Echtzeit-Aufbaustrategiespiel für Tablets, in dem der Spieler eine Zivilisation durch 29 Epochen entwickelt – von der Werkzeug-Feuer-Kultur bis in die spekulative Zukunft – auf einem prozedural generierten Voxel-Planeten. Individuelle Siedler wuseln durch die Welt, organisieren sich selbst und machen eigenständig Entdeckungen. Jede Facette des Planeten ist ein einzigartiges Biom, das bestimmt, welche Entdeckungen wahrscheinlich werden – keine Partie gleicht der anderen.
+Ein Echtzeit-Aufbaustrategiespiel für Tablets, in dem der Spieler eine Zivilisation durch 29 Epochen entwickelt – von der Werkzeug-Feuer-Kultur bis in die spekulative Zukunft – auf einem prozedural generierten Planeten mit veränderbarem Terrain. Individuelle Siedler wuseln durch die Welt, organisieren sich selbst und machen eigenständig Entdeckungen. Jede Facette des Planeten ist ein einzigartiges Biom, das bestimmt, welche Entdeckungen wahrscheinlich werden – keine Partie gleicht der anderen.
 
 ### Design Pillars
 Die drei unverhandelbaren Kern-Erlebnisse:
 
 1. **Aufbau-Faszination**: Der Spieler soll das befriedigende Gefühl erleben, eine Zivilisation von Grund auf wachsen zu sehen – von der ersten Hütte bis zur Metropole. Individuelle Siedler, die eigenständig arbeiten, handeln und leben, erzeugen den "Wuselfaktor", der zum Zuschauen und Optimieren einlädt.
-2. **Strategische Tiefe durch Terrain**: Die Voxel-Welt ist nicht nur Kulisse, sondern strategischer Faktor. Wo man baut, welches Biom man besiedelt und wie man das Terrain formt, hat echte Konsequenzen – bis hin zu den Baukosten und der Forschungsrichtung.
+2. **Strategische Tiefe durch Terrain**: Die Welt ist nicht nur Kulisse, sondern strategischer Faktor. Wo man baut, welches Biom man besiedelt und wie man das Terrain formt, hat echte Konsequenzen – bis hin zu den Baukosten und der Forschungsrichtung.
 3. **Epochen-Progression**: Der Fortschritt durch die Epochen soll sich wie ein Zivilisationssprung anfühlen – neue Möglichkeiten, neues Aussehen, neue Strategien. Die Art zu forschen entwickelt sich selbst mit: von zufälligen Entdeckungen am Lagerfeuer bis zu systematischer Wissenschaft.
 
 ### Referenzspiele & Inspiration
 | Spiel | Was wir übernehmen | Was wir anders machen |
 |-------|-------------------|----------------------|
 | Empire Earth | Epochen-System, Technologie-Progression | Probabilistisches Entdeckungssystem statt deterministischem Tech Tree |
-| Die Siedler | Warenketten, Wuselfaktor, indirekte Steuerung | Voxel-Welt, Epochen-Progression |
+| Die Siedler | Warenketten, Wuselfaktor, indirekte Steuerung | Prozeduraler Planet, Epochen-Progression |
 | Anno 1800 | Komplexe Wirtschaftskreisläufe | Individuelle sichtbare Siedler statt abstrakter Bevölkerung |
 | Northgard | Biom-Strategie, Übersichtlichkeit | Keine begrenzten Inseln sondern Planeten-Setup, Terraforming-Baukosten-Rückkopplung |
-| Minecraft | Voxel-Terrain, Biome, Veränderbarkeit | Kein Survival, kein First-Person, einheitliches Terraforming statt freie Block-Manipulation |
-| Civilization VI (iPad) | Referenz für komplexe Strategie auf Tablet | Echtzeit statt Rundenbasiert, Voxel statt Hex |
-| Planetary Annihilation | Spielbare Planetenoberfläche (Kugel-Geometrie) | Goldberg-Polyeder statt echte Kugel, Voxel-Detail statt Oberflächen-Mesh |
+| Minecraft | Prozedurale Generierung, Biome, veränderbares Terrain | Kein Survival, kein First-Person, RTS-Optik statt Block-Look, einheitliches Terraforming statt freie Block-Manipulation |
+| Civilization VI (iPad) | Referenz für komplexe Strategie auf Tablet | Echtzeit statt Rundenbasiert, prozeduraler Planet statt Hex-Karte |
+| Planetary Annihilation | Spielbare Planetenoberfläche (Kugel-Geometrie) | Goldberg-Polyeder statt echte Kugel, volumetrisches Terrain statt Oberflächen-Mesh |
 
 ---
 
@@ -47,23 +47,42 @@ Die drei unverhandelbaren Kern-Erlebnisse:
 
 > **Entscheidung (v0.4)**: Die Spielwelt hat die Form eines Goldberg-Polyeders – ein Körper aus Fünf- und Sechsecken, der eine Kugelform annähert.
 
-Der Planet ist kein flaches Terrain und keine echte Kugel. Jede Facette (Fünf- oder Sechseck) ist intern flach – dort funktioniert unser Chunk-basiertes Voxel-System ohne Anpassung. Die Planetenform entsteht auf Makro-Ebene durch die Winkel zwischen den Facetten.
+Der Planet ist kein flaches Terrain und keine echte Kugel. Jede Facette (Fünf- oder Sechseck) ist intern flach – dort funktioniert unser Chunk-basiertes Terrain-System ohne Anpassung. Die Planetenform entsteht auf Makro-Ebene durch die Winkel zwischen den Facetten.
 
 **Planetengröße** skaliert über Polyeder-Auflösung: Von GP(1,0) mit 32 Facetten (schnelle Partie) bis GP(4,0)+ mit 162+ Facetten (planetare Skala). Jede Facette = ein Biom.
 
-**Zoom-Stufen**: Nah (Spielebene, flache Facette) → Mittel (LOD für Nachbarn) → Planetar (Facetten als Farbflächen, kein Voxel-Detail).
+**Zoom-Stufen**: Nah (Spielebene, flache Facette) → Mittel (LOD für Nachbarn) → Planetar (Facetten als Farbflächen, kein Terrain-Detail).
 
 **Koordinatensystem**: Lokale 2D-Koordinaten pro Facette, globale Facetten-ID. Koordinaten-Transformation an Facetten-Kanten über Mercator-Projektion.
 [DEFINIEREN: Details mit Unity Developer Agent – Wegfindung über Kanten, Facetten-Datenstruktur]
 
 > **Hinweis für Unity Developer**: Vertical Slice zunächst mit einer einzelnen Facette, Polyeder-Integration als zweiter Meilenstein.
 
-#### Voxel-System
-- **Blockgröße**: 1x1x1 Meter
+#### Terrain-System (intern: volumetrisches Chunk-System)
+
+> **Entscheidung (v0.9)**: Das Terrain wird intern als volumetrische Datenstruktur gespeichert (Chunks aus Blöcken), die dynamisches Laden, Terraforming und Ressourcen im Untergrund ermöglicht. Das Rendering erzeugt daraus **geglättete, texturierte Meshes** – der Spieler sieht keine Blöcke.
+
+- **Blockgröße (intern)**: 1x1x1 Meter Einheiten – die kleinste Einheit für Terraforming und Ressourcen-Daten
 - **Chunk-Größe**: 16x16x256 Blöcke
 - **Sichtweite**: 12 Chunks in jede Richtung (192m)
 - **Terrain-Höhe**: 0-256 Blöcke (Meeresspiegel bei Block 64)
 - **Facetten-Größe**: Kantenlänge = Sichtweite = 12 Chunks (192m). Von einer Ecke aus kann man genau bis zu den nächsten zwei Ecken sehen.
+- **Dynamisches Laden**: Chunks werden erst generiert, wenn der Spieler sich dem Rand der sichtbaren Welt nähert
+
+#### Art Style
+
+> **Entscheidung (v0.9)**: Realistisch-stilisiert, orientiert an Empire Earth und Northgard. Kein Block-/Voxel-Look.
+
+**Visuelles Ziel**: Die Welt soll wie ein lebendiger, realistisch anmutender Planet wirken – mit organischen Landschaftsformen, texturierten Oberflächen, natürlicher Vegetation und atmosphärischer Beleuchtung. Die RTS-Kamera zeigt eine Welt, die sich anfühlt wie Empire Earth oder Northgard, nicht wie Minecraft.
+
+**Technik → Rendering**: Das interne volumetrische System (Blöcke/Chunks) ist eine Datenstruktur – wie eine Tabellenkalkulation hinter einer hübschen Grafik. Das Rendering erzeugt daraus geglättete Meshes mit Texturen, Normalsmaps und LOD. Terraforming-Operationen verändern die interne Datenstruktur, das Rendering aktualisiert das sichtbare Mesh entsprechend.
+
+| Aspekt | Intern (Daten) | Visuell (Rendering) |
+|--------|---------------|-------------------|
+| Terrain | Block-Raster (1m³) | Geglättete, texturierte Landschaft |
+| Terraforming | Blöcke entfernen/hinzufügen/transformieren | Organische Verformung sichtbar (Grube, Hügel, Feld) |
+| Ressourcen | Blocktyp speichert Ressource (Erz, Lehm, etc.) | Visueller Hinweis an Oberfläche (Gesteinsfarbe, Vegetation) |
+| Gebäude | Footprint in Blöcken | 3D-Modelle im Epochen-Stil |
 
 #### Biome
 
@@ -284,7 +303,7 @@ Generative KI erzeugt einzigartige Spielereignisse (Naturkatastrophen, Diplomati
 
 ### 4.2 AR/MR Local Multiplayer
 
-> Langfristige Vision. Voxel-Welt als MR-Diorama auf einem Tisch. Mehrere Headsets und/oder iPads, verschiedene Perspektiven.
+> Langfristige Vision. Spielwelt als MR-Diorama auf einem Tisch. Mehrere Headsets und/oder iPads, verschiedene Perspektiven.
 
 **Zielplattform**: Meta Quest 3 oder vergleichbare HMDs für Mixed Reality, parallel zu iPad-Version.
 
@@ -301,7 +320,7 @@ Generative KI erzeugt einzigartige Spielereignisse (Naturkatastrophen, Diplomati
 | Render Pipeline | URP |
 | Zielplattform | iPad (primär), perspektivisch Meta Quest 3 / vergleichbare HMDs für MR-Multiplayer |
 | Min. Spezifikation | iPad mit M4-Prozessor oder höher (Modell MWR63NF/A) |
-| Voxel-Ansatz | Eigenes Chunk-Mesh-System |
+| Terrain-System | Volumetrisches Chunk-System (intern), geglättetes Mesh-Rendering (visuell) |
 | Networking | Singleplayer first. Architektur für spätere Multiplayer-Erweiterung. |
 | Save System | [DEFINIEREN] |
 | Input | Touch (primär), Apple Pencil (optional), Quest-Controller (MR-Modus) |
@@ -349,12 +368,12 @@ In-Game "Weltkongress"-Bereich: Spieler sehen kommende Epochen, stimmen über Pr
 | 25 | Pechschutz? | Ja – garantierte Entdeckung nach X Aktivitätszyklen. Konkreter Wert per Playtesting. (v0.8) |
 | 27 | Sichtlinien-Komplexität? | Hoch – Erkundung ist der Hauptreiz des Spiels. Echte Sichtlinienberechnung. (v0.8) |
 | 30 | Biome: Welche 20 Typen? | 10 bestehende + 10 neue: Savanne, Sumpf/Moor, Taiga, Mangroven, Hochplateau, Flusstal/Aue, Korallenriff, Gletscher/Eiswüste, Karst, Fjord. (v0.8) |
+| 5 | Art Style? | Realistisch-stilisiert (Empire Earth / Northgard). Intern volumetrisches Chunk-System, visuell geglättete texturierte Meshes. Kein Block-Look. (v0.9) |
 
 ### Offen
 
 | Nr. | Frage | Priorität |
 |-----|-------|-----------|
-| 5 | Art Style: Realistisch-Voxel oder Stylized? | Mittel |
 | 8 | Unity Version: 2022 LTS oder Unity 6? | Hoch |
 | 11 | Apple Pencil Support? | Niedrig |
 | 14 | Wasserfluss-Simulation Komplexität? | Mittel |
@@ -366,7 +385,7 @@ In-Game "Weltkongress"-Bereich: Spieler sehen kommende Epochen, stimmen über Pr
 | 23 | Offline-Fähigkeit? | Mittel |
 | 26 | Spontane Entdeckungen: Häufigkeit, negative Folgen? | Mittel |
 | 28 | Wetter & Tageszeit? | Mittel |
-| 29 | Terrain-Baukosten: Pro Voxel oder vereinfachte Zonen? | Mittel |
+| 29 | Terrain-Baukosten: Pro Block oder vereinfachte Zonen? | Mittel |
 | 31 | Bevölkerungsgruppen-Abstraktion (ab Ära III): Wie genau? | Mittel |
 | 32 | Ab wann feindliche Siedlungen/NPCs? | Mittel |
 
@@ -383,4 +402,5 @@ In-Game "Weltkongress"-Bereich: Spieler sehen kommende Epochen, stimmen über Pr
 | 0.5 | 2026-02-11 | 29 Epochen in 4 Ären. Bewegungsbasierte Erforschung. Voxel-Werte konkretisiert. |
 | 0.6 | 2026-02-11 | Sichtlinien statt Reveal-Moment. Einheitliches Terraforming. Baukosten-Rückkopplung. Probabilistisches Forschungssystem. |
 | 0.7 | 2026-02-11 | Dokument-Restrukturierung in Begleitdokumente. Forschungssystem: Ära I emergent, Höhlenmalerei, flexible Epochenübergänge. |
-| 0.8 | 2026-02-11 | **Breites Update**: Northgard-Differenzierung (Planet + Terraforming-Baukosten). Biome auf ca. 20 erweitert. Prozedurale Generierung: Drei-Ebenen-Algorithmen (Facette/Chunk/Block). Ressourcen-System: Abhängigkeitsbaum mit sammelbaren Wurzel-Ressourcen. Bevölkerung: Fortpflanzung (Zufriedenheit+Unterkunft+Gesundheit), Alter, Tod, Wissensweitergabe/Vererbung. Max. ~100 Siedler individuell, später Gruppenabstraktion. Kampfsystem: Kein dediziertes System, emergent aus Selbstverteidigung und Jagd. Core Loop → Interagierende Systeme (RimWorld/DF-Inspiration). Zielplattform: Quest 3 für MR-MP. Min. Spec: iPad M4. Facetten-Größe: Kantenlänge = Sichtweite. Mercator-Projektion. Nachbar-Facetten-Simulation. Pechschutz ja. Sichtlinien: hohe Komplexität. 11 offene Fragen entschieden, 3 neue (#30-#32). |
+| 0.8 | 2026-02-11 | Breites Update: Northgard-Differenzierung. 20 Biome. Drei-Ebenen-Generierung. Ressourcen-Abhängigkeitsbaum. Bevölkerungs-Lebenszyklus. Emergenter Kampf. Interagierende Systeme statt Core Loop. Quest 3 als MR-Plattform. Viele Fragen entschieden. |
+| 0.9 | 2026-02-13 | **Art Style entschieden**: Realistisch-stilisiert (Empire Earth / Northgard). Durchgängige Bereinigung der "Voxel"-Terminologie: Trennung von interner Datenstruktur (volumetrisches Chunk-System) und visuellem Rendering (geglättete, texturierte Meshes). Kein Block-/Minecraft-Look. "Voxel-System" → "Terrain-System" mit Art-Style-Sektion. Frage #5 entschieden. |

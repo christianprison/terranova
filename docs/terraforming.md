@@ -1,7 +1,7 @@
 # Terranova – Terraforming
 
 > **Referenziert von**: [gdd-terranova.md](gdd-terranova.md), Sektion 2.1
-> **Version**: 0.8
+> **Version**: 0.9
 > **Zuletzt aktualisiert**: 2026-02-11
 
 ---
@@ -14,13 +14,13 @@ Eine einheitliche, allgemeingültige Terraforming-Mechanik. Dieselbe Grundmechan
 
 ## Grundmechanik: Drei Operationen
 
-Das gesamte Terraforming basiert auf drei atomaren Operationen auf Voxel-Ebene:
+Das gesamte Terraforming basiert auf drei atomaren Operationen auf Block-Ebene:
 
 | Operation | Beschreibung | Beispiele |
 |-----------|-------------|-----------|
-| **Entfernen** | Voxel werden abgetragen | Graben ausheben, Stollen graben, Steinbruch, Hügel einebnen, Tagebau |
-| **Hinzufügen** | Voxel werden aufgeschüttet | Wall errichten, Damm bauen, Landgewinnung, Abraum aufschütten |
-| **Transformieren** | Voxel-Typ wird geändert (ohne Geometrie-Änderung) | Erde → Acker, Sand → Fundament, Fels → Tunnel-Wand, Boden → Weg |
+| **Entfernen** | Blöcke werden abgetragen | Graben ausheben, Stollen graben, Steinbruch, Hügel einebnen, Tagebau |
+| **Hinzufügen** | Blöcke werden aufgeschüttet | Wall errichten, Damm bauen, Landgewinnung, Abraum aufschütten |
+| **Transformieren** | Block-Typ wird geändert (ohne Geometrie-Änderung) | Erde → Acker, Sand → Fundament, Fels → Tunnel-Wand, Boden → Weg |
 
 Alles andere – Bergwerke, Kanäle, Staudämme, Festungsgräben, Felder – sind **Anwendungsfälle** dieser drei Grundoperationen, keine eigenen Systeme.
 
@@ -39,13 +39,13 @@ Alles andere – Bergwerke, Kanäle, Staudämme, Festungsgräben, Felder – sin
 
 ## Terraforming-Aufwand & Kosten
 
-Jede Terraforming-Operation hat Kosten, die vom Voxel-Typ und der verfügbaren Technologie abhängen:
+Jede Terraforming-Operation hat Kosten, die vom Block-Typ und der verfügbaren Technologie abhängen:
 
 | Faktor | Effekt auf Aufwand |
 |--------|-------------------|
-| **Voxel-Typ** | Erde ist leicht, Stein schwer, Fels sehr schwer. Wasser kann nicht direkt entfernt werden (nur verdrängt/umgeleitet). |
+| **Block-Typ** | Erde ist leicht, Stein schwer, Fels sehr schwer. Wasser kann nicht direkt entfernt werden (nur verdrängt/umgeleitet). |
 | **Werkzeug-Niveau** | Steinwerkzeug (langsam) → Bronze (schneller) → Eisen → Stahl → Maschinen (sehr schnell) |
-| **Menge** | Linearer Aufwand pro Voxel. Große Projekte brauchen viele Siedler und Zeit. |
+| **Menge** | Linearer Aufwand pro Block. Große Projekte brauchen viele Siedler und Zeit. |
 | **Tiefe** | Tiefere Operationen ggf. aufwändiger (Abtransport, Abstützung) |
 
 ---
@@ -88,7 +88,7 @@ Jedes Gebäude hat einen **Terrain-Footprint** – die Fläche und Ebenheit, die
 
 - Spieler wählt Terraforming-Werkzeug aus dem Bau-Menü
 - Finger/Pencil malt den betroffenen Bereich auf die Karte
-- System zeigt Vorschau: geschätzter Aufwand (Siedler, Zeit, Ressourcen), Voxel-Typen im Bereich
+- System zeigt Vorschau: geschätzter Aufwand (Siedler, Zeit, Ressourcen), Block-Typen im Bereich
 - Bestätigung → Siedler beginnen mit der Arbeit
 - Fortschritt sichtbar in der Welt (Graben wird Stück für Stück tiefer, etc.)
 
