@@ -1,5 +1,6 @@
 using UnityEngine;
 using Terranova.Core;
+using Terranova.Resources;
 
 namespace Terranova.Population
 {
@@ -9,9 +10,8 @@ namespace Terranova.Population
     /// A task defines: what to do, where to do it, and where to bring the result.
     /// The settler's state machine (Settler.cs) handles execution.
     ///
-    /// For now (Stories 1.3/1.4): targets are placeholder positions.
-    /// Later (Stories 3.x/4.x): targets will reference actual resource objects
-    /// and buildings.
+    /// Story 1.3/1.4: Basic task system with placeholder positions.
+    /// Story 3.2: Tasks can reference a ResourceNode for gathering.
     ///
     /// Note: SettlerTaskType enum is defined in Terranova.Core (EventBus.cs)
     /// to avoid circular assembly dependencies.
@@ -29,8 +29,28 @@ namespace Terranova.Population
         /// <summary>How long the work phase takes (seconds of game time).</summary>
         public float WorkDuration { get; }
 
-        /// <summary>Whether the target still exists (tree not yet felled, etc.).</summary>
-        public bool IsTargetValid { get; set; } = true;
+        /// <summary>
+        /// The resource node being gathered, or null for non-resource tasks.
+        /// Story 3.2: Links task to an actual world resource.
+        /// </summary>
+        public ResourceNode TargetResource { get; set; }
+
+        /// <summary>
+        /// Whether the target still exists (tree not yet felled, etc.).
+        /// Automatically checks the ResourceNode if one is linked.
+        /// </summary>
+        public bool IsTargetValid
+        {
+            get
+            {
+                if (!_isTargetValid) return false;
+                // If linked to a resource, check if it's depleted
+                if (TargetResource != null && TargetResource.IsDepleted) return false;
+                return true;
+            }
+            set => _isTargetValid = value;
+        }
+        private bool _isTargetValid = true;
 
         public SettlerTask(SettlerTaskType type, Vector3 target, Vector3 basePos, float workDuration)
         {
@@ -47,7 +67,7 @@ namespace Terranova.Population
         public void SetNewTarget(Vector3 newTarget)
         {
             TargetPosition = newTarget;
-            IsTargetValid = true;
+            _isTargetValid = true;
         }
 
         /// <summary>

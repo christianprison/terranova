@@ -37,6 +37,7 @@ namespace Terranova.Core
             EnsureEventSystem();
             EnsureSettlerSpawner();
             EnsureResourceSpawner();
+            EnsureResourceTaskAssigner();
             EnsureDebugTerrainModifier();
             EnsureDebugTaskAssigner();
 
@@ -151,6 +152,20 @@ namespace Terranova.Core
             var go = new GameObject("DebugTerrainModifier");
             go.AddComponent<DebugTerrainModifier>();
             Debug.Log("GameBootstrapper: Created DebugTerrainModifier (left-click=remove, right-click=add).");
+        }
+
+        /// <summary>
+        /// Automatic resource task assignment for idle settlers.
+        /// Story 3.2: Sammel-Interaktion
+        /// </summary>
+        private static void EnsureResourceTaskAssigner()
+        {
+            if (Object.FindFirstObjectByType<ResourceTaskAssigner>() != null)
+                return;
+
+            var go = new GameObject("ResourceTaskAssigner");
+            go.AddComponent<ResourceTaskAssigner>();
+            Debug.Log("GameBootstrapper: Created ResourceTaskAssigner.");
         }
 
         /// <summary>

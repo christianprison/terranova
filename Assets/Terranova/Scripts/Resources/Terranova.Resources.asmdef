@@ -2,7 +2,9 @@
     "name": "Terranova.Resources",
     "rootNamespace": "Terranova.Resources",
     "references": [
-        "Terranova.Terrain"
+        "Terranova.Terrain",
+        "Terranova.Core",
+        "Terranova.Buildings"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

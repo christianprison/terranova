@@ -107,6 +107,16 @@ namespace Terranova.Core
         public UnityEngine.Vector3 Position;
     }
 
+    /// <summary>
+    /// Fired when a resource node is fully depleted (all gathers used up).
+    /// Story 3.2: Sammel-Interaktion
+    /// </summary>
+    public struct ResourceDepletedEvent
+    {
+        public ResourceType Type;
+        public UnityEngine.Vector3 Position;
+    }
+
     // ─── Shared Enums ────────────────────────────────────────
     // Placed in Core to avoid circular dependencies between assemblies.
 
@@ -121,5 +131,15 @@ namespace Terranova.Core
         GatherStone,    // Go to rock, mine, bring stone back
         Hunt,           // Go to hunting ground, hunt, bring food back
         Build           // Go to construction site, build
+    }
+
+    /// <summary>
+    /// Types of gatherable resources in the world.
+    /// Story 3.1: Sammelbare Objekte
+    /// </summary>
+    public enum ResourceType
+    {
+        Wood,
+        Stone
     }
 }

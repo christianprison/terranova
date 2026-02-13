@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.AI;
 using Terranova.Core;
+using Terranova.Resources;
 
 namespace Terranova.Population
 {
@@ -12,6 +13,8 @@ namespace Terranova.Population
     /// Story 1.3: Task system (can receive and hold one task).
     /// Story 1.4: Work cycle (walk to target -> work -> return -> deliver -> repeat).
     /// Story 2.0: Movement migrated to NavMesh (replaces block-grid pathfinding).
+    /// Story 3.2: Gathering calls to ResourceNode on work completion.
+    /// Story 3.3: Visual cargo indicator during transport.
     /// </summary>
     public class Settler : MonoBehaviour
     {
@@ -90,6 +93,10 @@ namespace Terranova.Population
 
         /// <summary>Current state name (for UI/debug display).</summary>
         public string StateName => _state.ToString();
+
+        // ─── Cargo Visual (Story 3.3) ──────────────────────────
+
+        private GameObject _cargoVisual;
 
         // ─── Instance Data ───────────────────────────────────────
 
@@ -176,6 +183,10 @@ namespace Terranova.Population
         /// </summary>
         public void ClearTask()
         {
+            // Release resource reservation if we had one (Story 3.2)
+            if (_currentTask?.TargetResource != null && _currentTask.TargetResource.IsReserved)
+                _currentTask.TargetResource.Release();
+
             var wasTask = _currentTask?.TaskType;
             _currentTask = null;
             _isMoving = false;
@@ -183,6 +194,7 @@ namespace Terranova.Population
             _agent.speed = WALK_SPEED;
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
+            DestroyCargo();
             Debug.Log($"[{name}] Task ended ({wasTask}) - returning to IDLE");
         }
 
@@ -274,13 +286,20 @@ namespace Terranova.Population
 
         /// <summary>
         /// Perform work at the target location.
-        /// For now just a timer. Later: animation, resource depletion.
+        /// Story 3.2: On completion, calls ResourceNode.CompleteGathering().
         /// </summary>
         private void UpdateWorking()
         {
             _stateTimer -= Time.deltaTime;
             if (_stateTimer > 0f)
                 return;
+
+            // Complete gathering on the resource node (Story 3.2)
+            if (_currentTask?.TargetResource != null)
+                _currentTask.TargetResource.CompleteGathering();
+
+            // Show cargo visual during transport (Story 3.3)
+            CreateCargo();
 
             if (!SetAgentDestination(_currentTask.BasePosition))
             {
@@ -326,6 +345,9 @@ namespace Terranova.Population
             if (_stateTimer > 0f)
                 return;
 
+            // Remove cargo visual (Story 3.3)
+            DestroyCargo();
+
             // Deliver resources and log to console
             if (_currentTask != null)
             {
@@ -343,6 +365,17 @@ namespace Terranova.Population
 
             if (_currentTask != null && _currentTask.IsTargetValid)
             {
+                // Re-reserve the resource for the next cycle (Story 3.2)
+                if (_currentTask.TargetResource != null)
+                {
+                    if (!_currentTask.TargetResource.TryReserve())
+                    {
+                        Debug.Log($"[{name}] Resource no longer available - going idle");
+                        ClearTask();
+                        return;
+                    }
+                }
+
                 if (!SetAgentDestination(_currentTask.TargetPosition))
                 {
                     Debug.LogWarning($"[{name}] No path to target for repeat - going idle");
@@ -462,6 +495,53 @@ namespace Terranova.Population
             }
 
             return false;
+        }
+
+        // ─── Cargo Visual (Story 3.3) ──────────────────────────
+
+        /// <summary>
+        /// Show a small colored cube above the settler to indicate carried resource.
+        /// Brown for wood, gray for stone.
+        /// </summary>
+        private void CreateCargo()
+        {
+            if (_cargoVisual != null) return;
+            if (_currentTask == null) return;
+
+            _cargoVisual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            _cargoVisual.name = "Cargo";
+            _cargoVisual.transform.SetParent(transform, false);
+            _cargoVisual.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
+            _cargoVisual.transform.localPosition = new Vector3(0f, 1.0f, 0f);
+
+            // Remove collider
+            var col = _cargoVisual.GetComponent<Collider>();
+            if (col != null) Destroy(col);
+
+            // Color based on resource type
+            Color cargoColor = _currentTask.TaskType switch
+            {
+                SettlerTaskType.GatherWood => new Color(0.45f, 0.28f, 0.10f),  // Brown
+                SettlerTaskType.GatherStone => new Color(0.55f, 0.55f, 0.55f), // Gray
+                SettlerTaskType.Hunt => new Color(0.85f, 0.35f, 0.35f),        // Red
+                _ => Color.white
+            };
+
+            EnsureSharedMaterial();
+            var renderer = _cargoVisual.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = _sharedMaterial;
+            var block = new MaterialPropertyBlock();
+            block.SetColor(ColorID, cargoColor);
+            renderer.SetPropertyBlock(block);
+        }
+
+        private void DestroyCargo()
+        {
+            if (_cargoVisual != null)
+            {
+                Destroy(_cargoVisual);
+                _cargoVisual = null;
+            }
         }
 
         // ─── Visual Setup ────────────────────────────────────────

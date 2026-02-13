@@ -4,6 +4,7 @@
     "references": [
         "Terranova.Buildings",
         "Terranova.Core",
+        "Terranova.Resources",
         "Terranova.Terrain",
         "Unity.InputSystem",
         "Unity.AI.Navigation"

@@ -1,19 +1,18 @@
 using UnityEngine;
+using Terranova.Core;
 using Terranova.Terrain;
 
 namespace Terranova.Resources
 {
     /// <summary>
-    /// Spawns placeholder resource objects (trees and rocks) on the terrain surface.
+    /// Spawns resource objects (trees and rocks) on the terrain surface
+    /// and attaches ResourceNode components for gathering.
     ///
-    /// Trees  = brown cylinders (blockout)
-    /// Rocks  = gray spheres (blockout)
+    /// Trees  = brown cylinders (blockout) → ResourceType.Wood
+    /// Rocks  = gray spheres (blockout) → ResourceType.Stone
     ///
-    /// All objects are positioned using GetSmoothedHeightAtWorldPos so they
-    /// sit correctly on the smooth mesh surface.
-    ///
+    /// Story 3.1: Sammelbare Objekte
     /// Story 0.6: Bestehende Objekte auf Mesh-Oberfläche
-    /// Story 3.1: Sammelbare Objekte (placeholder visuals)
     /// </summary>
     public class ResourceSpawner : MonoBehaviour
     {
@@ -54,13 +53,13 @@ namespace Terranova.Resources
             var parent = new GameObject("Resources");
 
             int treeSpawned = SpawnObjects(world, rng, parent.transform,
-                _treeCount, "Tree", PrimitiveType.Cylinder,
+                _treeCount, "Tree", PrimitiveType.Cylinder, ResourceType.Wood,
                 new Color(0.45f, 0.28f, 0.10f), // Brown
                 new Vector3(_treeRadius * 2f, _treeHeight * 0.5f, _treeRadius * 2f),
                 _treeHeight * 0.5f);
 
             int rockSpawned = SpawnObjects(world, rng, parent.transform,
-                _rockCount, "Rock", PrimitiveType.Sphere,
+                _rockCount, "Rock", PrimitiveType.Sphere, ResourceType.Stone,
                 new Color(0.55f, 0.55f, 0.55f), // Gray
                 new Vector3(_rockRadius * 2f, _rockRadius * 2f, _rockRadius * 2f),
                 _rockRadius);
@@ -70,7 +69,7 @@ namespace Terranova.Resources
 
         private int SpawnObjects(
             WorldManager world, System.Random rng, Transform parent,
-            int count, string namePrefix, PrimitiveType shape,
+            int count, string namePrefix, PrimitiveType shape, ResourceType resourceType,
             Color color, Vector3 scale, float yOffset)
         {
             int maxX = world.WorldBlocksX - _edgeMargin;
@@ -117,10 +116,15 @@ namespace Terranova.Resources
                 if (mat != null)
                     obj.GetComponent<MeshRenderer>().sharedMaterial = mat;
 
-                // Remove collider from resource objects (not needed for QA testing,
-                // prevents interference with terrain raycasting)
+                // Keep collider for NavMesh obstacle avoidance but set to trigger
+                // so it doesn't interfere with terrain raycasting
                 var col = obj.GetComponent<Collider>();
-                if (col != null) Object.Destroy(col);
+                if (col != null)
+                    col.isTrigger = true;
+
+                // Attach ResourceNode component (Story 3.1)
+                var node = obj.AddComponent<ResourceNode>();
+                node.Initialize(resourceType);
 
                 spawned++;
             }

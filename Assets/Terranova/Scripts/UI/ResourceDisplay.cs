@@ -25,6 +25,7 @@ namespace Terranova.UI
         [Header("Starting Resources (MS1 test values)")]
         [SerializeField] private int _wood = 50;
         [SerializeField] private int _stone = 30;
+        [SerializeField] private int _food;
 
         [Header("UI Settings")]
         [Tooltip("Font size for resource text.")]
@@ -89,14 +90,19 @@ namespace Terranova.UI
                 case SettlerTaskType.GatherStone:
                     _stone++;
                     break;
+                case SettlerTaskType.Hunt:
+                    _food++;
+                    break;
             }
             UpdateDisplay();
         }
 
         private void OnBuildingPlaced(BuildingPlacedEvent evt)
         {
-            // Deduct resources (placeholder – actual costs come from BuildingDefinition in MS2)
+            // Deduct resources (placeholder – actual costs come from BuildingDefinition in Feature 4)
             _wood = Mathf.Max(0, _wood - 5);
+            _stone = Mathf.Max(0, _stone);
+            _food = Mathf.Max(0, _food);
             UpdateDisplay();
 
             // Show notification
@@ -113,7 +119,7 @@ namespace Terranova.UI
         private void UpdateDisplay()
         {
             if (_resourceText != null)
-                _resourceText.text = $"Wood: {_wood}    Stone: {_stone}    Settlers: {_settlers}";
+                _resourceText.text = $"Wood: {_wood}    Stone: {_stone}    Food: {_food}    Settlers: {_settlers}";
         }
 
         /// <summary>
