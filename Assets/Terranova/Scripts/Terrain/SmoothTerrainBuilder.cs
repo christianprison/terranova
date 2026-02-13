@@ -79,7 +79,7 @@ namespace Terranova.Terrain
 
             // Step 3: Generate water surface mesh (also subsampled by lodStep)
             var water = new MeshData();
-            BuildWaterSurface(heightGrid, water, lodStep);
+            BuildWaterSurface(chunk, heightGrid, water, lodStep);
 
             // Step 4: Combine into final mesh
             return CombineIntoMesh(terrain, water);
@@ -221,7 +221,8 @@ namespace Terranova.Terrain
             // Subsampled vertex count per side
             int lodVertsPerSide = (ChunkData.WIDTH / lodStep) + 1;
 
-            // Add vertices at subsampled positions
+            // Add vertices at subsampled positions (world-space coordinates to
+            // eliminate floating-point seams at chunk boundaries – see Story 0.2)
             for (int gx = 0; gx < lodVertsPerSide; gx++)
             {
                 for (int gz = 0; gz < lodVertsPerSide; gz++)
@@ -230,7 +231,7 @@ namespace Terranova.Terrain
                     int vx = gx * lodStep;
                     int vz = gz * lodStep;
 
-                    mesh.Vertices.Add(new Vector3(vx, heights[vx, vz], vz));
+                    mesh.Vertices.Add(new Vector3(worldOriginX + vx, heights[vx, vz], worldOriginZ + vz));
                     mesh.Colors.Add(colors[vx, vz]);
                     mesh.UVs.Add(new Vector2(worldOriginX + vx, worldOriginZ + vz));
                     mesh.BlendWeights.Add(blends[vx, vz]);
@@ -266,10 +267,13 @@ namespace Terranova.Terrain
         /// Only creates water quads for cells where at least one vertex
         /// is below the water line.
         /// </summary>
-        private static void BuildWaterSurface(float[,] heights, MeshData mesh, int lodStep = 1)
+        private static void BuildWaterSurface(ChunkData chunk, float[,] heights, MeshData mesh, int lodStep = 1)
         {
             float waterY = SEA_LEVEL + WATER_Y_OFFSET;
             Color waterColor = new Color(0.15f, 0.4f, 0.75f, 0.7f);
+
+            float worldOriginX = chunk.ChunkX * ChunkData.WIDTH;
+            float worldOriginZ = chunk.ChunkZ * ChunkData.DEPTH;
 
             int cellCount = ChunkData.WIDTH / lodStep;
             for (int cx = 0; cx < cellCount; cx++)
@@ -290,11 +294,13 @@ namespace Terranova.Terrain
 
                     int vertStart = mesh.Vertices.Count;
 
-                    // Flat quad at water level (scaled by lodStep)
-                    mesh.Vertices.Add(new Vector3(x, waterY, z));
-                    mesh.Vertices.Add(new Vector3(x, waterY, z + lodStep));
-                    mesh.Vertices.Add(new Vector3(x + lodStep, waterY, z + lodStep));
-                    mesh.Vertices.Add(new Vector3(x + lodStep, waterY, z));
+                    // Flat quad at water level in world-space (eliminates chunk boundary seams)
+                    float wx = worldOriginX + x;
+                    float wz = worldOriginZ + z;
+                    mesh.Vertices.Add(new Vector3(wx, waterY, wz));
+                    mesh.Vertices.Add(new Vector3(wx, waterY, wz + lodStep));
+                    mesh.Vertices.Add(new Vector3(wx + lodStep, waterY, wz + lodStep));
+                    mesh.Vertices.Add(new Vector3(wx + lodStep, waterY, wz));
 
                     mesh.Colors.Add(waterColor);
                     mesh.Colors.Add(waterColor);

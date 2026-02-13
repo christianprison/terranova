@@ -47,12 +47,11 @@ namespace Terranova.Terrain
             // Assign both materials (submesh 0 = solid, submesh 1 = water)
             _meshRenderer.materials = new[] { solidMaterial, waterMaterial };
 
-            // Position the chunk GameObject at its world-space location
-            transform.position = new Vector3(
-                data.ChunkX * ChunkData.WIDTH,
-                0,
-                data.ChunkZ * ChunkData.DEPTH
-            );
+            // Chunks stay at origin – mesh vertices are in world-space coordinates.
+            // This eliminates floating-point seams at chunk boundaries caused by
+            // different model-to-world transforms producing slightly different
+            // clip-space positions for shared boundary vertices (Story 0.2).
+            transform.position = Vector3.zero;
 
             gameObject.name = $"Chunk ({data.ChunkX}, {data.ChunkZ})";
         }
