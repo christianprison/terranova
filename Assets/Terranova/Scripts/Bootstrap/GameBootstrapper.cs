@@ -6,6 +6,7 @@ using Terranova.Buildings;
 using Terranova.Camera;
 using Terranova.UI;
 using Terranova.Population;
+using Terranova.Resources;
 
 namespace Terranova.Core
 {
@@ -35,6 +36,7 @@ namespace Terranova.Core
             EnsureUI();
             EnsureEventSystem();
             EnsureSettlerSpawner();
+            EnsureResourceSpawner();
             EnsureDebugTaskAssigner();
 
             Debug.Log("GameBootstrapper: All systems ready.");
@@ -123,6 +125,16 @@ namespace Terranova.Core
             var go = new GameObject("SettlerSpawner");
             go.AddComponent<SettlerSpawner>();
             Debug.Log("GameBootstrapper: Created SettlerSpawner.");
+        }
+
+        private static void EnsureResourceSpawner()
+        {
+            if (Object.FindFirstObjectByType<ResourceSpawner>() != null)
+                return;
+
+            var go = new GameObject("ResourceSpawner");
+            go.AddComponent<ResourceSpawner>();
+            Debug.Log("GameBootstrapper: Created ResourceSpawner.");
         }
 
         /// <summary>

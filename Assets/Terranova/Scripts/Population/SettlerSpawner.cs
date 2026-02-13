@@ -85,8 +85,9 @@ namespace Terranova.Population
             // Create campfire visual (same style as BuildingPlacer for consistency)
             var campfire = GameObject.CreatePrimitive(PrimitiveType.Cube);
             campfire.name = "Campfire";
-            campfire.transform.position = position;
             campfire.transform.localScale = new Vector3(1f, 1f, 1f);
+            // Offset Y by half cube height so bottom sits on terrain surface
+            campfire.transform.position = new Vector3(position.x, position.y + 0.5f, position.z);
 
             // Apply warm yellow color
             var meshRenderer = campfire.GetComponent<MeshRenderer>();
