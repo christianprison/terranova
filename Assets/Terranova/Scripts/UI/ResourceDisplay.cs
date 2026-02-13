@@ -57,6 +57,9 @@ namespace Terranova.UI
 
             // Listen for population changes
             EventBus.Subscribe<PopulationChangedEvent>(OnPopulationChanged);
+
+            // Listen for resource deliveries from settlers
+            EventBus.Subscribe<ResourceDeliveredEvent>(OnResourceDelivered);
         }
 
         private void Update()
@@ -73,6 +76,20 @@ namespace Terranova.UI
         private void OnPopulationChanged(PopulationChangedEvent evt)
         {
             _settlers = evt.CurrentPopulation;
+            UpdateDisplay();
+        }
+
+        private void OnResourceDelivered(ResourceDeliveredEvent evt)
+        {
+            switch (evt.TaskType)
+            {
+                case SettlerTaskType.GatherWood:
+                    _wood++;
+                    break;
+                case SettlerTaskType.GatherStone:
+                    _stone++;
+                    break;
+            }
             UpdateDisplay();
         }
 
@@ -295,6 +312,7 @@ namespace Terranova.UI
         {
             EventBus.Unsubscribe<BuildingPlacedEvent>(OnBuildingPlaced);
             EventBus.Unsubscribe<PopulationChangedEvent>(OnPopulationChanged);
+            EventBus.Unsubscribe<ResourceDeliveredEvent>(OnResourceDelivered);
 
             // Clean up button listeners to prevent memory leaks
             if (_speedButtons != null)
