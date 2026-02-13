@@ -13,6 +13,12 @@ namespace Terranova.Buildings
     /// </summary>
     public class Building : MonoBehaviour
     {
+        // ─── Construction Constants ─────────────────────────────
+        private const float MIN_CONSTRUCTION_TIME = 5f;
+        private const float COST_TO_TIME_RATIO = 0.5f;
+        private const float CONSTRUCTION_START_HEIGHT = 0.3f;
+        private const float CONSTRUCTION_DIM_FACTOR = 0.4f;
+
         private BuildingDefinition _definition;
         private NavMeshObstacle _obstacle;
 
@@ -84,7 +90,8 @@ namespace Terranova.Buildings
             _obstacle.carvingMoveThreshold = 0.1f;
 
             // Construction time scales with building size (wood + stone cost)
-            _constructionTime = Mathf.Max(5f, (definition.WoodCost + definition.StoneCost) * 0.5f);
+            _constructionTime = Mathf.Max(MIN_CONSTRUCTION_TIME,
+                (definition.WoodCost + definition.StoneCost) * COST_TO_TIME_RATIO);
 
             if (skipConstruction)
             {
@@ -171,14 +178,15 @@ namespace Terranova.Buildings
             {
                 // Construction site: dim color and reduced height
                 Color dimColor = _definition != null
-                    ? _definition.PreviewColor * 0.4f
+                    ? _definition.PreviewColor * CONSTRUCTION_DIM_FACTOR
                     : Color.gray;
                 dimColor.a = 1f;
                 _propBlock.SetColor(ColorID, dimColor);
                 _renderer.SetPropertyBlock(_propBlock);
 
                 // Start at 30% height, grows with progress
-                float heightFraction = 0.3f + 0.7f * _constructionProgress;
+                float heightFraction = CONSTRUCTION_START_HEIGHT
+                    + (1f - CONSTRUCTION_START_HEIGHT) * _constructionProgress;
                 var scale = transform.localScale;
                 scale.y = (_definition != null ? _definition.VisualHeight : 1f) * heightFraction;
                 transform.localScale = scale;

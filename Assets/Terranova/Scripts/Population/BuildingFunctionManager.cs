@@ -109,6 +109,7 @@ namespace Terranova.Population
             Vector3 basePos = campfire.transform.position;
 
             var buildings = FindObjectsByType<Building>(FindObjectsSortMode.None);
+            var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
 
             foreach (var building in buildings)
             {
@@ -119,11 +120,7 @@ namespace Terranova.Population
                 if (type != BuildingType.WoodcutterHut && type != BuildingType.HunterHut)
                     continue;
 
-                // Check if building already has an assigned worker
                 if (building.HasWorker) continue;
-
-                // Find nearest idle settler
-                var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
                 Settler nearest = null;
                 float nearestDist = float.MaxValue;
 

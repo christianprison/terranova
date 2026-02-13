@@ -37,8 +37,10 @@ namespace Terranova.UI
         private void Start()
         {
             CreateToggleButton();
+        }
 
-            // Defer panel creation until registry is ready
+        private void OnEnable()
+        {
             EventBus.Subscribe<ResourceChangedEvent>(OnResourceChanged);
         }
 
@@ -248,8 +250,14 @@ namespace Terranova.UI
             }
         }
 
+        private void OnDisable()
+        {
+            EventBus.Unsubscribe<ResourceChangedEvent>(OnResourceChanged);
+        }
+
         private void OnDestroy()
         {
+            // Safety: ensure cleanup even if OnDisable wasn't called
             EventBus.Unsubscribe<ResourceChangedEvent>(OnResourceChanged);
         }
     }
