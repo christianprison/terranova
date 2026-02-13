@@ -51,10 +51,12 @@ namespace Terranova.Terrain
         }
 
         /// <summary>
-        /// Rebuild the mesh from current chunk data.
+        /// Rebuild the mesh from current chunk data using the smooth terrain builder.
         /// Call this after terrain generation or any block modification.
         /// </summary>
-        public void RebuildMesh(ChunkMeshBuilder.NeighborLookup neighborLookup = null)
+        public void RebuildMesh(
+            SmoothTerrainBuilder.HeightLookup heightLookup = null,
+            SmoothTerrainBuilder.SurfaceLookup surfaceLookup = null)
         {
             if (Data == null)
             {
@@ -63,16 +65,14 @@ namespace Terranova.Terrain
             }
 
             // Destroy the old mesh to prevent memory leaks
-            // (important once terraforming allows runtime mesh rebuilds)
             if (_meshFilter.sharedMesh != null)
                 Destroy(_meshFilter.sharedMesh);
 
-            // Build mesh from voxel data
-            Mesh mesh = ChunkMeshBuilder.Build(Data, neighborLookup);
+            // Build smooth terrain mesh from voxel data
+            Mesh mesh = SmoothTerrainBuilder.Build(Data, heightLookup, surfaceLookup);
             _meshFilter.sharedMesh = mesh;
 
-            // Update collider for raycasting (building placement, camera ground detection).
-            // We only use the solid submesh (index 0) for collision.
+            // Update collider for raycasting (building placement, camera ground detection)
             _meshCollider.sharedMesh = null; // Clear first to force update
             _meshCollider.sharedMesh = mesh;
         }
