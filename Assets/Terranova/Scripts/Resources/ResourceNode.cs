@@ -4,11 +4,10 @@ using Terranova.Core;
 namespace Terranova.Resources
 {
     /// <summary>
-    /// A gatherable resource in the world (tree, rock, or berry bush).
+    /// A gatherable resource in the world (twig, stone, or berry bush).
     ///
-    /// Settlers reserve a node, gather from it (one gather per work cycle),
-    /// and the node scales down with each gather until depleted.
-    /// After depletion the visual disappears and a respawn timer starts.
+    /// Epoch I.1: Settlers pick up the resource in one action.
+    /// The node disappears immediately and respawns after a timer.
     ///
     /// Story 3.1: Sammelbare Objekte
     /// Story 3.2: Sammel-Interaktion (depletion)
@@ -22,9 +21,10 @@ namespace Terranova.Resources
         private const float RESPAWN_TIME_STONE = 90f;
         private const float RESPAWN_TIME_FOOD = 45f;
 
-        private const int DEFAULT_GATHERS_WOOD = 3;
-        private const int DEFAULT_GATHERS_STONE = 3;
-        private const int DEFAULT_GATHERS_FOOD = 2;
+        // Epoch I.1: Each resource is picked up in a single action
+        private const int DEFAULT_GATHERS_WOOD = 1;
+        private const int DEFAULT_GATHERS_STONE = 1;
+        private const int DEFAULT_GATHERS_FOOD = 1;
 
         // ─── State ─────────────────────────────────────────────
 
@@ -81,28 +81,17 @@ namespace Terranova.Resources
         }
 
         /// <summary>
-        /// Called when a settler finishes one gather cycle at this node.
-        /// Decrements remaining gathers, scales down the visual, and
-        /// depletes the resource if no gathers remain.
+        /// Called when a settler picks up this resource.
+        /// Epoch I.1: Disappears immediately (single pickup).
         /// </summary>
         public void CompleteGathering()
         {
             IsReserved = false;
             RemainingGathers--;
 
-            Debug.Log($"[ResourceNode] {Type} gathered at ({transform.position.x:F0}, {transform.position.z:F0})" +
-                      $" - {RemainingGathers}/{MaxGathers} remaining");
+            Debug.Log($"[ResourceNode] {Type} picked up at ({transform.position.x:F0}, {transform.position.z:F0})");
 
-            if (IsDepleted)
-            {
-                Deplete();
-            }
-            else
-            {
-                // Scale down aggressively so the change is clearly visible
-                float t = (float)RemainingGathers / MaxGathers;
-                transform.localScale = _originalScale * Mathf.Lerp(0.2f, 1f, t);
-            }
+            Deplete();
         }
 
         // ─── Depletion & Respawn ───────────────────────────────
