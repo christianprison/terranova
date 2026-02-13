@@ -110,11 +110,15 @@ namespace Terranova.Population
         public bool AssignTask(SettlerTask task)
         {
             if (_currentTask != null)
+            {
+                Debug.Log($"[{name}] REJECTED task {task.TaskType} - already has {_currentTask.TaskType}");
                 return false;
+            }
 
             _currentTask = task;
             _state = SettlerState.WalkingToTarget;
             _walkTarget = task.TargetPosition;
+            Debug.Log($"[{name}] ASSIGNED {task.TaskType} - walking to target");
             return true;
         }
 
@@ -124,9 +128,11 @@ namespace Terranova.Population
         /// </summary>
         public void ClearTask()
         {
+            var wasTask = _currentTask?.TaskType;
             _currentTask = null;
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
+            Debug.Log($"[{name}] Task ended ({wasTask}) - returning to IDLE");
         }
 
         // ─── Update Loop ─────────────────────────────────────────
@@ -195,9 +201,9 @@ namespace Terranova.Population
 
             if (MoveToward(_currentTask.TargetPosition, TASK_WALK_SPEED))
             {
-                // Arrived at work target - start working
                 _state = SettlerState.Working;
                 _stateTimer = _currentTask.WorkDuration;
+                Debug.Log($"[{name}] Arrived at target - WORKING ({_currentTask.TaskType}, {_stateTimer:F1}s)");
             }
         }
 
@@ -211,9 +217,9 @@ namespace Terranova.Population
             if (_stateTimer > 0f)
                 return;
 
-            // Work complete - head back to base
             _state = SettlerState.ReturningToBase;
             _walkTarget = _currentTask.BasePosition;
+            Debug.Log($"[{name}] Work done - RETURNING to base");
         }
 
         /// <summary>
@@ -223,9 +229,9 @@ namespace Terranova.Population
         {
             if (MoveToward(_currentTask.BasePosition, TASK_WALK_SPEED))
             {
-                // Arrived at base - deliver resources
                 _state = SettlerState.Delivering;
-                _stateTimer = 0.5f; // Brief delivery pause
+                _stateTimer = 0.5f;
+                Debug.Log($"[{name}] Arrived at base - DELIVERING {_currentTask.TaskType}");
             }
         }
 
@@ -249,14 +255,15 @@ namespace Terranova.Population
                 });
             }
 
-            // Repeat cycle if target is still valid, otherwise go idle
             if (_currentTask != null && _currentTask.IsTargetValid)
             {
                 _state = SettlerState.WalkingToTarget;
                 _walkTarget = _currentTask.TargetPosition;
+                Debug.Log($"[{name}] Delivery complete - REPEATING cycle ({_currentTask.TaskType})");
             }
             else
             {
+                Debug.Log($"[{name}] Target no longer valid - going idle");
                 ClearTask();
             }
         }

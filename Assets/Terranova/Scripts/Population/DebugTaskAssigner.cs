@@ -8,9 +8,11 @@ namespace Terranova.Population
     /// <summary>
     /// DEBUG ONLY - Remove when building-driven task assignment exists (Story 4.4).
     ///
-    /// Press T to assign a random gather task to the next idle settler.
-    /// Logs to console which settler got which task.
-    /// Add this component to the same GameObject as SettlerSpawner.
+    /// Hotkeys:
+    ///   T = Assign a task to the next idle settler
+    ///   U = Invalidate the target of a busy settler (tests "target gone" behavior)
+    ///
+    /// All actions log to Console.
     /// </summary>
     public class DebugTaskAssigner : MonoBehaviour
     {
@@ -36,6 +38,9 @@ namespace Terranova.Population
 
             if (kb.tKey.wasPressedThisFrame)
                 AssignTaskToNextIdleSettler();
+
+            if (kb.uKey.wasPressedThisFrame)
+                InvalidateFirstBusySettlerTarget();
         }
 
         private void AssignTaskToNextIdleSettler()
@@ -96,6 +101,27 @@ namespace Terranova.Population
 
             Debug.Log($"[DebugTaskAssigner] Assigned {taskType} to {idleSettler.name} " +
                       $"(target: {target.x:F0},{target.z:F0})");
+        }
+
+        /// <summary>
+        /// Invalidate the target of the first busy settler.
+        /// Tests acceptance criterion: "Siedler sucht sich neues Ziel wenn altes nicht mehr existiert"
+        /// </summary>
+        private void InvalidateFirstBusySettlerTarget()
+        {
+            var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
+            foreach (var settler in settlers)
+            {
+                if (settler.HasTask)
+                {
+                    settler.CurrentTask.IsTargetValid = false;
+                    Debug.Log($"[DebugTaskAssigner] INVALIDATED target for {settler.name} " +
+                              $"({settler.CurrentTask.TaskType}) - settler should go idle");
+                    return;
+                }
+            }
+
+            Debug.Log("[DebugTaskAssigner] No busy settlers to invalidate.");
         }
 
         private Vector3 FindValidTargetPosition(WorldManager world, Vector3 center)
