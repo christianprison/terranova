@@ -138,7 +138,11 @@ namespace Terranova.Population
                 int height = world.GetHeightAtWorldPos(blockX, blockZ);
 
                 if (height >= 0 && world.GetSurfaceTypeAtWorldPos(blockX, blockZ).IsSolid())
-                    return new Vector3(x, height + 1f, z);
+                {
+                    // Use smooth mesh height for visual positioning (Story 0.6)
+                    float smoothY = world.GetSmoothedHeightAtWorldPos(x, z);
+                    return new Vector3(x, smoothY, z);
+                }
             }
 
             return Vector3.zero;

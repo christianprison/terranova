@@ -88,8 +88,8 @@ namespace Terranova.Camera
                 {
                     float centerX = world.WorldBlocksX * 0.5f;
                     float centerZ = world.WorldBlocksZ * 0.5f;
-                    int surfaceY = world.GetHeightAtWorldPos((int)centerX, (int)centerZ);
-                    if (surfaceY >= 0)
+                    float surfaceY = world.GetSmoothedHeightAtWorldPos(centerX, centerZ);
+                    if (surfaceY > 0)
                     {
                         _pivotPosition = new Vector3(centerX, surfaceY, centerZ);
                         _initialized = true;
@@ -235,15 +235,11 @@ namespace Terranova.Camera
             _pivotPosition.x = Mathf.Clamp(_pivotPosition.x, -padding, world.WorldBlocksX + padding);
             _pivotPosition.z = Mathf.Clamp(_pivotPosition.z, -padding, world.WorldBlocksZ + padding);
 
-            // Follow terrain height so the camera stays grounded when panning
-            int terrainHeight = world.GetHeightAtWorldPos(
-                Mathf.FloorToInt(_pivotPosition.x),
-                Mathf.FloorToInt(_pivotPosition.z));
-            if (terrainHeight >= 0)
-            {
-                _pivotPosition.y = Mathf.Lerp(_pivotPosition.y, terrainHeight,
-                    Time.deltaTime * _zoomSmoothing);
-            }
+            // Follow smooth terrain height so the camera stays grounded when panning (Story 0.6)
+            float terrainHeight = world.GetSmoothedHeightAtWorldPos(
+                _pivotPosition.x, _pivotPosition.z);
+            _pivotPosition.y = Mathf.Lerp(_pivotPosition.y, terrainHeight,
+                Time.deltaTime * _zoomSmoothing);
         }
 
         /// <summary>

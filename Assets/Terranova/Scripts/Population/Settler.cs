@@ -393,21 +393,11 @@ namespace Terranova.Population
 
             Vector3 newPos = pos + step;
 
-            // Snap Y to terrain (safety net – pathfinder already avoids bad cells)
+            // Snap Y to smooth mesh surface (Story 0.6: objects on mesh surface)
             var world = WorldManager.Instance;
             if (world != null)
             {
-                int blockX = Mathf.FloorToInt(newPos.x);
-                int blockZ = Mathf.FloorToInt(newPos.z);
-                int height = world.GetHeightAtWorldPos(blockX, blockZ);
-
-                if (height < 0)
-                {
-                    // Out of world – skip this waypoint
-                    return true;
-                }
-
-                newPos.y = height + 1f;
+                newPos.y = world.GetSmoothedHeightAtWorldPos(newPos.x, newPos.z);
             }
 
             transform.position = newPos;
@@ -475,25 +465,19 @@ namespace Terranova.Population
             meshRenderer.SetPropertyBlock(_propBlock);
         }
 
+        /// <summary>
+        /// Snap settler Y position to the smooth mesh surface.
+        /// Story 0.6: Bestehende Objekte auf Mesh-Oberfläche
+        /// </summary>
         private void SnapToTerrain()
         {
             var world = WorldManager.Instance;
             if (world == null)
                 return;
 
-            int blockX = Mathf.FloorToInt(transform.position.x);
-            int blockZ = Mathf.FloorToInt(transform.position.z);
-            int height = world.GetHeightAtWorldPos(blockX, blockZ);
-
-            if (height < 0)
-            {
-                Debug.LogWarning($"Settler at ({blockX}, {blockZ}): no terrain found!");
-                return;
-            }
-
             transform.position = new Vector3(
                 transform.position.x,
-                height + 1f,
+                world.GetSmoothedHeightAtWorldPos(transform.position.x, transform.position.z),
                 transform.position.z
             );
         }

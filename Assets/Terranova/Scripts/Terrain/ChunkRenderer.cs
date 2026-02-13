@@ -26,6 +26,13 @@ namespace Terranova.Terrain
         public ChunkData Data { get; private set; }
 
         /// <summary>
+        /// Current LOD level. 0 = full detail, 1 = medium, 2 = low.
+        /// Used by WorldManager to track when a rebuild is needed.
+        /// Story 0.4: Performance und LOD
+        /// </summary>
+        public int CurrentLod { get; private set; }
+
+        /// <summary>
         /// Initialize this renderer with chunk data and materials.
         /// Called by WorldManager when creating a new chunk.
         /// </summary>
@@ -56,7 +63,8 @@ namespace Terranova.Terrain
         /// </summary>
         public void RebuildMesh(
             SmoothTerrainBuilder.HeightLookup heightLookup = null,
-            SmoothTerrainBuilder.SurfaceLookup surfaceLookup = null)
+            SmoothTerrainBuilder.SurfaceLookup surfaceLookup = null,
+            int lodLevel = 0)
         {
             if (Data == null)
             {
@@ -64,12 +72,16 @@ namespace Terranova.Terrain
                 return;
             }
 
+            // Convert LOD level (0,1,2) to step size (1,2,4)
+            int lodStep = 1 << lodLevel; // 0→1, 1→2, 2→4
+            CurrentLod = lodLevel;
+
             // Destroy the old mesh to prevent memory leaks
             if (_meshFilter.sharedMesh != null)
                 Destroy(_meshFilter.sharedMesh);
 
-            // Build smooth terrain mesh from voxel data
-            Mesh mesh = SmoothTerrainBuilder.Build(Data, heightLookup, surfaceLookup);
+            // Build smooth terrain mesh from voxel data at the requested LOD
+            Mesh mesh = SmoothTerrainBuilder.Build(Data, heightLookup, surfaceLookup, lodStep);
             _meshFilter.sharedMesh = mesh;
 
             // Update collider for raycasting (building placement, camera ground detection)

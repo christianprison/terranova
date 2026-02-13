@@ -190,8 +190,8 @@ namespace Terranova.Buildings
                 // Check placement validity
                 _isValidPosition = IsValidPlacement(surface, height);
 
-                // Position the preview on top of the terrain
-                float previewY = height + 1; // Sit on top of the surface block
+                // Position the preview on the smooth mesh surface (Story 0.6)
+                float previewY = world.GetSmoothedHeightAtWorldPos(blockX + 0.5f, blockZ + 0.5f);
                 _preview.transform.position = new Vector3(
                     blockX + 0.5f,  // Center on block
                     previewY,

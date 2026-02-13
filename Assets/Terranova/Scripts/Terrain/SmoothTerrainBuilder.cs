@@ -50,26 +50,36 @@ namespace Terranova.Terrain
         /// <summary>
         /// Build a smooth terrain mesh for the given chunk.
         /// Returns a Mesh with 2 submeshes: [0] terrain (opaque), [1] water (transparent).
+        ///
+        /// lodStep controls mesh resolution for LOD:
+        ///   1 = full detail (17×17 = 289 verts, 512 tris)
+        ///   2 = medium (9×9 = 81 verts, 128 tris)
+        ///   4 = low (5×5 = 25 verts, 32 tris)
+        ///
+        /// Story 0.4: Performance und LOD
         /// </summary>
         public static Mesh Build(ChunkData chunk,
             HeightLookup getHeight = null,
-            SurfaceLookup getSurface = null)
+            SurfaceLookup getSurface = null,
+            int lodStep = 1)
         {
-            // Step 1: Build vertex data grids (heights, colors, blend weights)
+            lodStep = Mathf.Clamp(lodStep, 1, 4);
+
+            // Step 1: Build full vertex data grids (always 17×17 for consistency)
             var heightGrid = new float[VERTS_PER_SIDE, VERTS_PER_SIDE];
             var colorGrid = new Color[VERTS_PER_SIDE, VERTS_PER_SIDE];
             var blendGrid = new Vector4[VERTS_PER_SIDE, VERTS_PER_SIDE];
 
             FillVertexGrids(chunk, getHeight, getSurface, heightGrid, colorGrid, blendGrid);
 
-            // Step 2: Generate terrain surface mesh with custom normals
+            // Step 2: Generate terrain surface mesh (subsampled by lodStep)
             var terrain = new MeshData();
-            BuildTerrainSurface(chunk, heightGrid, colorGrid, blendGrid, terrain);
-            ComputeTerrainNormals(heightGrid, chunk, getHeight, terrain);
+            BuildTerrainSurface(chunk, heightGrid, colorGrid, blendGrid, terrain, lodStep);
+            ComputeTerrainNormals(heightGrid, chunk, getHeight, terrain, lodStep);
 
-            // Step 3: Generate water surface mesh (flat normals pointing up)
+            // Step 3: Generate water surface mesh (also subsampled by lodStep)
             var water = new MeshData();
-            BuildWaterSurface(heightGrid, water);
+            BuildWaterSurface(heightGrid, water, lodStep);
 
             // Step 4: Combine into final mesh
             return CombineIntoMesh(terrain, water);
@@ -194,53 +204,54 @@ namespace Terranova.Terrain
 
         /// <summary>
         /// Generate the terrain surface mesh: a smooth triangulated grid.
-        /// 16×16 cells × 2 triangles = 512 triangles per chunk.
+        /// At lodStep=1: 16×16 cells × 2 tris = 512 triangles.
+        /// At lodStep=2: 8×8 cells × 2 tris = 128 triangles.
+        /// At lodStep=4: 4×4 cells × 2 tris = 32 triangles.
         ///
-        /// Per vertex: position, color (weighted blend), UV0 (world-space XZ for
-        /// texture sampling), UV1 (blend weights: x=grass, y=dirt, z=stone, w=sand).
+        /// Per vertex: position, color, UV0 (world-space XZ), UV1 (blend weights).
         /// </summary>
         private static void BuildTerrainSurface(
             ChunkData chunk,
             float[,] heights, Color[,] colors, Vector4[,] blends,
-            MeshData mesh)
+            MeshData mesh, int lodStep = 1)
         {
-            // World-space origin for UV computation (seamless across chunk boundaries)
             float worldOriginX = chunk.ChunkX * ChunkData.WIDTH;
             float worldOriginZ = chunk.ChunkZ * ChunkData.DEPTH;
 
-            // Add all vertices with UVs and blend weights
-            for (int vx = 0; vx < VERTS_PER_SIDE; vx++)
+            // Subsampled vertex count per side
+            int lodVertsPerSide = (ChunkData.WIDTH / lodStep) + 1;
+
+            // Add vertices at subsampled positions
+            for (int gx = 0; gx < lodVertsPerSide; gx++)
             {
-                for (int vz = 0; vz < VERTS_PER_SIDE; vz++)
+                for (int gz = 0; gz < lodVertsPerSide; gz++)
                 {
+                    // Map LOD grid position back to full-resolution grid position
+                    int vx = gx * lodStep;
+                    int vz = gz * lodStep;
+
                     mesh.Vertices.Add(new Vector3(vx, heights[vx, vz], vz));
                     mesh.Colors.Add(colors[vx, vz]);
-
-                    // UV0: world-space XZ for seamless texture tiling across chunks
                     mesh.UVs.Add(new Vector2(worldOriginX + vx, worldOriginZ + vz));
-
-                    // UV1: terrain type blend weights for texture splatting
                     mesh.BlendWeights.Add(blends[vx, vz]);
                 }
             }
 
             // Add triangles for each cell (2 per cell)
-            for (int x = 0; x < ChunkData.WIDTH; x++)
+            int cellCount = lodVertsPerSide - 1;
+            for (int x = 0; x < cellCount; x++)
             {
-                for (int z = 0; z < ChunkData.DEPTH; z++)
+                for (int z = 0; z < cellCount; z++)
                 {
-                    // Vertex indices for this cell's 4 corners
-                    int v00 = x * VERTS_PER_SIDE + z;           // (x,   z)
-                    int v01 = x * VERTS_PER_SIDE + (z + 1);     // (x,   z+1)
-                    int v10 = (x + 1) * VERTS_PER_SIDE + z;     // (x+1, z)
-                    int v11 = (x + 1) * VERTS_PER_SIDE + (z + 1); // (x+1, z+1)
+                    int v00 = x * lodVertsPerSide + z;
+                    int v01 = x * lodVertsPerSide + (z + 1);
+                    int v10 = (x + 1) * lodVertsPerSide + z;
+                    int v11 = (x + 1) * lodVertsPerSide + (z + 1);
 
-                    // Triangle 1: bottom-left triangle
                     mesh.Triangles.Add(v00);
                     mesh.Triangles.Add(v01);
                     mesh.Triangles.Add(v11);
 
-                    // Triangle 2: top-right triangle
                     mesh.Triangles.Add(v00);
                     mesh.Triangles.Add(v11);
                     mesh.Triangles.Add(v10);
@@ -255,31 +266,35 @@ namespace Terranova.Terrain
         /// Only creates water quads for cells where at least one vertex
         /// is below the water line.
         /// </summary>
-        private static void BuildWaterSurface(float[,] heights, MeshData mesh)
+        private static void BuildWaterSurface(float[,] heights, MeshData mesh, int lodStep = 1)
         {
             float waterY = SEA_LEVEL + WATER_Y_OFFSET;
             Color waterColor = new Color(0.15f, 0.4f, 0.75f, 0.7f);
 
-            for (int x = 0; x < ChunkData.WIDTH; x++)
+            int cellCount = ChunkData.WIDTH / lodStep;
+            for (int cx = 0; cx < cellCount; cx++)
             {
-                for (int z = 0; z < ChunkData.DEPTH; z++)
+                for (int cz = 0; cz < cellCount; cz++)
                 {
+                    int x = cx * lodStep;
+                    int z = cz * lodStep;
+
                     // Check if any vertex of this cell is below water
                     bool hasWater = heights[x, z] < waterY
-                                 || heights[x + 1, z] < waterY
-                                 || heights[x, z + 1] < waterY
-                                 || heights[x + 1, z + 1] < waterY;
+                                 || heights[x + lodStep, z] < waterY
+                                 || heights[x, z + lodStep] < waterY
+                                 || heights[x + lodStep, z + lodStep] < waterY;
 
                     if (!hasWater)
                         continue;
 
                     int vertStart = mesh.Vertices.Count;
 
-                    // Flat quad at water level
+                    // Flat quad at water level (scaled by lodStep)
                     mesh.Vertices.Add(new Vector3(x, waterY, z));
-                    mesh.Vertices.Add(new Vector3(x, waterY, z + 1));
-                    mesh.Vertices.Add(new Vector3(x + 1, waterY, z + 1));
-                    mesh.Vertices.Add(new Vector3(x + 1, waterY, z));
+                    mesh.Vertices.Add(new Vector3(x, waterY, z + lodStep));
+                    mesh.Vertices.Add(new Vector3(x + lodStep, waterY, z + lodStep));
+                    mesh.Vertices.Add(new Vector3(x + lodStep, waterY, z));
 
                     mesh.Colors.Add(waterColor);
                     mesh.Colors.Add(waterColor);
@@ -321,22 +336,27 @@ namespace Terranova.Terrain
             float[,] heightGrid,
             ChunkData chunk,
             HeightLookup getHeight,
-            MeshData terrain)
+            MeshData terrain,
+            int lodStep = 1)
         {
-            for (int vx = 0; vx < VERTS_PER_SIDE; vx++)
-            {
-                for (int vz = 0; vz < VERTS_PER_SIDE; vz++)
-                {
-                    // Central differences: sample heights one step in each direction
-                    float hLeft  = GetHeightForNormal(vx - 1, vz, heightGrid, chunk, getHeight);
-                    float hRight = GetHeightForNormal(vx + 1, vz, heightGrid, chunk, getHeight);
-                    float hDown  = GetHeightForNormal(vx, vz - 1, heightGrid, chunk, getHeight);
-                    float hUp    = GetHeightForNormal(vx, vz + 1, heightGrid, chunk, getHeight);
+            int lodVertsPerSide = (ChunkData.WIDTH / lodStep) + 1;
 
-                    // Heightmap normal: cross product of tangent vectors along X and Z
-                    // Tangent X = (2, hRight - hLeft, 0), Tangent Z = (0, hUp - hDown, 2)
-                    // Normal = cross(tangentZ, tangentX) = (hLeft - hRight, 2, hDown - hUp)
-                    Vector3 normal = new Vector3(hLeft - hRight, 2f, hDown - hUp).normalized;
+            for (int gx = 0; gx < lodVertsPerSide; gx++)
+            {
+                for (int gz = 0; gz < lodVertsPerSide; gz++)
+                {
+                    int vx = gx * lodStep;
+                    int vz = gz * lodStep;
+
+                    // Central differences at lodStep spacing for consistent normals
+                    float hLeft  = GetHeightForNormal(vx - lodStep, vz, heightGrid, chunk, getHeight);
+                    float hRight = GetHeightForNormal(vx + lodStep, vz, heightGrid, chunk, getHeight);
+                    float hDown  = GetHeightForNormal(vx, vz - lodStep, heightGrid, chunk, getHeight);
+                    float hUp    = GetHeightForNormal(vx, vz + lodStep, heightGrid, chunk, getHeight);
+
+                    // Scale the Y component by lodStep so normals are correct for cell size
+                    float scale = 2f * lodStep;
+                    Vector3 normal = new Vector3(hLeft - hRight, scale, hDown - hUp).normalized;
                     terrain.Normals.Add(normal);
                 }
             }

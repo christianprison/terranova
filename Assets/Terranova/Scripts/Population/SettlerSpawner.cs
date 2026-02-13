@@ -78,7 +78,8 @@ namespace Terranova.Population
                 FindNearestSolidGround(world, ref centerX, ref centerZ, ref height);
             }
 
-            float y = height + 1f;
+            // Use smooth mesh height for visual positioning (Story 0.6)
+            float y = world.GetSmoothedHeightAtWorldPos(centerX + 0.5f, centerZ + 0.5f);
             Vector3 position = new Vector3(centerX + 0.5f, y, centerZ + 0.5f);
 
             // Create campfire visual (same style as BuildingPlacer for consistency)

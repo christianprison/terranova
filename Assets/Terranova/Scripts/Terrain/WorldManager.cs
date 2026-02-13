@@ -69,6 +69,12 @@ namespace Terranova.Terrain
             Instance = this;
         }
 
+        [Header("LOD")]
+        [Tooltip("Distance in chunks for LOD 1 (medium detail). Chunks closer use LOD 0.")]
+        [SerializeField] private int _lod1Distance = 4;
+        [Tooltip("Distance in chunks for LOD 2 (low detail). Chunks closer use LOD 1.")]
+        [SerializeField] private int _lod2Distance = 8;
+
         private void Start()
         {
             EnsureMaterials();
@@ -80,6 +86,9 @@ namespace Terranova.Terrain
             }
 
             GenerateWorld();
+
+            // Periodically update LOD based on camera position (every 0.5s)
+            InvokeRepeating(nameof(UpdateChunkLODs), 1f, 0.5f);
         }
 
         /// <summary>
@@ -126,6 +135,49 @@ namespace Terranova.Terrain
             renderer.Initialize(data, _solidMaterial, _waterMaterial);
 
             _chunks[new Vector2Int(chunkX, chunkZ)] = renderer;
+        }
+
+        /// <summary>
+        /// Update LOD levels for all chunks based on camera distance.
+        /// Called periodically via InvokeRepeating.
+        /// Only rebuilds meshes for chunks whose LOD level changed.
+        ///
+        /// Story 0.4: Performance und LOD
+        /// </summary>
+        private void UpdateChunkLODs()
+        {
+            var cam = Camera.main;
+            if (cam == null)
+                return;
+
+            Vector3 camPos = cam.transform.position;
+
+            foreach (var kvp in _chunks)
+            {
+                var chunk = kvp.Value;
+
+                // Calculate distance from camera to chunk center (in chunk units)
+                float chunkCenterX = (kvp.Key.x + 0.5f) * ChunkData.WIDTH;
+                float chunkCenterZ = (kvp.Key.y + 0.5f) * ChunkData.DEPTH;
+                float dx = camPos.x - chunkCenterX;
+                float dz = camPos.z - chunkCenterZ;
+                float distInChunks = Mathf.Sqrt(dx * dx + dz * dz) / ChunkData.WIDTH;
+
+                // Determine desired LOD level
+                int desiredLod;
+                if (distInChunks < _lod1Distance)
+                    desiredLod = 0;
+                else if (distInChunks < _lod2Distance)
+                    desiredLod = 1;
+                else
+                    desiredLod = 2;
+
+                // Only rebuild if LOD changed
+                if (chunk.CurrentLod != desiredLod)
+                {
+                    chunk.RebuildMesh(GetHeightAtWorldPos, GetSurfaceTypeAtWorldPos, desiredLod);
+                }
+            }
         }
 
         /// <summary>
@@ -189,6 +241,110 @@ namespace Terranova.Terrain
             int localZ = worldZ - chunkZ * ChunkData.DEPTH;
 
             return chunk.Data.GetSurfaceType(localX, localZ);
+        }
+
+        /// <summary>
+        /// Get the interpolated smooth mesh height at a world position.
+        /// Uses the same 4-column averaging as SmoothTerrainBuilder for consistency.
+        /// This is the visual surface height – use for positioning objects on the
+        /// smooth terrain mesh (settlers, buildings, etc.).
+        ///
+        /// Story 0.6: Bestehende Objekte auf Mesh-Oberfläche
+        /// </summary>
+        public float GetSmoothedHeightAtWorldPos(float worldX, float worldZ)
+        {
+            // Determine which vertex "cell" this position falls in (same grid as mesh builder)
+            // The vertex at (vx, vz) is the average of 4 surrounding columns.
+            // We bilinearly interpolate between the 4 nearest vertices.
+            float fx = worldX;  // Already in world space
+            float fz = worldZ;
+
+            // Floor to get the cell (integer vertex positions in world space)
+            int x0 = Mathf.FloorToInt(fx);
+            int z0 = Mathf.FloorToInt(fz);
+            int x1 = x0 + 1;
+            int z1 = z0 + 1;
+
+            // Fractional position within cell for bilinear interpolation
+            float tx = fx - x0;
+            float tz = fz - z0;
+
+            // Get averaged heights at the 4 cell corners
+            float h00 = GetAveragedVertexHeight(x0, z0);
+            float h10 = GetAveragedVertexHeight(x1, z0);
+            float h01 = GetAveragedVertexHeight(x0, z1);
+            float h11 = GetAveragedVertexHeight(x1, z1);
+
+            // Bilinear interpolation
+            float h0 = Mathf.Lerp(h00, h10, tx);
+            float h1 = Mathf.Lerp(h01, h11, tx);
+            return Mathf.Lerp(h0, h1, tz);
+        }
+
+        /// <summary>
+        /// Get the averaged vertex height at a world-space vertex position.
+        /// Replicates SmoothTerrainBuilder's 4-column averaging logic.
+        /// </summary>
+        private float GetAveragedVertexHeight(int worldVx, int worldVz)
+        {
+            float totalHeight = 0f;
+            int count = 0;
+
+            for (int dx = -1; dx <= 0; dx++)
+            {
+                for (int dz = -1; dz <= 0; dz++)
+                {
+                    int h = GetHeightAtWorldPos(worldVx + dx, worldVz + dz);
+                    if (h >= 0)
+                    {
+                        totalHeight += h;
+                        count++;
+                    }
+                }
+            }
+
+            return count > 0 ? (totalHeight / count) + 1f : TerrainGenerator.SEA_LEVEL + 1f;
+        }
+
+        /// <summary>
+        /// Modify a block at a world position and rebuild the affected chunk mesh.
+        /// Also rebuilds neighbor chunks if the modification is at a boundary.
+        ///
+        /// Story 0.5: Terrain-Modifikation aktualisiert Mesh
+        /// </summary>
+        public void ModifyBlock(int worldX, int worldY, int worldZ, VoxelType newType)
+        {
+            int chunkX = Mathf.FloorToInt((float)worldX / ChunkData.WIDTH);
+            int chunkZ = Mathf.FloorToInt((float)worldZ / ChunkData.DEPTH);
+            var key = new Vector2Int(chunkX, chunkZ);
+
+            if (!_chunks.TryGetValue(key, out var chunk))
+                return;
+
+            int localX = worldX - chunkX * ChunkData.WIDTH;
+            int localZ = worldZ - chunkZ * ChunkData.DEPTH;
+
+            chunk.Data.SetBlock(localX, worldY, localZ, newType);
+            chunk.RebuildMesh(GetHeightAtWorldPos, GetSurfaceTypeAtWorldPos, chunk.CurrentLod);
+
+            // Rebuild neighbors if modification is at a chunk boundary (within 1 block of edge).
+            // The smooth mesh averaging samples from neighboring chunks at boundaries.
+            if (localX <= 0) RebuildNeighbor(chunkX - 1, chunkZ);
+            if (localX >= ChunkData.WIDTH - 1) RebuildNeighbor(chunkX + 1, chunkZ);
+            if (localZ <= 0) RebuildNeighbor(chunkX, chunkZ - 1);
+            if (localZ >= ChunkData.DEPTH - 1) RebuildNeighbor(chunkX, chunkZ + 1);
+        }
+
+        /// <summary>
+        /// Rebuild a neighbor chunk's mesh if it exists.
+        /// </summary>
+        private void RebuildNeighbor(int chunkX, int chunkZ)
+        {
+            var key = new Vector2Int(chunkX, chunkZ);
+            if (_chunks.TryGetValue(key, out var neighbor))
+            {
+                neighbor.RebuildMesh(GetHeightAtWorldPos, GetSurfaceTypeAtWorldPos, neighbor.CurrentLod);
+            }
         }
 
         /// <summary>
