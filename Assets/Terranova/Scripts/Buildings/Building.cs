@@ -40,6 +40,11 @@ namespace Terranova.Buildings
         /// <summary>Construction progress from 0 to 1.</summary>
         public float ConstructionProgress => _constructionProgress;
 
+        // ─── Worker Tracking (Story 4.4) ─────────────────────────
+
+        /// <summary>Whether this building currently has an assigned worker.</summary>
+        public bool HasWorker { get; set; }
+
         /// <summary>
         /// World-space position of the building entrance.
         /// Settlers navigate here instead of the building center.

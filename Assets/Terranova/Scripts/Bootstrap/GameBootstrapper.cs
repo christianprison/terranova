@@ -41,6 +41,7 @@ namespace Terranova.Core
             EnsureResourceSpawner();
             EnsureResourceTaskAssigner();
             EnsureConstructionTaskAssigner();
+            EnsureBuildingFunctionManager();
             EnsureDebugTerrainModifier();
             EnsureDebugTaskAssigner();
 
@@ -212,6 +213,20 @@ namespace Terranova.Core
             var go = new GameObject("ConstructionTaskAssigner");
             go.AddComponent<ConstructionTaskAssigner>();
             Debug.Log("GameBootstrapper: Created ConstructionTaskAssigner.");
+        }
+
+        /// <summary>
+        /// Manages building functions (worker assignment, housing capacity).
+        /// Story 4.4: Gebäude-Funktion
+        /// </summary>
+        private static void EnsureBuildingFunctionManager()
+        {
+            if (Object.FindFirstObjectByType<BuildingFunctionManager>() != null)
+                return;
+
+            var go = new GameObject("BuildingFunctionManager");
+            go.AddComponent<BuildingFunctionManager>();
+            Debug.Log("GameBootstrapper: Created BuildingFunctionManager.");
         }
 
         /// <summary>
