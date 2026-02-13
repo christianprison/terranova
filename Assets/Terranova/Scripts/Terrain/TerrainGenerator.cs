@@ -125,8 +125,19 @@ namespace Terranova.Terrain
                 }
                 else if (y == surfaceHeight)
                 {
-                    // Surface block: sand near water edges, grass on higher ground
-                    type = surfaceHeight <= SEA_LEVEL + 1 ? VoxelType.Sand : VoxelType.Grass;
+                    // Surface block varies by elevation:
+                    //   Sand  – near water edges (beach)
+                    //   Dirt  – low-lying areas just above beach
+                    //   Grass – normal terrain
+                    //   Stone – exposed rock on high peaks
+                    if (surfaceHeight <= SEA_LEVEL + 1)
+                        type = VoxelType.Sand;
+                    else if (surfaceHeight <= SEA_LEVEL + 3)
+                        type = VoxelType.Dirt;
+                    else if (surfaceHeight >= SEA_LEVEL + MAX_HILL_HEIGHT - 4)
+                        type = VoxelType.Stone;
+                    else
+                        type = VoxelType.Grass;
                 }
                 else if (y > surfaceHeight - DIRT_DEPTH)
                 {
