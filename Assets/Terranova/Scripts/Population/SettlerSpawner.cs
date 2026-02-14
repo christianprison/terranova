@@ -109,6 +109,49 @@ namespace Terranova.Population
                 glowMat.SetColor("_BaseColor", new Color(1f, 0.85f, 0.3f));
             }
 
+            // Stone ring: 6 small cubes
+            for (int s = 0; s < 6; s++)
+            {
+                float sAngle = s * Mathf.PI * 2f / 6f;
+                var stone = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stone.name = $"Stone_{s}";
+                stone.transform.SetParent(campfire.transform, false);
+                stone.transform.localScale = new Vector3(0.2f, 0.15f, 0.2f);
+                stone.transform.localPosition = new Vector3(
+                    Mathf.Cos(sAngle) * 0.35f, 0.07f, Mathf.Sin(sAngle) * 0.35f);
+                stone.transform.localRotation = Quaternion.Euler(0f, sAngle * Mathf.Rad2Deg + 15f, 0f);
+                var sCol = stone.GetComponent<Collider>();
+                if (sCol != null) Destroy(sCol);
+                if (stoneMat != null) stone.GetComponent<MeshRenderer>().sharedMaterial = stoneMat;
+            }
+
+            // Flame cone (center) – cache mesh for reuse
+            if (_cachedFlameConeMesh == null)
+                _cachedFlameConeMesh = CreateConeMesh(0.15f, 0.6f, 6);
+            var flameConeMesh = _cachedFlameConeMesh;
+            var flame = new GameObject("Flame");
+            flame.transform.SetParent(campfire.transform, false);
+            flame.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+            var flameMF = flame.AddComponent<MeshFilter>();
+            flameMF.sharedMesh = flameConeMesh;
+            var flameMR = flame.AddComponent<MeshRenderer>();
+            if (flameMat != null) flameMR.sharedMaterial = flameMat;
+
+            // Inner glow cone
+            var glow = new GameObject("Glow");
+            glow.transform.SetParent(campfire.transform, false);
+            glow.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+            glow.transform.localScale = new Vector3(0.5f, 0.75f, 0.5f);
+            var glowMF = glow.AddComponent<MeshFilter>();
+            glowMF.sharedMesh = flameConeMesh;
+            var glowMR = glow.AddComponent<MeshRenderer>();
+            if (glowMat != null) glowMR.sharedMaterial = glowMat;
+
+            // Box collider on root for selection
+            var rootCol = campfire.AddComponent<BoxCollider>();
+            rootCol.center = new Vector3(0f, 0.3f, 0f);
+            rootCol.size = new Vector3(0.9f, 0.6f, 0.9f);
+
             // Attach Building component so campfire is a real building in the system
             var campfireDef = BuildingRegistry.Instance?.CampfireDefinition;
             if (campfireDef != null)

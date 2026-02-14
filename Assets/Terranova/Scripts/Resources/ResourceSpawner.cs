@@ -5,12 +5,11 @@ using Terranova.Terrain;
 namespace Terranova.Resources
 {
     /// <summary>
-    /// Spawns gatherable resource objects on the terrain surface
+    /// Spawns resource objects (trees, rocks, berry bushes) on the terrain surface
     /// and attaches ResourceNode components for gathering.
     ///
-    /// Epoch I.1: Settlers pick up raw materials from the ground.
-    /// Twigs        = small brown sticks (blockout) → ResourceType.Wood
-    /// Stones       = small gray pebbles (blockout) → ResourceType.Stone
+    /// Trees       = low-poly pines (trunk + cone canopy) → ResourceType.Wood
+    /// Rocks       = irregular angular shapes → ResourceType.Stone
     /// Berry Bushes = green sphere + red berry spheres → ResourceType.Food
     ///
     /// Story 3.1: Sammelbare Objekte
@@ -18,14 +17,14 @@ namespace Terranova.Resources
     /// </summary>
     public class ResourceSpawner : MonoBehaviour
     {
-        [Header("Twigs (Wood)")]
-        [SerializeField] private int _twigCount = 60;
-        [SerializeField] private float _twigLength = 0.5f;
-        [SerializeField] private float _twigThickness = 0.06f;
+        [Header("Trees")]
+        [SerializeField] private int _treeCount = 60;
+        [SerializeField] private float _treeRadius = 0.3f;
+        [SerializeField] private float _treeHeight = 2.0f;
 
-        [Header("Stones")]
-        [SerializeField] private int _stoneCount = 40;
-        [SerializeField] private float _stoneRadius = 0.18f;
+        [Header("Rocks")]
+        [SerializeField] private int _rockCount = 40;
+        [SerializeField] private float _rockRadius = 0.4f;
 
         [Header("Berry Bushes")]
         [SerializeField] private int _bushCount = 30;
@@ -62,80 +61,16 @@ namespace Terranova.Resources
             var rng = new System.Random(_seed);
             var parent = new GameObject("Resources");
 
-            int twigSpawned = SpawnTwigs(world, rng, parent.transform);
+            EnsureTreeMeshes();
+            EnsureRockMesh();
 
-            int stoneSpawned = SpawnObjects(world, rng, parent.transform,
-                _stoneCount, "Stone", PrimitiveType.Sphere, ResourceType.Stone,
-                new Color(0.55f, 0.55f, 0.55f), // Gray
-                new Vector3(_stoneRadius * 2f, _stoneRadius * 1.4f, _stoneRadius * 2f),
-                _stoneRadius * 0.7f);
+            int treeSpawned = SpawnTrees(world, rng, parent.transform);
+
+            int rockSpawned = SpawnRocks(world, rng, parent.transform);
 
             int bushSpawned = SpawnBerryBushes(world, rng, parent.transform);
 
-            Debug.Log($"ResourceSpawner: Placed {twigSpawned} twigs, {stoneSpawned} stones, {bushSpawned} berry bushes.");
-        }
-
-        /// <summary>
-        /// Spawn twigs: small brown sticks lying flat on the ground.
-        /// Epoch I.1 settlers pick up sticks, they don't chop trees.
-        /// </summary>
-        private int SpawnTwigs(WorldManager world, System.Random rng, Transform parent)
-        {
-            int maxX = world.WorldBlocksX - _edgeMargin;
-            int maxZ = world.WorldBlocksZ - _edgeMargin;
-            int spawned = 0;
-
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            Material mat = null;
-            if (shader != null)
-            {
-                mat = new Material(shader);
-                mat.name = "Twig_Material (Auto)";
-                mat.SetColor("_BaseColor", new Color(0.45f, 0.28f, 0.10f)); // Brown
-            }
-
-            for (int i = 0; i < _twigCount; i++)
-            {
-                float x = _edgeMargin + (float)(rng.NextDouble() * (maxX - _edgeMargin));
-                float z = _edgeMargin + (float)(rng.NextDouble() * (maxZ - _edgeMargin));
-
-                int blockX = Mathf.FloorToInt(x);
-                int blockZ = Mathf.FloorToInt(z);
-
-                VoxelType surface = world.GetSurfaceTypeAtWorldPos(blockX, blockZ);
-                if (!surface.IsSolid())
-                    continue;
-
-                world.FlattenTerrain(blockX, blockZ, 1);
-                float y = world.GetSmoothedHeightAtWorldPos(x, z);
-
-                // Cylinder lying on its side (rotated 90° around Z)
-                var obj = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-                obj.name = $"Twig_{spawned}";
-                obj.transform.SetParent(parent);
-                obj.transform.localScale = new Vector3(
-                    _twigThickness * 2f, _twigLength * 0.5f, _twigThickness * 2f);
-                obj.transform.position = new Vector3(x, y + _twigThickness, z);
-
-                // Lie flat with random rotation around Y
-                float angle = (float)(rng.NextDouble() * 360.0);
-                obj.transform.rotation = Quaternion.Euler(0f, angle, 90f);
-
-                if (mat != null)
-                    obj.GetComponent<MeshRenderer>().sharedMaterial = mat;
-
-                var col = obj.GetComponent<Collider>();
-                if (col != null)
-                    col.isTrigger = true;
-
-                var node = obj.AddComponent<ResourceNode>();
-                node.Initialize(ResourceType.Wood);
-
-                spawned++;
-            }
-
-            return spawned;
+            Debug.Log($"ResourceSpawner: Placed {treeSpawned} trees, {rockSpawned} rocks, {bushSpawned} berry bushes.");
         }
 
         // ─── Shared mesh/material caches ─────────────────────────
@@ -179,7 +114,6 @@ namespace Terranova.Resources
                 var tree = new GameObject($"Tree_{spawned}");
                 tree.transform.SetParent(parent);
                 tree.transform.position = new Vector3(x, y, z);
-                // Slight random rotation for variety
                 tree.transform.rotation = Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f);
 
                 // Trunk: cylinder
@@ -459,7 +393,6 @@ namespace Terranova.Resources
         {
             var mesh = new Mesh { name = "Rock" };
 
-            // Start from an icosahedron-like shape (deformed UV sphere)
             int latSegments = 4;
             int lonSegments = 6;
             var rng = new System.Random(42); // Deterministic deformation
@@ -467,7 +400,6 @@ namespace Terranova.Resources
             var verts = new System.Collections.Generic.List<Vector3>();
             var tris = new System.Collections.Generic.List<int>();
 
-            // Generate deformed sphere vertices
             for (int lat = 0; lat <= latSegments; lat++)
             {
                 float theta = lat * Mathf.PI / latSegments;
@@ -482,7 +414,6 @@ namespace Terranova.Resources
                 }
             }
 
-            // Generate triangles
             for (int lat = 0; lat < latSegments; lat++)
             {
                 for (int lon = 0; lon < lonSegments; lon++)

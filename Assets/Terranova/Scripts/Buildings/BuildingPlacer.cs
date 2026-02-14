@@ -260,8 +260,8 @@ namespace Terranova.Buildings
 
             Vector3 position = _preview.transform.position;
 
-            // Create the actual building (placeholder cube)
-            var building = CreateBuildingObject(position);
+            // Create building with type-specific visual
+            var building = CreateBuildingVisual(_selectedBuilding, position);
 
             // Story 2.3: Add Building component with NavMeshObstacle and entrance point
             var buildingComponent = building.AddComponent<Building>();
@@ -283,26 +283,209 @@ namespace Terranova.Buildings
         }
 
         /// <summary>
-        /// Create the physical building GameObject at the given position.
+        /// Create a building with visuals matching its type.
+        /// Campfire: stone ring + flame cone. Huts: walls + roof.
         /// </summary>
-        private GameObject CreateBuildingObject(Vector3 position)
+        private GameObject CreateBuildingVisual(BuildingDefinition def, Vector3 position)
+        {
+            string type = def.DisplayName.ToLower();
+
+            if (type.Contains("campfire"))
+                return CreateCampfireVisual(def, position);
+            if (type.Contains("woodcutter") || type.Contains("holzf"))
+                return CreateHutVisual(def, position, new Color(0.50f, 0.32f, 0.15f),
+                    new Color(0.40f, 0.25f, 0.10f));
+            if (type.Contains("hunter") || type.Contains("j\u00e4ger"))
+                return CreateHutVisual(def, position, new Color(0.25f, 0.45f, 0.20f),
+                    new Color(0.35f, 0.28f, 0.15f));
+            if (type.Contains("hut") || type.Contains("h\u00fctte"))
+                return CreateSimpleHutVisual(def, position);
+
+            return CreateFallbackCube(def, position);
+        }
+
+        /// <summary>Campfire: ring of stones around a flame cone.</summary>
+        private GameObject CreateCampfireVisual(BuildingDefinition def, Vector3 position)
+        {
+            var root = new GameObject(def.DisplayName);
+            root.transform.position = position;
+
+            EnsureCampfireMesh();
+
+            for (int i = 0; i < 6; i++)
+            {
+                float angle = i * Mathf.PI * 2f / 6f;
+                var stone = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stone.name = $"Stone_{i}";
+                stone.transform.SetParent(root.transform, false);
+                stone.transform.localScale = new Vector3(0.2f, 0.15f, 0.2f);
+                stone.transform.localPosition = new Vector3(
+                    Mathf.Cos(angle) * 0.35f, 0.07f, Mathf.Sin(angle) * 0.35f);
+                stone.transform.localRotation = Quaternion.Euler(0f, angle * Mathf.Rad2Deg + 15f, 0f);
+                var col = stone.GetComponent<Collider>();
+                if (col != null) Destroy(col);
+
+                var sr = stone.GetComponent<MeshRenderer>();
+                sr.sharedMaterial = _buildingMaterial;
+                var pb = new MaterialPropertyBlock();
+                pb.SetColor(ColorID, new Color(0.45f, 0.43f, 0.40f));
+                sr.SetPropertyBlock(pb);
+            }
+
+            var flame = new GameObject("Flame");
+            flame.transform.SetParent(root.transform, false);
+            flame.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+            flame.transform.localScale = new Vector3(0.3f, 0.6f, 0.3f);
+            var flameMF = flame.AddComponent<MeshFilter>();
+            flameMF.sharedMesh = _campfireConeMesh;
+            var flameMR = flame.AddComponent<MeshRenderer>();
+            flameMR.sharedMaterial = _buildingMaterial;
+            var flamePb = new MaterialPropertyBlock();
+            flamePb.SetColor(ColorID, new Color(1f, 0.55f, 0.1f));
+            flameMR.SetPropertyBlock(flamePb);
+
+            var glow = new GameObject("Glow");
+            glow.transform.SetParent(root.transform, false);
+            glow.transform.localPosition = new Vector3(0f, 0.05f, 0f);
+            glow.transform.localScale = new Vector3(0.15f, 0.45f, 0.15f);
+            var glowMF = glow.AddComponent<MeshFilter>();
+            glowMF.sharedMesh = _campfireConeMesh;
+            var glowMR = glow.AddComponent<MeshRenderer>();
+            glowMR.sharedMaterial = _buildingMaterial;
+            var glowPb = new MaterialPropertyBlock();
+            glowPb.SetColor(ColorID, new Color(1f, 0.85f, 0.3f));
+            glowMR.SetPropertyBlock(glowPb);
+
+            var rootCol = root.AddComponent<BoxCollider>();
+            rootCol.center = new Vector3(0f, 0.3f, 0f);
+            rootCol.size = new Vector3(0.9f, 0.6f, 0.9f);
+
+            return root;
+        }
+
+        /// <summary>Work hut: rectangular base + roof + door. Color accent per type.</summary>
+        private GameObject CreateHutVisual(BuildingDefinition def, Vector3 position,
+            Color wallColor, Color roofColor)
+        {
+            var root = new GameObject(def.DisplayName);
+            root.transform.position = position;
+
+            float w = def.FootprintSize.x * 0.85f;
+            float d = def.FootprintSize.y * 0.85f;
+            float wallH = def.VisualHeight * 0.55f;
+            float roofH = def.VisualHeight * 0.45f;
+
+            var walls = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            walls.name = "Walls";
+            walls.transform.SetParent(root.transform, false);
+            walls.transform.localScale = new Vector3(w, wallH, d);
+            walls.transform.localPosition = new Vector3(0f, wallH * 0.5f, 0f);
+
+            var wallRenderer = walls.GetComponent<MeshRenderer>();
+            wallRenderer.sharedMaterial = _buildingMaterial;
+            var wallPb = new MaterialPropertyBlock();
+            wallPb.SetColor(ColorID, wallColor);
+            wallRenderer.SetPropertyBlock(wallPb);
+
+            var roof = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            roof.name = "Roof";
+            roof.transform.SetParent(root.transform, false);
+            roof.transform.localScale = new Vector3(w * 1.15f, roofH, d * 0.75f);
+            roof.transform.localPosition = new Vector3(0f, wallH + roofH * 0.3f, 0f);
+            var roofCol = roof.GetComponent<Collider>();
+            if (roofCol != null) Destroy(roofCol);
+
+            var roofRenderer = roof.GetComponent<MeshRenderer>();
+            roofRenderer.sharedMaterial = _buildingMaterial;
+            var roofPb = new MaterialPropertyBlock();
+            roofPb.SetColor(ColorID, roofColor);
+            roofRenderer.SetPropertyBlock(roofPb);
+
+            var door = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            door.name = "Door";
+            door.transform.SetParent(root.transform, false);
+            door.transform.localScale = new Vector3(0.2f, wallH * 0.6f, 0.05f);
+            door.transform.localPosition = new Vector3(0f, wallH * 0.3f, -d * 0.5f - 0.02f);
+            var doorCol = door.GetComponent<Collider>();
+            if (doorCol != null) Destroy(doorCol);
+
+            var doorRenderer = door.GetComponent<MeshRenderer>();
+            doorRenderer.sharedMaterial = _buildingMaterial;
+            var doorPb = new MaterialPropertyBlock();
+            doorPb.SetColor(ColorID, new Color(0.15f, 0.10f, 0.05f));
+            doorRenderer.SetPropertyBlock(doorPb);
+
+            return root;
+        }
+
+        /// <summary>Simple hut (residential): warm sandy tones.</summary>
+        private GameObject CreateSimpleHutVisual(BuildingDefinition def, Vector3 position)
+        {
+            return CreateHutVisual(def, position,
+                new Color(0.60f, 0.45f, 0.25f),
+                new Color(0.45f, 0.30f, 0.15f));
+        }
+
+        /// <summary>Fallback: plain colored cube for unknown building types.</summary>
+        private GameObject CreateFallbackCube(BuildingDefinition def, Vector3 position)
         {
             var building = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            building.name = _selectedBuilding.DisplayName;
+            building.name = def.DisplayName;
             building.transform.position = position;
             building.transform.localScale = new Vector3(
-                _selectedBuilding.FootprintSize.x,
-                _selectedBuilding.VisualHeight,
-                _selectedBuilding.FootprintSize.y
-            );
+                def.FootprintSize.x, def.VisualHeight, def.FootprintSize.y);
 
-            // Apply building color via shared material + per-instance PropertyBlock
             var renderer = building.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = _buildingMaterial;
-            _buildingPropBlock.SetColor(ColorID, _selectedBuilding.PreviewColor);
+            _buildingPropBlock.SetColor(ColorID, def.PreviewColor);
             renderer.SetPropertyBlock(_buildingPropBlock);
 
             return building;
+        }
+
+        // Shared cone mesh for campfire flames
+        private static Mesh _campfireConeMesh;
+
+        private static void EnsureCampfireMesh()
+        {
+            if (_campfireConeMesh != null) return;
+
+            int segments = 6;
+            float radius = 0.5f;
+            float height = 1f;
+            var mesh = new Mesh { name = "FlameCone" };
+            int vertCount = segments + 2;
+            var verts = new Vector3[vertCount];
+            var normals = new Vector3[vertCount];
+
+            verts[0] = Vector3.zero;
+            normals[0] = Vector3.down;
+            for (int i = 0; i < segments; i++)
+            {
+                float angle = i * Mathf.PI * 2f / segments;
+                verts[i + 1] = new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+                normals[i + 1] = new Vector3(Mathf.Cos(angle), 0.5f, Mathf.Sin(angle)).normalized;
+            }
+            verts[segments + 1] = new Vector3(0f, height, 0f);
+            normals[segments + 1] = Vector3.up;
+
+            var tris = new int[segments * 6];
+            for (int i = 0; i < segments; i++)
+            {
+                int next = (i + 1) % segments;
+                tris[i * 6 + 0] = 0;
+                tris[i * 6 + 1] = next + 1;
+                tris[i * 6 + 2] = i + 1;
+                tris[i * 6 + 3] = i + 1;
+                tris[i * 6 + 4] = next + 1;
+                tris[i * 6 + 5] = segments + 1;
+            }
+
+            mesh.vertices = verts;
+            mesh.normals = normals;
+            mesh.triangles = tris;
+            mesh.RecalculateBounds();
+            _campfireConeMesh = mesh;
         }
 
         /// <summary>
