@@ -48,7 +48,7 @@ namespace Terranova.Resources
                 return;
 
             var world = WorldManager.Instance;
-            if (world == null || world.WorldBlocksX == 0)
+            if (world == null || world.WorldBlocksX == 0 || !world.IsNavMeshReady)
                 return;
 
             _hasSpawned = true;
