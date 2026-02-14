@@ -65,6 +65,7 @@ namespace Terranova.UI
             EventBus.Subscribe<ResourceChangedEvent>(OnResourceChanged);
             EventBus.Subscribe<SettlerDiedEvent>(OnSettlerDied);
             EventBus.Subscribe<FoodWarningEvent>(OnFoodWarning);
+            EventBus.Subscribe<DiscoveryMadeEvent>(OnDiscoveryMade);
         }
 
         private void Update()
@@ -74,7 +75,10 @@ namespace Terranova.UI
             {
                 _eventDisplayTimer -= Time.deltaTime;
                 if (_eventDisplayTimer <= 0 && _eventText != null)
+                {
                     _eventText.text = "";
+                    _eventText.color = Color.yellow;
+                }
             }
 
             // Check food supply for warning (Story 5.4)
@@ -153,6 +157,17 @@ namespace Terranova.UI
             _foodWarning = evt.IsWarning;
             if (_warningText != null)
                 _warningText.text = _foodWarning ? "Food is running low!" : "";
+        }
+
+        /// <summary>Story 1.5: Notification when discovery is made.</summary>
+        private void OnDiscoveryMade(DiscoveryMadeEvent evt)
+        {
+            if (_eventText != null)
+            {
+                _eventText.text = $"Discovery: {evt.DiscoveryName}!";
+                _eventText.color = new Color(0.4f, 1f, 0.6f); // Green for discoveries
+                _eventDisplayTimer = 5f;
+            }
         }
 
         /// <summary>Story 4.2: Notification when construction completes.</summary>
@@ -371,7 +386,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.3.4";
+            versionText.text = "v0.3.0";
         }
 
         /// <summary>
@@ -528,6 +543,7 @@ namespace Terranova.UI
             EventBus.Unsubscribe<ResourceChangedEvent>(OnResourceChanged);
             EventBus.Unsubscribe<SettlerDiedEvent>(OnSettlerDied);
             EventBus.Unsubscribe<FoodWarningEvent>(OnFoodWarning);
+            EventBus.Unsubscribe<DiscoveryMadeEvent>(OnDiscoveryMade);
 
             // Clean up button listeners to prevent memory leaks
             if (_speedButtons != null)

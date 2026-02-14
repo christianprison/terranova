@@ -152,6 +152,16 @@ namespace Terranova.Core
     }
 
     /// <summary>
+    /// Fired when a discovery is made by the discovery engine.
+    /// Story 1.5: Discovery State Manager
+    /// </summary>
+    public struct DiscoveryMadeEvent
+    {
+        public string DiscoveryName;
+        public string Description;
+    }
+
+    /// <summary>
     /// Fired during world generation to update loading bar progress.
     /// </summary>
     public struct WorldGenerationProgressEvent

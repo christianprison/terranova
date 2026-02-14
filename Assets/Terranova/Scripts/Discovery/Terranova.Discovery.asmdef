@@ -1,17 +1,10 @@
 {
-    "name": "Terranova.Bootstrap",
-    "rootNamespace": "Terranova.Core",
+    "name": "Terranova.Discovery",
+    "rootNamespace": "Terranova.Discovery",
     "references": [
         "Terranova.Core",
         "Terranova.Terrain",
-        "Terranova.Buildings",
-        "Terranova.Camera",
-        "Terranova.UI",
-        "Terranova.Input",
-        "Terranova.Population",
-        "Terranova.Resources",
-        "Terranova.Discovery",
-        "Unity.InputSystem"
+        "Terranova.Buildings"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

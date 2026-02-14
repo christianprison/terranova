@@ -142,6 +142,7 @@ namespace Terranova.Population
         private MeshRenderer _bodyRenderer;
         private MeshRenderer _headRenderer;
         private int _colorIndex;
+        private bool _isDying;
 
         public int ColorIndex => _colorIndex;
 
@@ -654,6 +655,9 @@ namespace Terranova.Population
         /// </summary>
         private void Die()
         {
+            if (_isDying) return; // Prevent double-death
+            _isDying = true;
+
             Debug.Log($"[{name}] DIED of starvation!");
 
             // Release any held resources
@@ -682,11 +686,14 @@ namespace Terranova.Population
                 CauseOfDeath = "Starvation"
             });
 
-            // Update population count
+            // Count only settlers not already dying (handles multiple deaths per frame)
             var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
+            int alive = 0;
+            foreach (var s in settlers)
+                if (!s._isDying) alive++;
             EventBus.Publish(new PopulationChangedEvent
             {
-                CurrentPopulation = settlers.Length - 1 // -1 because we're about to be destroyed
+                CurrentPopulation = alive
             });
 
             Destroy(gameObject);
