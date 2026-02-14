@@ -165,6 +165,8 @@ namespace Terranova.UI
             CheckShader("Terranova/TerrainSplat");
             CheckShader("Terranova/VertexColorOpaque");
             CheckShader("Terranova/VertexColorTransparent");
+            CheckShader("Universal Render Pipeline/Lit");
+            CheckShader("Universal Render Pipeline/Particles/Unlit");
 
             // Check what material the chunks are actually using
             if (world != null)
