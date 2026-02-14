@@ -87,6 +87,14 @@ namespace Terranova.Terrain
 
         private IEnumerator Start()
         {
+            // Publish initial progress so loading screen renders before material creation
+            EventBus.Publish(new WorldGenerationProgressEvent
+            {
+                Progress = 0f,
+                Status = "Preparing materials..."
+            });
+            yield return null;
+
             EnsureMaterials();
 
             if (_solidMaterial == null || _waterMaterial == null)
@@ -142,35 +150,27 @@ namespace Terranova.Terrain
             {
                 chunk.RebuildMesh(GetSolidHeightAtWorldPos, GetSolidSurfaceTypeAtWorldPos);
                 processed++;
-                if (processed % 2 == 0)
+                EventBus.Publish(new WorldGenerationProgressEvent
                 {
-                    EventBus.Publish(new WorldGenerationProgressEvent
-                    {
-                        Progress = 0.5f + (float)processed / (totalChunks * 2),
-                        Status = $"Building meshes... {processed}/{totalChunks}"
-                    });
-                    yield return null;
-                }
+                    Progress = 0.5f + (float)processed / (totalChunks * 2),
+                    Status = $"Building meshes... {processed}/{totalChunks}"
+                });
+                yield return null;
             }
 
             Debug.Log($"World generated: {_worldSizeX}×{_worldSizeZ} chunks " +
                       $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={_seed}");
 
-            // Phase 3: NavMesh
-            EventBus.Publish(new WorldGenerationProgressEvent
-            {
-                Progress = 0.95f,
-                Status = "Baking navigation..."
-            });
-            yield return null;
-
-            BakeNavMesh();
-
+            // Dismiss loading screen first so terrain becomes visible immediately.
+            // NavMesh bakes in the background afterwards (settlers haven't spawned yet).
             EventBus.Publish(new WorldGenerationProgressEvent
             {
                 Progress = 1f,
                 Status = "Ready!"
             });
+            yield return null;
+
+            BakeNavMesh();
         }
 
         /// <summary>

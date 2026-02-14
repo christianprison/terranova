@@ -385,7 +385,7 @@ namespace Terranova.Camera
             if (_touchAngleTracking)
             {
                 float angleDelta = Mathf.DeltaAngle(_prevTouchAngle, angle);
-                _yaw -= angleDelta * _touchRotateScale;
+                _yaw += angleDelta * _touchRotateScale;
                 _isSnapping = false;
             }
 

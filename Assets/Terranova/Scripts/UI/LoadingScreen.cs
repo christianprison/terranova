@@ -111,11 +111,11 @@ namespace Terranova.UI
             if (_statusText != null)
                 _statusText.text = evt.Status;
 
-            // Destroy loading screen when generation completes
+            // Destroy loading screen immediately when generation completes
             if (evt.Progress >= 1f)
             {
-                Destroy(_panel, 0.3f);
-                Destroy(this, 0.3f);
+                Destroy(_panel);
+                Destroy(this);
             }
         }
     }
