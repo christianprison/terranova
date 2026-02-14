@@ -289,7 +289,8 @@ The human producer is learning C# and Unity. When writing code:
 8. Remember that the human producer is using **GitHub Desktop** for all push/merge/pull activities
 9. Push directly to https://github.com/Prison-Reality/terranova (credentials are stored in the git credential store at ~/.git-credentials)
 10. **Don't over-read.** When starting a new story, only read the files directly relevant to the implementation. Do not read the entire codebase. If you need context from other files, read them on demand. Budget is limited – every token counts.
-11. ## Git Push Workaround
+11. Before pushing to GitHub, increase the rightmost number of the displayed app version by 1, when pushing a new milestone, increase the middle number by 1
+12. ## Git Push Workaround
 When `git push` via the local proxy fails with 403, use the gh auth token directly:
 ```bash
 GH_TOKEN=$(gh auth token)

@@ -121,7 +121,7 @@ namespace Terranova.Population
                     }
                 }
 
-                if (nearest == null) return; // No idle settlers
+                if (nearest == null) continue; // No idle settlers for this building, try next
 
                 // Determine task type and find nearest resource
                 SettlerTaskType taskType;

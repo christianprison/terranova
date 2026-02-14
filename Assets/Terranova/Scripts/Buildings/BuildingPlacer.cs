@@ -1,8 +1,10 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using Terranova.Core;
 using Terranova.Terrain;
+using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Buildings
 {
@@ -55,6 +57,22 @@ namespace Terranova.Buildings
         // Story 4.1: Red flash feedback when resources insufficient
         private const float FEEDBACK_DURATION = 0.4f;
         private float _feedbackTimer;
+
+        // Touch placement state: detect quick tap to confirm placement
+        private const float TOUCH_TAP_MAX_DRIFT = 10f;
+        private bool _touchPlaceDown;
+        private Vector2 _touchPlaceStartPos;
+        private bool _touchPlaceCancelled;
+
+        private void OnEnable()
+        {
+            EnhancedTouchSupport.Enable();
+        }
+
+        private void OnDisable()
+        {
+            EnhancedTouchSupport.Disable();
+        }
 
         /// <summary>
         /// Lazily create materials on first use. Shader.Find can fail when called
@@ -124,7 +142,7 @@ namespace Terranova.Buildings
             if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
                 return;
 
-            // Left-click to place
+            // Left-click to place (mouse)
             if (mouse != null && mouse.leftButton.wasPressedThisFrame && _isValidPosition)
                 PlaceBuilding();
 
@@ -132,6 +150,64 @@ namespace Terranova.Buildings
             if ((mouse != null && mouse.rightButton.wasPressedThisFrame) ||
                 (kb != null && kb.escapeKey.wasPressedThisFrame))
                 CancelPlacement();
+
+            // Touch tap to place building
+            HandlePlacementTouch();
+        }
+
+        /// <summary>
+        /// Detect a quick tap on touch to confirm building placement.
+        /// Works like SelectionManager's tap detection: tracks finger down,
+        /// cancels on drift (pan) or multi-touch, places on release.
+        /// </summary>
+        private void HandlePlacementTouch()
+        {
+            // Multi-touch (pinch zoom) cancels placement tap
+            if (Touch.activeFingers.Count >= 2)
+            {
+                _touchPlaceCancelled = true;
+            }
+
+            foreach (var touch in Touch.activeTouches)
+            {
+                switch (touch.phase)
+                {
+                    case UnityEngine.InputSystem.TouchPhase.Began:
+                        if (_touchPlaceDown) break;
+
+                        // Skip if over UI
+                        if (EventSystem.current != null &&
+                            EventSystem.current.IsPointerOverGameObject(touch.finger.index))
+                            break;
+
+                        _touchPlaceDown = true;
+                        _touchPlaceStartPos = touch.screenPosition;
+                        _touchPlaceCancelled = false;
+                        break;
+
+                    case UnityEngine.InputSystem.TouchPhase.Moved:
+                        if (!_touchPlaceDown || _touchPlaceCancelled) break;
+
+                        // Finger moved too far → it's a camera pan, not a placement tap
+                        if (Vector2.Distance(touch.screenPosition, _touchPlaceStartPos) > TOUCH_TAP_MAX_DRIFT)
+                        {
+                            _touchPlaceCancelled = true;
+                        }
+                        break;
+
+                    case UnityEngine.InputSystem.TouchPhase.Ended:
+                        if (_touchPlaceDown && !_touchPlaceCancelled && _isValidPosition)
+                        {
+                            PlaceBuilding();
+                        }
+                        _touchPlaceDown = false;
+                        break;
+
+                    case UnityEngine.InputSystem.TouchPhase.Canceled:
+                        _touchPlaceDown = false;
+                        break;
+                }
+            }
         }
 
         /// <summary>Whether a building definition is currently assigned.</summary>
@@ -170,18 +246,28 @@ namespace Terranova.Buildings
         }
 
         /// <summary>
-        /// Raycast from mouse position to terrain and move the preview there.
-        /// Checks if the position is valid for placement.
+        /// Raycast from input position to terrain and move the preview there.
+        /// On desktop: follows mouse cursor. On touch: raycasts from screen center
+        /// (GDD Bau Phase 1: ghost fixed at center, player pans world underneath).
         /// </summary>
         private void UpdatePreviewPosition()
         {
             if (_preview == null || UnityEngine.Camera.main == null)
                 return;
 
+            // Desktop: follow mouse. Touch: use screen center (user pans to position)
+            Vector2 screenPos;
             var mouse = Mouse.current;
-            if (mouse == null) return;
+            if (mouse != null)
+            {
+                screenPos = mouse.position.ReadValue();
+            }
+            else
+            {
+                screenPos = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            }
 
-            Ray ray = UnityEngine.Camera.main.ScreenPointToRay(mouse.position.ReadValue());
+            Ray ray = UnityEngine.Camera.main.ScreenPointToRay(screenPos);
 
             if (Physics.Raycast(ray, out RaycastHit hit, 500f))
             {
@@ -278,8 +364,8 @@ namespace Terranova.Buildings
             Debug.Log($"Placed {_selectedBuilding.DisplayName} at {position} " +
                       $"(cost: {_selectedBuilding.WoodCost}W, {_selectedBuilding.StoneCost}S)");
 
-            // Continue placement mode (build loop – player can keep placing)
-            // As per GDD gesture lexicon: "build loop for serial construction"
+            // Exit placement mode after placing (serial build loop deferred to future milestone)
+            CancelPlacement();
         }
 
         /// <summary>

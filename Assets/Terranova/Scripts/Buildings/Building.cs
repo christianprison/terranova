@@ -16,7 +16,7 @@ namespace Terranova.Buildings
         // ─── Construction Constants ─────────────────────────────
         private const float MIN_CONSTRUCTION_TIME = 5f;
         private const float COST_TO_TIME_RATIO = 0.5f;
-        private const float CONSTRUCTION_START_HEIGHT = 0.3f;
+        private const float CONSTRUCTION_START_HEIGHT = 0.01f;
         private const float CONSTRUCTION_DIM_FACTOR = 0.4f;
 
         private BuildingDefinition _definition;
@@ -30,8 +30,9 @@ namespace Terranova.Buildings
         private bool _isBeingBuilt;
 
         // Visual references for construction feedback
-        private MeshRenderer _renderer;
+        private MeshRenderer[] _renderers;
         private MaterialPropertyBlock _propBlock;
+        private float _originalScaleY;
         private static readonly int ColorID = Shader.PropertyToID("_BaseColor");
 
         /// <summary>The definition (type) of this building.</summary>
@@ -76,9 +77,10 @@ namespace Terranova.Buildings
         {
             _definition = definition;
 
-            // Cache renderer for construction visual feedback
-            _renderer = GetComponent<MeshRenderer>();
+            // Cache renderers for construction visual feedback (children included for multi-part buildings)
+            _renderers = GetComponentsInChildren<MeshRenderer>();
             _propBlock = new MaterialPropertyBlock();
+            _originalScaleY = transform.localScale.y;
 
             // Carve building footprint from NavMesh so settlers walk around it
             _obstacle = gameObject.AddComponent<NavMeshObstacle>();
@@ -105,6 +107,17 @@ namespace Terranova.Buildings
             {
                 _isConstructed = false;
                 _constructionProgress = 0f;
+                UpdateConstructionVisual();
+            }
+        }
+
+        private void Update()
+        {
+            // Gradually grow the building while a settler is constructing it
+            if (_isBeingBuilt && !_isConstructed && _constructionTime > 0)
+            {
+                _constructionProgress += Time.deltaTime / _constructionTime;
+                _constructionProgress = Mathf.Clamp01(_constructionProgress);
                 UpdateConstructionVisual();
             }
         }
@@ -158,40 +171,52 @@ namespace Terranova.Buildings
 
         /// <summary>
         /// Update the building's visual appearance based on construction progress.
-        /// Under construction: transparent/faded. Complete: full color.
+        /// Under construction: dimmed color and scaled from 1% to 100% height.
+        /// Complete: full color and original scale.
         /// </summary>
         private void UpdateConstructionVisual()
         {
-            if (_renderer == null || _propBlock == null) return;
+            if (_propBlock == null) return;
 
             if (_isConstructed)
             {
                 // Full color when complete
-                if (_definition != null)
+                if (_definition != null && _renderers != null)
                 {
-                    _propBlock.SetColor(ColorID, _definition.PreviewColor);
-                    _renderer.SetPropertyBlock(_propBlock);
+                    foreach (var r in _renderers)
+                    {
+                        if (r == null) continue;
+                        _propBlock.SetColor(ColorID, _definition.PreviewColor);
+                        r.SetPropertyBlock(_propBlock);
+                    }
                 }
-                // Restore full scale
+                // Restore original scale
                 var scale = transform.localScale;
-                scale.y = _definition != null ? _definition.VisualHeight : 1f;
+                scale.y = _originalScaleY;
                 transform.localScale = scale;
             }
             else
             {
-                // Construction site: dim color and reduced height
+                // Construction site: dim color
                 Color dimColor = _definition != null
                     ? _definition.PreviewColor * CONSTRUCTION_DIM_FACTOR
                     : Color.gray;
                 dimColor.a = 1f;
-                _propBlock.SetColor(ColorID, dimColor);
-                _renderer.SetPropertyBlock(_propBlock);
+                if (_renderers != null)
+                {
+                    foreach (var r in _renderers)
+                    {
+                        if (r == null) continue;
+                        _propBlock.SetColor(ColorID, dimColor);
+                        r.SetPropertyBlock(_propBlock);
+                    }
+                }
 
-                // Start at 30% height, grows with progress
+                // Scale height from 1% to 100% during construction
                 float heightFraction = CONSTRUCTION_START_HEIGHT
                     + (1f - CONSTRUCTION_START_HEIGHT) * _constructionProgress;
                 var scale = transform.localScale;
-                scale.y = (_definition != null ? _definition.VisualHeight : 1f) * heightFraction;
+                scale.y = _originalScaleY * heightFraction;
                 transform.localScale = scale;
             }
         }

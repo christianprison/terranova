@@ -152,6 +152,17 @@ namespace Terranova.Core
     }
 
     /// <summary>
+    /// Fired during world generation to update loading bar progress.
+    /// </summary>
+    public struct WorldGenerationProgressEvent
+    {
+        /// <summary>Progress from 0 to 1.</summary>
+        public float Progress;
+        /// <summary>Description of current phase.</summary>
+        public string Status;
+    }
+
+    /// <summary>
     /// Fired when the player selects or deselects an object.
     /// Story 6.1: Tap selection. Story 6.2: Deselection.
     /// Story 6.3: Long press (IsDetailView = true).

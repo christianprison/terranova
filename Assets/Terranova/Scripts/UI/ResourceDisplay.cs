@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using Terranova.Core;
 
 namespace Terranova.UI
@@ -30,20 +31,27 @@ namespace Terranova.UI
         [SerializeField] private float _minTouchTarget = 44f;
 
         // Available game speeds (index 0 = pause)
-        private static readonly float[] SPEED_VALUES = { 0f, 1f, 2f, 3f };
-        private static readonly string[] SPEED_LABELS = { "❚❚", "1x", "2x", "3x" };
+        private static readonly float[] SPEED_VALUES = { 0f, 1f, 3f, 5f };
+        private static readonly string[] SPEED_LABELS = { "❚❚", "1x", "3x", "5x" };
         private int _currentSpeedIndex = 1; // Start at 1x
 
         private int _settlers;
         private bool _foodWarning;
+        private bool _gameStarted;
+
+        // Calendar: 1 minute real-time at 1x = 1 month (30 days).
+        // Therefore 2 seconds of game-time = 1 day.
+        private const float SECONDS_PER_DAY = 2f;
+        private float _gameTime;
 
         private Text _resourceText;
         private Text _eventText;
-        private Text _epochText;
+        private Text _calendarText;
         private Text _warningText;
         private Button[] _speedButtons;
         private Text[] _speedButtonTexts;
         private float _eventDisplayTimer;
+        private GameObject _gameOverPanel;
 
         private void Start()
         {
@@ -71,6 +79,13 @@ namespace Terranova.UI
 
             // Check food supply for warning (Story 5.4)
             CheckFoodWarning();
+
+            // Update calendar (uses scaled time so speed buttons affect it)
+            if (_gameStarted)
+            {
+                _gameTime += Time.deltaTime;
+                UpdateCalendar();
+            }
         }
 
         /// <summary>
@@ -94,6 +109,13 @@ namespace Terranova.UI
         {
             _settlers = evt.CurrentPopulation;
             UpdateDisplay();
+
+            if (_settlers > 0)
+                _gameStarted = true;
+
+            // Game over: all settlers dead after game has started
+            if (_gameStarted && _settlers <= 0)
+                ShowGameOver();
         }
 
         /// <summary>
@@ -159,6 +181,115 @@ namespace Terranova.UI
         }
 
         /// <summary>
+        /// Update the calendar display from accumulated game time.
+        /// 1 minute real-time at 1x = 1 month (30 days). 2 seconds = 1 day.
+        /// </summary>
+        private void UpdateCalendar()
+        {
+            if (_calendarText == null) return;
+
+            float totalDays = _gameTime / SECONDS_PER_DAY;
+            int day = 1 + (int)(totalDays % 30);
+            int month = 1 + (int)((totalDays % 360) / 30);
+            int year = 1 + (int)(totalDays / 360);
+
+            _calendarText.text = $"Year {year}, Month {month}, Day {day}";
+        }
+
+        /// <summary>
+        /// Show full-screen game over overlay with restart button.
+        /// </summary>
+        private void ShowGameOver()
+        {
+            if (_gameOverPanel != null) return; // Already showing
+
+            Time.timeScale = 0f;
+
+            _gameOverPanel = new GameObject("GameOverPanel");
+            _gameOverPanel.transform.SetParent(transform, false);
+            var panelImage = _gameOverPanel.AddComponent<Image>();
+            panelImage.color = new Color(0f, 0f, 0f, 0.75f);
+            var panelRect = _gameOverPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
+
+            // "Game Over" title
+            var titleObj = new GameObject("GameOverTitle");
+            titleObj.transform.SetParent(_gameOverPanel.transform, false);
+            var titleRect = titleObj.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 0.5f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.anchoredPosition = new Vector2(0, 60);
+            titleRect.sizeDelta = new Vector2(500, 80);
+            var titleText = titleObj.AddComponent<Text>();
+            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = 48;
+            titleText.color = new Color(0.9f, 0.3f, 0.3f);
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.fontStyle = FontStyle.Bold;
+            titleText.text = "GAME OVER";
+
+            // Subtitle with calendar
+            float totalDays = _gameTime / SECONDS_PER_DAY;
+            int year = 1 + (int)(totalDays / 360);
+            int month = 1 + (int)((totalDays % 360) / 30);
+            var subtitleObj = new GameObject("GameOverSubtitle");
+            subtitleObj.transform.SetParent(_gameOverPanel.transform, false);
+            var subRect = subtitleObj.AddComponent<RectTransform>();
+            subRect.anchorMin = new Vector2(0.5f, 0.5f);
+            subRect.anchorMax = new Vector2(0.5f, 0.5f);
+            subRect.pivot = new Vector2(0.5f, 0.5f);
+            subRect.anchoredPosition = new Vector2(0, 10);
+            subRect.sizeDelta = new Vector2(500, 40);
+            var subText = subtitleObj.AddComponent<Text>();
+            subText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            subText.fontSize = 22;
+            subText.color = new Color(0.8f, 0.8f, 0.8f);
+            subText.alignment = TextAnchor.MiddleCenter;
+            subText.text = $"All settlers perished in Year {year}, Month {month}";
+
+            // Restart button
+            float btnSize = _minTouchTarget * 2.5f;
+            var btnObj = new GameObject("RestartButton");
+            btnObj.transform.SetParent(_gameOverPanel.transform, false);
+            var btnRect = btnObj.AddComponent<RectTransform>();
+            btnRect.anchorMin = new Vector2(0.5f, 0.5f);
+            btnRect.anchorMax = new Vector2(0.5f, 0.5f);
+            btnRect.pivot = new Vector2(0.5f, 0.5f);
+            btnRect.anchoredPosition = new Vector2(0, -60);
+            btnRect.sizeDelta = new Vector2(btnSize, _minTouchTarget);
+            var btnImage = btnObj.AddComponent<Image>();
+            btnImage.color = new Color(0.2f, 0.5f, 0.3f, 0.9f);
+            var button = btnObj.AddComponent<Button>();
+            button.targetGraphic = btnImage;
+            button.onClick.AddListener(RestartGame);
+
+            var labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(btnObj.transform, false);
+            var labelRect = labelObj.AddComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.sizeDelta = Vector2.zero;
+            var label = labelObj.AddComponent<Text>();
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.fontSize = 28;
+            label.color = Color.white;
+            label.alignment = TextAnchor.MiddleCenter;
+            label.fontStyle = FontStyle.Bold;
+            label.text = "RESTART";
+        }
+
+        private void RestartGame()
+        {
+            EventBus.Clear();
+            Time.timeScale = 1f;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+
+        /// <summary>
         /// Auto-create the UI elements. For MS1, this is simpler than
         /// requiring manual UI setup in the scene.
         /// </summary>
@@ -198,12 +329,12 @@ namespace Terranova.UI
                 TextAnchor.UpperCenter);
             _eventText.color = Color.yellow;
 
-            // Epoch indicator (top-right)
-            _epochText = CreateText("EpochText",
+            // Calendar display (top-right)
+            _calendarText = CreateText("CalendarText",
                 new Vector2(-20, -20),   // Offset from top-right
-                new Vector2(200, 40),
+                new Vector2(250, 40),
                 TextAnchor.UpperRight);
-            _epochText.text = "Epoch I.1";
+            _calendarText.text = "Year 1, Month 1, Day 1";
 
             // Food warning (below resource text)
             _warningText = CreateText("WarningText",
@@ -217,16 +348,16 @@ namespace Terranova.UI
             // Speed widget (top-right, below epoch)
             CreateSpeedWidget();
 
-            // Version label (bottom-left) with dark background for visibility
+            // Version label (bottom-right) with dark background for visibility
             var versionGo = new GameObject("VersionLabel");
             versionGo.transform.SetParent(transform, false);
             var versionBg = versionGo.AddComponent<Image>();
             versionBg.color = new Color(0f, 0f, 0f, 0.7f);
             var versionBgRt = versionGo.GetComponent<RectTransform>();
-            versionBgRt.anchorMin = new Vector2(0, 0);
-            versionBgRt.anchorMax = new Vector2(0, 0);
-            versionBgRt.pivot = new Vector2(0, 0);
-            versionBgRt.anchoredPosition = new Vector2(8, 8);
+            versionBgRt.anchorMin = new Vector2(1, 0);
+            versionBgRt.anchorMax = new Vector2(1, 0);
+            versionBgRt.pivot = new Vector2(1, 0);
+            versionBgRt.anchoredPosition = new Vector2(-8, 8);
             versionBgRt.sizeDelta = new Vector2(160, 32);
 
             var versionText = CreateText("VersionText",
@@ -240,7 +371,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.2.0";
+            versionText.text = "v0.3.4";
         }
 
         /// <summary>
@@ -318,6 +449,7 @@ namespace Terranova.UI
         {
             if (speedIndex < 0 || speedIndex >= SPEED_VALUES.Length)
                 return;
+            if (_gameOverPanel != null) return; // Ignore during game over
 
             _currentSpeedIndex = speedIndex;
             Time.timeScale = SPEED_VALUES[speedIndex];

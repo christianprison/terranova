@@ -1,14 +1,17 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using Terranova.Core;
 using Terranova.Population;
 using Terranova.Buildings;
+using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Input
 {
     /// <summary>
     /// Handles tap selection, deselection, long press, and highlight rings.
+    /// Supports both mouse (left click) and touch (single finger tap).
     ///
     /// Story 6.1: Tap on settler/building → publish SelectionChangedEvent
     /// Story 6.2: Tap on empty terrain → deselect
@@ -27,6 +30,7 @@ namespace Terranova.Input
         private const float HIGHLIGHT_RING_RADIUS = 0.8f;
         private const int HIGHLIGHT_SEGMENTS = 32;
         private const float HIGHLIGHT_LINE_WIDTH = 0.05f;
+        private const float TAP_MAX_DRIFT = 10f; // Max pixels finger can move and still count as tap
 
         private static readonly Color HIGHLIGHT_COLOR = new Color(1f, 0.9f, 0.2f, 0.9f);
 
@@ -35,15 +39,34 @@ namespace Terranova.Input
         private Mouse _mouse;
         private GameObject _selectedObject;
         private GameObject _highlightRing;
+
+        // Mouse input state
         private bool _isPressingDown;
         private float _pressTimer;
         private Vector2 _pressStartPosition;
         private bool _longPressTriggered;
 
+        // Touch input state
+        private bool _touchDown;
+        private float _touchTimer;
+        private Vector2 _touchStartPos;
+        private bool _touchLongPressTriggered;
+        private bool _touchCancelled; // Set when multi-touch or drag detected
+
         /// <summary>Currently selected object (settler or building).</summary>
         public GameObject SelectedObject => _selectedObject;
 
         // ─── Lifecycle ─────────────────────────────────────────
+
+        private void OnEnable()
+        {
+            EnhancedTouchSupport.Enable();
+        }
+
+        private void OnDisable()
+        {
+            EnhancedTouchSupport.Disable();
+        }
 
         private void Start()
         {
@@ -52,19 +75,24 @@ namespace Terranova.Input
 
         private void Update()
         {
-            if (_mouse == null) return;
+            // Don't process selection when clicking/tapping on UI
+            // (build menu, speed controls, discovery popup dismiss are handled by EventSystem)
+            bool mouseOverUI = _mouse != null &&
+                EventSystem.current != null &&
+                EventSystem.current.IsPointerOverGameObject();
 
-            // Don't process selection when clicking on UI
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                return;
+            if (!mouseOverUI)
+                HandleMouseInput();
 
-            HandleMouseInput();
+            HandleTouchInput();
         }
 
-        // ─── Input Handling ─────────────────────────────────────
+        // ─── Mouse Input ──────────────────────────────────────
 
         private void HandleMouseInput()
         {
+            if (_mouse == null) return;
+
             // Left mouse button pressed
             if (_mouse.leftButton.wasPressedThisFrame)
             {
@@ -81,7 +109,7 @@ namespace Terranova.Input
 
                 // Check for drag (not a tap/long press if mouse moved too far)
                 Vector2 currentPos = _mouse.position.ReadValue();
-                if (Vector2.Distance(currentPos, _pressStartPosition) > 10f)
+                if (Vector2.Distance(currentPos, _pressStartPosition) > TAP_MAX_DRIFT)
                 {
                     _isPressingDown = false;
                     return;
@@ -108,6 +136,76 @@ namespace Terranova.Input
             }
         }
 
+        // ─── Touch Input ──────────────────────────────────────
+
+        /// <summary>
+        /// Handle single-finger tap and long press for selection.
+        /// Processes each touch by phase for reliable detection (handles fast taps
+        /// where Began and Ended arrive in the same frame).
+        /// Multi-touch and drag cancel the tap gesture.
+        /// Two-finger gestures (pinch, zoom) are handled by RTSCameraController.
+        /// </summary>
+        private void HandleTouchInput()
+        {
+            // Multi-touch cancels any tap detection
+            if (Touch.activeFingers.Count >= 2)
+            {
+                _touchCancelled = true;
+            }
+
+            // Process each touch event by phase
+            foreach (var touch in Touch.activeTouches)
+            {
+                switch (touch.phase)
+                {
+                    case UnityEngine.InputSystem.TouchPhase.Began:
+                        if (_touchDown) break;
+
+                        // Skip if over UI (buttons handle their own taps via EventSystem)
+                        if (EventSystem.current != null &&
+                            EventSystem.current.IsPointerOverGameObject(touch.finger.index))
+                            break;
+
+                        _touchDown = true;
+                        _touchTimer = 0f;
+                        _touchStartPos = touch.screenPosition;
+                        _touchLongPressTriggered = false;
+                        _touchCancelled = false;
+                        break;
+
+                    case UnityEngine.InputSystem.TouchPhase.Moved:
+                    case UnityEngine.InputSystem.TouchPhase.Stationary:
+                        if (!_touchDown || _touchCancelled) break;
+
+                        _touchTimer += Time.unscaledDeltaTime;
+
+                        // Finger drifted too far → it's a pan, not a tap
+                        if (Vector2.Distance(touch.screenPosition, _touchStartPos) > TAP_MAX_DRIFT)
+                        {
+                            _touchCancelled = true;
+                        }
+
+                        // Long press: select with detail view
+                        if (!_touchLongPressTriggered && !_touchCancelled &&
+                            _touchTimer >= LONG_PRESS_DURATION)
+                        {
+                            _touchLongPressTriggered = true;
+                            TrySelect(_touchStartPos, isDetailView: true);
+                        }
+                        break;
+
+                    case UnityEngine.InputSystem.TouchPhase.Ended:
+                    case UnityEngine.InputSystem.TouchPhase.Canceled:
+                        if (_touchDown && !_touchLongPressTriggered && !_touchCancelled)
+                        {
+                            TrySelect(_touchStartPos, isDetailView: false);
+                        }
+                        _touchDown = false;
+                        break;
+                }
+            }
+        }
+
         // ─── Selection Logic ────────────────────────────────────
 
         /// <summary>
@@ -118,7 +216,9 @@ namespace Terranova.Input
         {
             Ray ray = UnityEngine.Camera.main.ScreenPointToRay(screenPos);
 
-            if (!Physics.Raycast(ray, out RaycastHit hit, RAYCAST_DISTANCE))
+            // QueryTriggerInteraction.Collide: settler body collider is a trigger
+            if (!Physics.Raycast(ray, out RaycastHit hit, RAYCAST_DISTANCE,
+                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Collide))
             {
                 Deselect();
                 return;

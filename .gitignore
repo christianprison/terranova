@@ -41,6 +41,7 @@ crashlytics-build.properties
 *.aab
 *.unitypackage
 *.app
+iOS Builds/
 
 # Plastic SCM
 *.ignore
