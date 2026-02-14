@@ -218,9 +218,9 @@ namespace Terranova.UI
             float totalDays = _gameTime / SECONDS_PER_DAY;
             int day = 1 + (int)(totalDays % 30);
             int month = 1 + (int)((totalDays % 360) / 30);
-            int year = 1 + (int)(totalDays / 360);
+            int year = (int)(totalDays / 360);
 
-            _calendarText.text = $"Year {year}, Month {month}, Day {day}";
+            _calendarText.text = $"{day}.{month}.{year:D4}";
         }
 
         /// <summary>
@@ -261,8 +261,9 @@ namespace Terranova.UI
 
             // Subtitle with calendar
             float totalDays = _gameTime / SECONDS_PER_DAY;
-            int year = 1 + (int)(totalDays / 360);
+            int day = 1 + (int)(totalDays % 30);
             int month = 1 + (int)((totalDays % 360) / 30);
+            int year = (int)(totalDays / 360);
             var subtitleObj = new GameObject("GameOverSubtitle");
             subtitleObj.transform.SetParent(_gameOverPanel.transform, false);
             var subRect = subtitleObj.AddComponent<RectTransform>();
@@ -276,7 +277,7 @@ namespace Terranova.UI
             subText.fontSize = 22;
             subText.color = new Color(0.8f, 0.8f, 0.8f);
             subText.alignment = TextAnchor.MiddleCenter;
-            subText.text = $"All settlers perished in Year {year}, Month {month}";
+            subText.text = $"All settlers perished on {day}.{month}.{year:D4}";
 
             // Restart button
             float btnSize = _minTouchTarget * 2.5f;
@@ -361,7 +362,7 @@ namespace Terranova.UI
                 new Vector2(-20, -20),   // Offset from top-right
                 new Vector2(250, 40),
                 TextAnchor.UpperRight);
-            _calendarText.text = "Year 1, Month 1, Day 1";
+            _calendarText.text = "1.1.0000";
 
             // Food warning (below resource text)
             _warningText = CreateText("WarningText",
