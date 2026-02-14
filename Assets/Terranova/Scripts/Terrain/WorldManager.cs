@@ -161,16 +161,23 @@ namespace Terranova.Terrain
             Debug.Log($"World generated: {_worldSizeX}×{_worldSizeZ} chunks " +
                       $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={_seed}");
 
-            // Dismiss loading screen first so terrain becomes visible immediately.
-            // NavMesh bakes in the background afterwards (settlers haven't spawned yet).
+            // Phase 3: NavMesh – must complete before loading screen dismisses
+            // because SettlerSpawner and ResourceSpawner check IsNavMeshReady.
+            // Use async UpdateNavMesh so the UI stays responsive during baking.
+            EventBus.Publish(new WorldGenerationProgressEvent
+            {
+                Progress = 0.95f,
+                Status = "Baking navigation..."
+            });
+            yield return null;
+
+            yield return StartCoroutine(BakeNavMeshAsync());
+
             EventBus.Publish(new WorldGenerationProgressEvent
             {
                 Progress = 1f,
                 Status = "Ready!"
             });
-            yield return null;
-
-            BakeNavMesh();
         }
 
         /// <summary>
@@ -405,12 +412,9 @@ namespace Terranova.Terrain
         }
 
         /// <summary>
-        /// Bake (or rebake) the NavMesh from the current terrain colliders.
-        /// Called after world generation and after any terrain modification.
-        ///
-        /// Story 2.0: Siedler-Bewegung auf NavMesh migrieren
+        /// Ensure the NavMeshSurface component exists and is configured.
         /// </summary>
-        public void BakeNavMesh()
+        private void EnsureNavMeshSurface()
         {
             if (_navMeshSurface == null)
             {
@@ -418,11 +422,42 @@ namespace Terranova.Terrain
                 _navMeshSurface.collectObjects = CollectObjects.Children;
                 _navMeshSurface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
             }
+        }
 
+        /// <summary>
+        /// Async NavMesh bake using UpdateNavMesh for initial world generation.
+        /// Yields each frame so the loading screen stays responsive.
+        /// </summary>
+        private IEnumerator BakeNavMeshAsync()
+        {
+            EnsureNavMeshSurface();
+
+            // Create empty NavMeshData and register it, then update asynchronously
+            var data = new NavMeshData();
+            _navMeshSurface.navMeshData = data;
+            NavMesh.AddNavMeshData(data);
+            var op = _navMeshSurface.UpdateNavMesh(data);
+
+            while (!op.isDone)
+                yield return null;
+
+            IsNavMeshReady = true;
+            Debug.Log("NavMesh baked successfully (async).");
+        }
+
+        /// <summary>
+        /// Synchronous rebake for terrain modifications (small area, fast).
+        /// Called after FlattenTerrain / SetBlock.
+        ///
+        /// Story 2.0: Siedler-Bewegung auf NavMesh migrieren
+        /// </summary>
+        public void BakeNavMesh()
+        {
+            EnsureNavMeshSurface();
             _navMeshSurface.BuildNavMesh();
             IsNavMeshReady = true;
 
-            Debug.Log("NavMesh baked successfully.");
+            Debug.Log("NavMesh rebaked successfully.");
         }
 
         /// <summary>
