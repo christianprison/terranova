@@ -855,7 +855,7 @@ namespace Terranova.Population
             body.transform.localScale = new Vector3(0.3f, 0.35f, 0.2f);
             body.transform.localPosition = new Vector3(0f, 0.35f, 0f);
             var bodyCol = body.GetComponent<Collider>();
-            if (bodyCol != null) bodyCol.isTrigger = true; // keep for raycast selection
+            if (bodyCol != null) Destroy(bodyCol); // Use root collider instead
 
             _bodyRenderer = body.GetComponent<MeshRenderer>();
             _bodyRenderer.sharedMaterial = _sharedMaterial;
@@ -900,6 +900,13 @@ namespace Terranova.Population
                 legPb.SetColor(ColorID, bodyColor * 0.7f);
                 legRenderer.SetPropertyBlock(legPb);
             }
+
+            // Selection collider on root: generous box covering the full settler
+            // (body + head). Trigger so it doesn't affect NavMeshAgent physics.
+            var selectionCol = gameObject.AddComponent<BoxCollider>();
+            selectionCol.isTrigger = true;
+            selectionCol.center = new Vector3(0f, 0.5f, 0f);
+            selectionCol.size = new Vector3(0.5f, 1.0f, 0.5f);
         }
 
         /// <summary>
