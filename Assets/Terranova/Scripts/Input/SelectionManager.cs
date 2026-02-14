@@ -1,14 +1,17 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
 using Terranova.Core;
 using Terranova.Population;
 using Terranova.Buildings;
+using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Input
 {
     /// <summary>
     /// Handles tap selection, deselection, long press, and highlight rings.
+    /// Supports both mouse (left click) and touch (single finger tap).
     ///
     /// Story 6.1: Tap on settler/building → publish SelectionChangedEvent
     /// Story 6.2: Tap on empty terrain → deselect
@@ -27,6 +30,7 @@ namespace Terranova.Input
         private const float HIGHLIGHT_RING_RADIUS = 0.8f;
         private const int HIGHLIGHT_SEGMENTS = 32;
         private const float HIGHLIGHT_LINE_WIDTH = 0.05f;
+        private const float TAP_MAX_DRIFT = 10f; // Max pixels finger can move and still count as tap
 
         private static readonly Color HIGHLIGHT_COLOR = new Color(1f, 0.9f, 0.2f, 0.9f);
 
@@ -35,15 +39,34 @@ namespace Terranova.Input
         private Mouse _mouse;
         private GameObject _selectedObject;
         private GameObject _highlightRing;
+
+        // Mouse input state
         private bool _isPressingDown;
         private float _pressTimer;
         private Vector2 _pressStartPosition;
         private bool _longPressTriggered;
 
+        // Touch input state
+        private bool _touchDown;
+        private float _touchTimer;
+        private Vector2 _touchStartPos;
+        private bool _touchLongPressTriggered;
+        private bool _touchCancelled; // Set when multi-touch or drag detected
+
         /// <summary>Currently selected object (settler or building).</summary>
         public GameObject SelectedObject => _selectedObject;
 
         // ─── Lifecycle ─────────────────────────────────────────
+
+        private void OnEnable()
+        {
+            EnhancedTouchSupport.Enable();
+        }
+
+        private void OnDisable()
+        {
+            EnhancedTouchSupport.Disable();
+        }
 
         private void Start()
         {
@@ -52,19 +75,24 @@ namespace Terranova.Input
 
         private void Update()
         {
-            if (_mouse == null) return;
+            // Don't process selection when clicking/tapping on UI
+            // (build menu, speed controls, discovery popup dismiss are handled by EventSystem)
+            bool mouseOverUI = _mouse != null &&
+                EventSystem.current != null &&
+                EventSystem.current.IsPointerOverGameObject();
 
-            // Don't process selection when clicking on UI
-            if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject())
-                return;
+            if (!mouseOverUI)
+                HandleMouseInput();
 
-            HandleMouseInput();
+            HandleTouchInput();
         }
 
-        // ─── Input Handling ─────────────────────────────────────
+        // ─── Mouse Input ──────────────────────────────────────
 
         private void HandleMouseInput()
         {
+            if (_mouse == null) return;
+
             // Left mouse button pressed
             if (_mouse.leftButton.wasPressedThisFrame)
             {
@@ -81,7 +109,7 @@ namespace Terranova.Input
 
                 // Check for drag (not a tap/long press if mouse moved too far)
                 Vector2 currentPos = _mouse.position.ReadValue();
-                if (Vector2.Distance(currentPos, _pressStartPosition) > 10f)
+                if (Vector2.Distance(currentPos, _pressStartPosition) > TAP_MAX_DRIFT)
                 {
                     _isPressingDown = false;
                     return;
@@ -105,6 +133,81 @@ namespace Terranova.Input
                 }
 
                 _isPressingDown = false;
+            }
+        }
+
+        // ─── Touch Input ──────────────────────────────────────
+
+        /// <summary>
+        /// Handle single-finger tap and long press for selection.
+        /// Multi-touch and drag cancel the tap gesture.
+        /// Two-finger gestures (pinch, rotate) are handled by RTSCameraController.
+        /// </summary>
+        private void HandleTouchInput()
+        {
+            var fingers = Touch.activeFingers;
+
+            // Multi-touch cancels any tap detection
+            if (fingers.Count >= 2)
+            {
+                _touchCancelled = true;
+            }
+
+            // Check for ended touches (tap detection happens on release)
+            foreach (var touch in Touch.activeTouches)
+            {
+                if (touch.phase == UnityEngine.InputSystem.TouchPhase.Ended && _touchDown)
+                {
+                    if (!_touchLongPressTriggered && !_touchCancelled)
+                    {
+                        TrySelect(_touchStartPos, isDetailView: false);
+                    }
+                    _touchDown = false;
+                    return;
+                }
+            }
+
+            // New single-finger touch began
+            if (fingers.Count == 1 && !_touchDown)
+            {
+                var touch = fingers[0].currentTouch;
+
+                // Skip if over UI (buttons handle their own taps via EventSystem)
+                if (EventSystem.current != null &&
+                    EventSystem.current.IsPointerOverGameObject(touch.finger.index))
+                    return;
+
+                _touchDown = true;
+                _touchTimer = 0f;
+                _touchStartPos = touch.screenPosition;
+                _touchLongPressTriggered = false;
+                _touchCancelled = false;
+            }
+
+            // Ongoing single-finger hold — track for long press and drag
+            if (_touchDown && !_touchCancelled && fingers.Count >= 1)
+            {
+                _touchTimer += Time.unscaledDeltaTime;
+
+                // Check if finger has drifted too far (it's a pan, not a tap)
+                var currentPos = fingers[0].currentTouch.screenPosition;
+                if (Vector2.Distance(currentPos, _touchStartPos) > TAP_MAX_DRIFT)
+                {
+                    _touchCancelled = true;
+                }
+
+                // Long press: select with detail view
+                if (!_touchLongPressTriggered && _touchTimer >= LONG_PRESS_DURATION)
+                {
+                    _touchLongPressTriggered = true;
+                    TrySelect(_touchStartPos, isDetailView: true);
+                }
+            }
+
+            // All fingers lifted — reset state
+            if (fingers.Count == 0 && _touchDown)
+            {
+                _touchDown = false;
             }
         }
 

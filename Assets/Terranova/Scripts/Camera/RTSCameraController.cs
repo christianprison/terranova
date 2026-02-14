@@ -1,18 +1,29 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.InputSystem.EnhancedTouch;
+using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Camera
 {
     /// <summary>
     /// RTS-style camera for viewing the voxel terrain.
     ///
-    /// Controls (MS1 – mouse/keyboard, touch comes in MS4):
-    ///   Pan:    WASD or Arrow keys (or middle-mouse drag)
-    ///   Zoom:   Mouse scroll wheel
-    ///   Rotate: Hold middle mouse button + move mouse
+    /// Controls:
+    ///   Keyboard/Mouse (always active):
+    ///     Pan:    WASD or Arrow keys
+    ///     Zoom:   Mouse scroll wheel
+    ///     Rotate: Hold middle mouse button + move mouse, or Q/E keys
+    ///
+    ///   Touch (iPad):
+    ///     Pan:    One-finger drag
+    ///     Zoom:   Two-finger pinch
+    ///     Rotate: Two-finger twist (snaps to 90° on release)
     ///
     /// The camera looks down at an angle (like Anno, Settlers, Age of Empires).
     /// It stays above the terrain and clamps to world boundaries.
+    ///
+    /// Gesture Lexicon v0.4: CAM-01 (pan), CAM-02 (pinch zoom), CAM-03 (rotate)
     /// </summary>
     [RequireComponent(typeof(UnityEngine.Camera))]
     public class RTSCameraController : MonoBehaviour
@@ -44,9 +55,15 @@ namespace Terranova.Camera
         [Tooltip("Smoothing speed for snap-to-90° when releasing MMB.")]
         [SerializeField] private float _snapSmoothing = 10f;
 
-        [Header("Touch Preparation (MS4)")]
-        [Tooltip("Safe zone in points from screen edges. Touch input inside this zone is ignored to prevent accidental gestures. GDD spec: 20pt.")]
+        [Header("Touch")]
+        [Tooltip("Safe zone in points from screen edges. Touch inside this zone is ignored to prevent accidental gestures. GDD spec: 20pt.")]
         [SerializeField] private float _safeZonePoints = 20f;
+
+        [Tooltip("Touch pan sensitivity. Higher = faster panning per pixel dragged.")]
+        [SerializeField] private float _touchPanScale = 0.003f;
+
+        [Tooltip("Pinch zoom sensitivity.")]
+        [SerializeField] private float _pinchZoomScale = 0.005f;
 
         [Header("Initial Position")]
         [Tooltip("Starting camera angle (degrees from horizontal). 60 = steep top-down, 30 = more side view.")]
@@ -68,12 +85,32 @@ namespace Terranova.Camera
         private bool _isSnapping;
         private bool _initialized;
 
+        // ─── Touch gesture state ──────────────────────────────────
+        private int _prevFingerCount;
+        private bool _wasTwoFingerGesture; // True from 2-finger start until all fingers lift
+        private Vector2 _touchPanPrev;
+        private bool _touchPanTracking;
+        private float _prevPinchDist;
+        private float _prevTwoFingerAngle;
+
+        private void OnEnable()
+        {
+            EnhancedTouchSupport.Enable();
+        }
+
+        private void OnDisable()
+        {
+            EnhancedTouchSupport.Disable();
+        }
+
         private void Start()
         {
             _currentZoom = _defaultHeight;
             _targetZoom = _defaultHeight;
             _yaw = 0f;
             _pivotPosition = new Vector3(64, 64, 64);
+            _prevPinchDist = -1f;
+            _prevTwoFingerAngle = float.MinValue;
             UpdateCameraTransform();
         }
 
@@ -101,9 +138,12 @@ namespace Terranova.Camera
             HandlePan();
             HandleZoom();
             HandleRotation();
+            HandleTouch();
             ClampToWorldBounds();
             UpdateCameraTransform();
         }
+
+        // ─── Keyboard/Mouse Input ─────────────────────────────────
 
         /// <summary>
         /// WASD/Arrow keys to pan the camera across the terrain.
@@ -220,6 +260,135 @@ namespace Terranova.Camera
             }
         }
 
+        // ─── Touch Input ──────────────────────────────────────────
+
+        /// <summary>
+        /// Process touch gestures: one-finger pan, pinch zoom, two-finger rotate.
+        /// Uses EnhancedTouch for reliable multi-finger tracking.
+        /// All gestures coexist with mouse/keyboard (both active simultaneously).
+        /// </summary>
+        private void HandleTouch()
+        {
+            int fingerCount = Touch.activeFingers.Count;
+
+            // Detect transition: two-finger gesture ending → snap rotation
+            if (_prevFingerCount >= 2 && fingerCount < 2)
+            {
+                if (_isRotatingWithMouse) // Flag reused for touch rotation
+                {
+                    _targetYaw = Mathf.Round(_yaw / 90f) * 90f;
+                    _isSnapping = true;
+                    _isRotatingWithMouse = false;
+                }
+                _prevPinchDist = -1f;
+                _prevTwoFingerAngle = float.MinValue;
+            }
+
+            // Track multi-touch lifecycle: set when 2+ fingers, clear when 0
+            if (fingerCount >= 2) _wasTwoFingerGesture = true;
+            if (fingerCount == 0)
+            {
+                _wasTwoFingerGesture = false;
+                _touchPanTracking = false;
+            }
+
+            // One-finger drag → pan (only if not transitioning out of pinch/rotate)
+            if (fingerCount == 1 && !_wasTwoFingerGesture)
+            {
+                HandleTouchPan(Touch.activeFingers[0].currentTouch);
+            }
+            // Two-finger → simultaneous pinch zoom + rotation
+            else if (fingerCount >= 2)
+            {
+                var t0 = Touch.activeFingers[0].currentTouch;
+                var t1 = Touch.activeFingers[1].currentTouch;
+                HandlePinchZoom(t0, t1);
+                HandleTwoFingerRotation(t0, t1);
+                _touchPanTracking = false;
+            }
+
+            _prevFingerCount = fingerCount;
+        }
+
+        /// <summary>
+        /// One-finger drag pans the camera. Dragging right moves the world right
+        /// under the camera (camera moves left relative to world).
+        /// Speed scales with zoom for consistent feel at all distances.
+        /// Gesture Lexicon: CAM-01.
+        /// </summary>
+        private void HandleTouchPan(Touch touch)
+        {
+            if (IsInSafeZone(touch.screenPosition)) return;
+
+            // Skip touches over UI (build menu, speed buttons, etc.)
+            if (EventSystem.current != null &&
+                EventSystem.current.IsPointerOverGameObject(touch.finger.index))
+                return;
+
+            // First frame of tracking: record position, don't pan yet
+            if (!_touchPanTracking)
+            {
+                _touchPanPrev = touch.screenPosition;
+                _touchPanTracking = true;
+                return;
+            }
+
+            Vector2 delta = touch.screenPosition - _touchPanPrev;
+            _touchPanPrev = touch.screenPosition;
+
+            if (delta.sqrMagnitude < 0.01f) return;
+
+            // Convert screen delta to world movement relative to camera yaw
+            Vector3 forward = Quaternion.Euler(0, _yaw, 0) * Vector3.forward;
+            Vector3 right = Quaternion.Euler(0, _yaw, 0) * Vector3.right;
+
+            // Inverted: drag finger right → world slides right → camera moves left
+            float panFactor = _currentZoom * _touchPanScale;
+            _pivotPosition -= right * delta.x * panFactor;
+            _pivotPosition -= forward * delta.y * panFactor;
+        }
+
+        /// <summary>
+        /// Two-finger pinch to zoom. Fingers apart = zoom in, together = zoom out.
+        /// Gesture Lexicon: CAM-02.
+        /// </summary>
+        private void HandlePinchZoom(Touch t0, Touch t1)
+        {
+            float dist = Vector2.Distance(t0.screenPosition, t1.screenPosition);
+
+            if (_prevPinchDist > 0)
+            {
+                float pinchDelta = dist - _prevPinchDist;
+                _targetZoom -= pinchDelta * (_targetZoom * _pinchZoomScale);
+                _targetZoom = Mathf.Clamp(_targetZoom, _minZoom, _maxZoom);
+            }
+
+            _prevPinchDist = dist;
+        }
+
+        /// <summary>
+        /// Two-finger twist to rotate the camera. Snaps to nearest 90° on release
+        /// (handled in HandleTouch when finger count drops below 2).
+        /// Gesture Lexicon: CAM-03.
+        /// </summary>
+        private void HandleTwoFingerRotation(Touch t0, Touch t1)
+        {
+            Vector2 diff = t1.screenPosition - t0.screenPosition;
+            float angle = Mathf.Atan2(diff.y, diff.x) * Mathf.Rad2Deg;
+
+            if (_prevTwoFingerAngle > float.MinValue + 1f)
+            {
+                float angleDelta = Mathf.DeltaAngle(_prevTwoFingerAngle, angle);
+                _yaw -= angleDelta;
+                _isRotatingWithMouse = true; // Reuse flag so snap-to-90° triggers on release
+                _isSnapping = false;
+            }
+
+            _prevTwoFingerAngle = angle;
+        }
+
+        // ─── Shared Utilities ─────────────────────────────────────
+
         /// <summary>
         /// Keep the camera pivot within world boundaries and follow terrain height.
         /// The pivot Y smoothly tracks the terrain surface so the camera doesn't
@@ -244,8 +413,8 @@ namespace Terranova.Camera
 
         /// <summary>
         /// Check if a screen position falls within the safe zone (too close to edges).
-        /// Touch input in the safe zone should be ignored to prevent accidental gestures.
-        /// In MS1 this is not used (mouse input), but prepared for MS4 touch integration.
+        /// Touch input in the safe zone is ignored to prevent accidental gestures
+        /// when holding the iPad.
         /// </summary>
         public bool IsInSafeZone(Vector2 screenPosition)
         {
