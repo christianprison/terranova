@@ -8,6 +8,7 @@ using Terranova.UI;
 using Terranova.Population;
 using Terranova.Resources;
 using Terranova.Input;
+using Terranova.Discovery;
 
 namespace Terranova.Core
 {
@@ -45,6 +46,7 @@ namespace Terranova.Core
             EnsureBuildingFunctionManager();
             EnsureDebugTerrainModifier();
             EnsureSelectionManager();
+            EnsureDiscoverySystem();
 
             Debug.Log("GameBootstrapper: All systems ready.");
         }
@@ -250,6 +252,23 @@ namespace Terranova.Core
             var go = new GameObject("SelectionManager");
             go.AddComponent<SelectionManager>();
             Debug.Log("GameBootstrapper: Created SelectionManager.");
+        }
+
+        /// <summary>
+        /// Discovery system: activity tracking, probability engine, state manager, registry.
+        /// Story 1.1–1.5: Discovery Engine
+        /// </summary>
+        private static void EnsureDiscoverySystem()
+        {
+            if (Object.FindFirstObjectByType<DiscoveryEngine>() != null)
+                return;
+
+            var go = new GameObject("DiscoverySystem");
+            go.AddComponent<ActivityTracker>();
+            go.AddComponent<DiscoveryStateManager>();
+            go.AddComponent<DiscoveryEngine>();
+            go.AddComponent<DiscoveryRegistry>();
+            Debug.Log("GameBootstrapper: Created DiscoverySystem (ActivityTracker, StateManager, Engine, Registry).");
         }
     }
 }
