@@ -6,6 +6,7 @@
         "Terranova.Buildings",
         "Terranova.Discovery",
         "Terranova.Population",
+        "Terranova.Resources",
         "Terranova.Terrain",
         "Unity.InputSystem"
     ],
