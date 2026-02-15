@@ -140,7 +140,10 @@ namespace Terranova.Population
 
             // Autonomous food seeking (MS4 Feature 4.2)
             SeekingFood,
-            GatheringFood
+            GatheringFood,
+
+            // Feature 5.2: Shelter seeking
+            WalkingToShelter
         }
 
         private SettlerState _state = SettlerState.IdlePausing;
@@ -280,7 +283,7 @@ namespace Terranova.Population
             get
             {
                 if (_equippedTool == null) return 1.0f;
-                return _equippedTool.Quality switch
+                float baseMult = _equippedTool.Quality switch
                 {
                     1 => 1.0f,
                     2 => 1.3f,
@@ -289,6 +292,10 @@ namespace Terranova.Population
                     5 => 2.5f,
                     _ => 1.0f
                 };
+                // Skilled trait: +20% tool efficiency
+                if (_hasTrait && _trait == SettlerTrait.Skilled)
+                    baseMult *= 1.2f;
+                return baseMult;
             }
         }
 
@@ -400,6 +407,19 @@ namespace Terranova.Population
         /// <summary>Apply damage from an external source (hunting, falls, predators).</summary>
         public void TakeDamage(HealthState severity)
         {
+            // Cautious trait: -30% failure severity (reduce by one tier)
+            if (_hasTrait && _trait == SettlerTrait.Cautious && severity > HealthState.Healthy)
+            {
+                severity = severity switch
+                {
+                    HealthState.CriticallyInjured => HealthState.Injured,
+                    HealthState.Sick => HealthState.Healthy,
+                    HealthState.Injured => HealthState.Healthy,
+                    _ => severity
+                };
+                if (severity == HealthState.Healthy) return; // Avoided damage entirely
+            }
+
             if (_healthState >= severity) return; // Already at or worse than this
 
             var old = _healthState;
@@ -550,6 +570,9 @@ namespace Terranova.Population
         {
             _equippedTool = tool;
             _toolDurability = tool != null ? tool.MaxDurability : 0;
+            // Skilled trait: +15% durability
+            if (tool != null && _hasTrait && _trait == SettlerTrait.Skilled)
+                _toolDurability = Mathf.CeilToInt(_toolDurability * 1.15f);
             if (tool != null)
             {
                 Debug.Log($"[{name}] Equipped {tool.DisplayName} (Q{tool.Quality}, durability {_toolDurability})");
@@ -743,6 +766,9 @@ namespace Terranova.Population
                 case SettlerState.GatheringFood:
                     UpdateGatheringFood();
                     break;
+                case SettlerState.WalkingToShelter:
+                    UpdateWalkingToShelter();
+                    break;
             }
         }
 
@@ -814,6 +840,10 @@ namespace Terranova.Population
             if (_stateTimer > 0f)
                 return;
 
+            // Feature 5.2: At night, seek shelter if exposed
+            if (TrySeekShelter())
+                return;
+
             if (TryPickWalkTarget())
             {
                 _state = SettlerState.IdleWalking;
@@ -869,6 +899,11 @@ namespace Terranova.Population
                 {
                     workDuration /= ToolQualityMultiplier;
                 }
+                // Feature 6.3: Apply experience speed bonus to work duration
+                ExperienceCategory xpCat = GetExperienceCategoryForTask(_currentTask.TaskType);
+                float xpBonus = GetExperienceSpeedBonus(xpCat);
+                if (xpBonus > 0f)
+                    workDuration /= (1f + xpBonus);
                 _stateTimer = workDuration;
                 Debug.Log($"[{name}] Arrived at target - WORKING ({_currentTask.TaskType}, {_stateTimer:F1}s)");
             }
@@ -1614,6 +1649,59 @@ namespace Terranova.Population
         }
 
         /// <summary>
+        /// Feature 5.2: Try to walk toward the nearest discovered shelter at night.
+        /// Returns true if the settler starts walking to a shelter.
+        /// </summary>
+        private bool TrySeekShelter()
+        {
+            // Only seek shelter at night and when exposed
+            var cycle = DayNightCycle.Instance;
+            if (cycle == null || !cycle.IsNight) return false;
+            if (_currentShelterState == ShelterState.Sheltered) return false;
+
+            var shelterMgr = ShelterManager.Instance;
+            if (shelterMgr == null) return false;
+
+            // Find the best available shelter
+            var target = shelterMgr.FindBestShelter(transform.position);
+            if (target == null) return false;
+
+            if (!SetAgentDestination(target.Value.position))
+                return false;
+
+            _state = SettlerState.WalkingToShelter;
+            _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED);
+            return true;
+        }
+
+        /// <summary>
+        /// Walk toward a shelter. Once arrived, idle in place (shelter proximity check
+        /// will mark us as Sheltered). If dawn breaks, return to idle wandering.
+        /// </summary>
+        private void UpdateWalkingToShelter()
+        {
+            // If it's no longer night, stop seeking shelter
+            var cycle = DayNightCycle.Instance;
+            if (cycle != null && !cycle.IsNight)
+            {
+                _agent.ResetPath();
+                _isMoving = false;
+                _state = SettlerState.IdlePausing;
+                _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
+                return;
+            }
+
+            if (HasReachedDestination())
+            {
+                _agent.ResetPath();
+                _isMoving = false;
+                _state = SettlerState.IdlePausing;
+                // Stay at shelter — longer pause so we don't wander away immediately
+                _stateTimer = Random.Range(10f, 20f);
+            }
+        }
+
+        /// <summary>
         /// Get the MaterialDefinition associated with a resource node, if any.
         /// Used for checking food properties (poison, nutrition).
         /// </summary>
@@ -1757,40 +1845,25 @@ namespace Terranova.Population
         //
         // ═══════════════════════════════════════════════════════════════
 
+        /// <summary>Map task type to the corresponding experience category.</summary>
+        private ExperienceCategory GetExperienceCategoryForTask(SettlerTaskType taskType)
+        {
+            return taskType switch
+            {
+                SettlerTaskType.GatherWood => ExperienceCategory.Woodwork,
+                SettlerTaskType.GatherStone => ExperienceCategory.Stonework,
+                SettlerTaskType.Hunt => ExperienceCategory.Hunting,
+                SettlerTaskType.CraftTool => ExperienceCategory.Toolmaking,
+                _ => ExperienceCategory.Gathering
+            };
+        }
+
         /// <summary>
         /// Award experience based on task type completed.
         /// </summary>
         private void GainExperienceForTask(SettlerTaskType taskType)
         {
-            float baseXP = 2f;
-            ExperienceCategory cat;
-
-            switch (taskType)
-            {
-                case SettlerTaskType.GatherWood:
-                    cat = ExperienceCategory.Woodwork;
-                    break;
-                case SettlerTaskType.GatherStone:
-                    cat = ExperienceCategory.Stonework;
-                    break;
-                case SettlerTaskType.Hunt:
-                    cat = ExperienceCategory.Hunting;
-                    break;
-                case SettlerTaskType.Build:
-                    cat = ExperienceCategory.Gathering;
-                    break;
-                case SettlerTaskType.GatherMaterial:
-                    cat = ExperienceCategory.Gathering;
-                    break;
-                case SettlerTaskType.CraftTool:
-                    cat = ExperienceCategory.Toolmaking;
-                    break;
-                default:
-                    cat = ExperienceCategory.Gathering;
-                    break;
-            }
-
-            AddExperience(cat, baseXP);
+            AddExperience(GetExperienceCategoryForTask(taskType), 2f);
         }
 
         // ═══════════════════════════════════════════════════════════════

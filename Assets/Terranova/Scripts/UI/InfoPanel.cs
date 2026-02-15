@@ -248,8 +248,6 @@ namespace Terranova.UI
                     }
                 }
 
-                info += "\n\n[Give Order] (placeholder)";
-
                 var pos = settler.transform.position;
                 info += $"\n\nPosition: ({pos.x:F0}, {pos.z:F0})";
 
