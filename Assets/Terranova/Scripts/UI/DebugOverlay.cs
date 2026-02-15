@@ -455,7 +455,7 @@ namespace Terranova.UI
             textRect.offsetMax = new Vector2(-8, -8);
 
             _debugText = textGo.AddComponent<Text>();
-            _debugText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _debugText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _debugText.fontSize = FONT_SIZE;
             _debugText.color = new Color(0.2f, 1f, 0.6f); // Cyan-green terminal
             _debugText.alignment = TextAnchor.UpperLeft;
