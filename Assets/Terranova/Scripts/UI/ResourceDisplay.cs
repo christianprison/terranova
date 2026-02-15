@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using Terranova.Core;
+using Terranova.Population;
 using Terranova.Terrain;
 
 namespace Terranova.UI
@@ -143,8 +144,23 @@ namespace Terranova.UI
             if (_settlers > 0)
                 _gameStarted = true;
 
+            // Feature 6.4: TribeManager handles restart, show perish message instead of permanent game over
             if (_gameStarted && _settlers <= 0)
-                ShowGameOver();
+            {
+                var tribeMgr = Population.TribeManager.Instance;
+                if (tribeMgr != null)
+                    ShowTribePerished();
+                else
+                    ShowGameOver();
+            }
+
+            // Dismiss perish panel when new tribe arrives
+            if (_settlers > 0 && _gameOverPanel != null)
+            {
+                Destroy(_gameOverPanel);
+                _gameOverPanel = null;
+                Time.timeScale = 1f;
+            }
         }
 
         private void OnResourceChanged(ResourceChangedEvent evt)
@@ -355,6 +371,51 @@ namespace Terranova.UI
         private void TogglePlant() { _plantExpanded = !_plantExpanded; UpdateDisplay(); }
         private void ToggleAnimal() { _animalExpanded = !_animalExpanded; UpdateDisplay(); }
         private void ToggleOther() { _otherExpanded = !_otherExpanded; UpdateDisplay(); }
+
+        // ─── Tribe Perished (Feature 6.4) ────────────────────────
+
+        private void ShowTribePerished()
+        {
+            if (_gameOverPanel != null) return;
+
+            _gameOverPanel = new GameObject("TribePerishedPanel");
+            _gameOverPanel.transform.SetParent(transform, false);
+            var panelImage = _gameOverPanel.AddComponent<Image>();
+            panelImage.color = new Color(0f, 0f, 0f, 0.8f);
+            var panelRect = _gameOverPanel.GetComponent<RectTransform>();
+            panelRect.anchorMin = Vector2.zero;
+            panelRect.anchorMax = Vector2.one;
+            panelRect.offsetMin = Vector2.zero;
+            panelRect.offsetMax = Vector2.zero;
+
+            var titleObj = new GameObject("PerishedTitle");
+            titleObj.transform.SetParent(_gameOverPanel.transform, false);
+            var titleRect = titleObj.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.5f, 0.55f);
+            titleRect.anchorMax = new Vector2(0.5f, 0.55f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.sizeDelta = new Vector2(600, 60);
+            var titleText = titleObj.AddComponent<Text>();
+            titleText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = 36;
+            titleText.color = new Color(0.9f, 0.7f, 0.5f);
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.text = "The tribe has perished...";
+
+            var subObj = new GameObject("PerishedSub");
+            subObj.transform.SetParent(_gameOverPanel.transform, false);
+            var subRect = subObj.AddComponent<RectTransform>();
+            subRect.anchorMin = new Vector2(0.5f, 0.45f);
+            subRect.anchorMax = new Vector2(0.5f, 0.45f);
+            subRect.pivot = new Vector2(0.5f, 0.5f);
+            subRect.sizeDelta = new Vector2(600, 40);
+            var subText = subObj.AddComponent<Text>();
+            subText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            subText.fontSize = 20;
+            subText.color = new Color(0.7f, 0.7f, 0.7f);
+            subText.alignment = TextAnchor.MiddleCenter;
+            subText.text = "A new tribe finds the remains of an abandoned settlement...";
+        }
 
         // ─── Game Over ────────────────────────────────────────────
 

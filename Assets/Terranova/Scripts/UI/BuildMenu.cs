@@ -30,7 +30,15 @@ namespace Terranova.UI
         private static readonly HashSet<BuildingType> DISCOVERY_GATED = new()
         {
             BuildingType.CookingFire,
-            BuildingType.TrapSite
+            BuildingType.TrapSite,
+            // Feature 5.3: New buildable structures
+            BuildingType.Windscreen,
+            BuildingType.LeafHut,
+            BuildingType.OpenFireplace,
+            BuildingType.DugFireplace,
+            BuildingType.DryingRack,
+            BuildingType.StoragePit,
+            BuildingType.StoneCircleWindbreak
         };
 
         private GameObject _panel;
@@ -167,8 +175,16 @@ namespace Terranova.UI
             {
                 if (DISCOVERY_GATED.Contains(def.Type))
                 {
-                    if (sm != null && sm.IsBuildingUnlocked(def.Type))
+                    // Feature 5.3: Check RequiredDiscoveries (capabilities)
+                    if (def.RequiredDiscoveries != null && def.RequiredDiscoveries.Length > 0)
+                    {
+                        if (sm != null && HasAllCapabilities(sm, def.RequiredDiscoveries))
+                            visibleDefs.Add(def);
+                    }
+                    else if (sm != null && sm.IsBuildingUnlocked(def.Type))
+                    {
                         visibleDefs.Add(def);
+                    }
                 }
                 else
                 {
@@ -231,9 +247,7 @@ namespace Terranova.UI
                 label.color = Color.white;
                 label.alignment = TextAnchor.MiddleCenter;
 
-                string costText = def.StoneCost > 0
-                    ? $"{def.DisplayName}\n{def.WoodCost}W  {def.StoneCost}S"
-                    : $"{def.DisplayName}\n{def.WoodCost}W";
+                string costText = FormatCostText(def);
                 label.text = costText;
 
                 _buttons.Add(new BuildingButton
@@ -250,6 +264,16 @@ namespace Terranova.UI
             _panelDirty = false;
         }
 
+        private static bool HasAllCapabilities(DiscoveryStateManager sm, string[] capabilities)
+        {
+            foreach (var cap in capabilities)
+            {
+                if (!sm.HasCapability(cap))
+                    return false;
+            }
+            return true;
+        }
+
         private void RefreshButtons()
         {
             if (_buttons == null) return;
@@ -259,7 +283,8 @@ namespace Terranova.UI
 
             foreach (var btn in _buttons)
             {
-                bool canAfford = rm.CanAfford(btn.Definition.WoodCost, btn.Definition.StoneCost);
+                bool canAfford = rm.CanAfford(
+                    btn.Definition.WoodCost, btn.Definition.StoneCost, btn.Definition.FiberCost);
                 btn.Button.interactable = canAfford;
                 btn.Background.color = canAfford
                     ? new Color(0.25f, 0.25f, 0.25f, 0.9f)
@@ -268,13 +293,24 @@ namespace Terranova.UI
             }
         }
 
+        private static string FormatCostText(BuildingDefinition def)
+        {
+            var parts = new System.Collections.Generic.List<string>();
+            if (def.WoodCost > 0) parts.Add($"{def.WoodCost}W");
+            if (def.StoneCost > 0) parts.Add($"{def.StoneCost}S");
+            if (def.FiberCost > 0) parts.Add($"{def.FiberCost}F");
+
+            string costs = parts.Count > 0 ? string.Join("  ", parts) : "Free";
+            return $"{def.DisplayName}\n{costs}";
+        }
+
         private void OnBuildingSelected(int index)
         {
             if (_buttons == null || index >= _buttons.Count) return;
 
             var def = _buttons[index].Definition;
             var rm = ResourceManager.Instance;
-            if (rm != null && !rm.CanAfford(def.WoodCost, def.StoneCost))
+            if (rm != null && !rm.CanAfford(def.WoodCost, def.StoneCost, def.FiberCost))
                 return;
 
             var placer = FindFirstObjectByType<BuildingPlacer>();

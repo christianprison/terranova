@@ -140,6 +140,13 @@ namespace Terranova.UI
                 RefreshBuildingInfo(building);
                 return;
             }
+
+            var shelter = _selectedObject.GetComponent<NaturalShelter>();
+            if (shelter != null)
+            {
+                RefreshShelterInfo(shelter);
+                return;
+            }
         }
 
         /// <summary>
@@ -191,11 +198,20 @@ namespace Terranova.UI
                 : "Idle";
             string state = settler.StateName;
 
+            // Feature 6.1: Trait display
+            string traitLine = settler.HasTrait
+                ? $"{settler.TraitIcon} {settler.TraitName}"
+                : "";
+
             if (_isDetailView)
             {
                 _titleText.text = $"-- {settler.name} --";
 
-                string info = $"State: {state}";
+                string info = "";
+                if (!string.IsNullOrEmpty(traitLine))
+                    info += $"Trait: {traitLine}\n";
+
+                info += $"State: {state}";
                 info += $"\nTask: {task}";
 
                 if (settler.IsStarving)
@@ -215,6 +231,22 @@ namespace Terranova.UI
                 // Capabilities based on tool
                 info += GetToolCapabilitiesDetail(settler);
 
+                // Feature 6.3: Experience bars (only categories with > 0 XP)
+                var experience = settler.AllExperience;
+                if (experience.Count > 0)
+                {
+                    info += "\n\n--- Experience ---";
+                    foreach (var kvp in experience)
+                    {
+                        int level = settler.GetExperienceLevel(kvp.Key);
+                        float xp = kvp.Value;
+                        string bar = new string('\u2588', level) + new string('\u2591', 10 - level);
+                        info += $"\n{kvp.Key}: [{bar}] Lv{level}";
+                    }
+                }
+
+                info += "\n\n[Give Order] (placeholder)";
+
                 var pos = settler.transform.position;
                 info += $"\n\nPosition: ({pos.x:F0}, {pos.z:F0})";
 
@@ -223,7 +255,11 @@ namespace Terranova.UI
             else
             {
                 _titleText.text = settler.name;
-                _infoText.text = $"Task: {task}\nState: {state}";
+                string basicInfo = "";
+                if (!string.IsNullOrEmpty(traitLine))
+                    basicInfo += $"{traitLine}\n";
+                basicInfo += $"Task: {task}\nState: {state}";
+                _infoText.text = basicInfo;
             }
         }
 
@@ -404,35 +440,19 @@ namespace Terranova.UI
         }
 
         /// <summary>
-        /// Get shelter status text. Uses reflection for ShelterState if available.
+        /// Get shelter status text. Reads directly from settler.
         /// </summary>
         private string GetSettlerShelterStatus(Settler settler)
         {
-            var prop = settler.GetType().GetProperty("CurrentShelterState");
-            if (prop != null)
-            {
-                object val = prop.GetValue(settler);
-                if (val != null) return val.ToString();
-            }
-            return "Unknown";
+            return settler.CurrentShelterState.ToString();
         }
 
         /// <summary>
-        /// Get health status text. Uses reflection for HealthStatus if available.
+        /// Get health status text. Now reads directly from settler's HealthStatusDisplay.
         /// </summary>
         private string GetSettlerHealthStatus(Settler settler)
         {
-            var prop = settler.GetType().GetProperty("HealthStatus");
-            if (prop != null)
-            {
-                object val = prop.GetValue(settler);
-                if (val != null) return val.ToString();
-            }
-
-            // Fallback: derive from hunger
-            if (settler.IsStarving) return "Critical";
-            if (settler.HungerPercent > 0.7f) return "Weakened";
-            return "Healthy";
+            return settler.HealthStatus;
         }
 
         // ─── Building Info ──────────────────────────────────────
@@ -522,6 +542,34 @@ namespace Terranova.UI
                 _titleText.text = displayName;
                 _infoText.text = statusLine;
             }
+        }
+
+        // ─── Natural Shelter Info (Feature 5.4) ──────────────────
+
+        /// <summary>
+        /// Show natural shelter info when tapped.
+        /// </summary>
+        private void RefreshShelterInfo(NaturalShelter shelter)
+        {
+            _hungerBarRoot.SetActive(false);
+            _needsRoot.SetActive(false);
+            _toolRoot.SetActive(false);
+
+            _titleText.text = shelter.DisplayName;
+
+            string info = shelter.IsDiscovered ? "Discovered" : "Undiscovered";
+            info += $"\nProtection: {shelter.ProtectionValue * 100f:F0}%";
+            info += $"\nCapacity: {shelter.CurrentOccupants}/{shelter.Capacity}";
+            info += shelter.HasRoom ? "\nRoom available" : "\nFULL";
+
+            if (_isDetailView)
+            {
+                info += $"\n\nType: {shelter.ShelterType}";
+                var pos = shelter.transform.position;
+                info += $"\nPosition: ({pos.x:F0}, {pos.z:F0})";
+            }
+
+            _infoText.text = info;
         }
 
         // ─── Panel Visibility ───────────────────────────────────

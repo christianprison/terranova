@@ -60,6 +60,8 @@ namespace Terranova.Core
             EnsureSelectionManager();
             EnsureDiscoverySystem();
             EnsureDayNightCycle(); // MS4: Day-night cycle
+            EnsureShelterSystem(); // Feature 5: Natural Shelters
+            EnsureTribeManager();  // Feature 6.4: Tribe Death & Restart
 
             Debug.Log("GameBootstrapper: All systems ready.");
         }
@@ -324,6 +326,32 @@ namespace Terranova.Core
             var go = new GameObject("MaterialInventory");
             go.AddComponent<MaterialInventory>();
             Debug.Log("GameBootstrapper: Created MaterialInventory.");
+        }
+        /// <summary>
+        /// Feature 5: Shelter system (manager + spawner).
+        /// </summary>
+        private static void EnsureShelterSystem()
+        {
+            if (Object.FindFirstObjectByType<ShelterManager>() != null)
+                return;
+
+            var go = new GameObject("ShelterSystem");
+            go.AddComponent<ShelterManager>();
+            go.AddComponent<ShelterSpawner>();
+            Debug.Log("GameBootstrapper: Created ShelterSystem (ShelterManager, ShelterSpawner).");
+        }
+
+        /// <summary>
+        /// Feature 6.4: Tribe death and restart manager.
+        /// </summary>
+        private static void EnsureTribeManager()
+        {
+            if (Object.FindFirstObjectByType<TribeManager>() != null)
+                return;
+
+            var go = new GameObject("TribeManager");
+            go.AddComponent<TribeManager>();
+            Debug.Log("GameBootstrapper: Created TribeManager.");
         }
     }
 }

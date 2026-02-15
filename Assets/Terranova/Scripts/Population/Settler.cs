@@ -269,9 +269,7 @@ namespace Terranova.Population
         public float ThirstPercent => _thirst / 100f;
 
         /// <summary>Health status string for UI display.</summary>
-        public string HealthStatus => _isSick ? "Sick" :
-            (CurrentHungerState == HungerState.Starving ? "Critical" :
-            (CurrentHungerState == HungerState.Exhausted ? "Weakened" : "Healthy"));
+        public string HealthStatus => HealthStatusDisplay;
 
         /// <summary>
         /// Quality-based work speed multiplier.
@@ -298,8 +296,8 @@ namespace Terranova.Population
         // ─── Shelter System (MS4 Feature 4.5 placeholder) ────────────
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>Current shelter state. Placeholder for future shelter mechanic.</summary>
-        public ShelterState CurrentShelterState => ShelterState.Exposed;
+        /// <summary>Current shelter state based on whether settler is in a shelter.</summary>
+        public ShelterState CurrentShelterState => _currentShelterState;
 
         // ═══════════════════════════════════════════════════════════════
         // ─── Cargo Visual (Story 3.3) ─────────────────────────────────
@@ -331,6 +329,154 @@ namespace Terranova.Population
         private float _sicknessTimer;
 
         public int ColorIndex => _colorIndex;
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Feature 6.1: Settler Traits ─────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private SettlerTrait _trait;
+        private bool _hasTrait;
+
+        /// <summary>This settler's trait.</summary>
+        public SettlerTrait Trait => _trait;
+
+        /// <summary>Whether a trait has been assigned.</summary>
+        public bool HasTrait => _hasTrait;
+
+        /// <summary>Trait display name.</summary>
+        public string TraitName => _trait.ToString();
+
+        /// <summary>Trait icon character for UI.</summary>
+        public string TraitIcon => _trait switch
+        {
+            SettlerTrait.Curious => "\u25C9",   // eye-like
+            SettlerTrait.Cautious => "\u25B2",  // shield-like triangle
+            SettlerTrait.Skilled => "\u270B",   // hand
+            SettlerTrait.Robust => "\u2665",    // heart
+            SettlerTrait.Enduring => "\u2192",  // arrow (running)
+            _ => "?"
+        };
+
+        /// <summary>Assign a trait to this settler.</summary>
+        public void SetTrait(SettlerTrait trait)
+        {
+            _trait = trait;
+            _hasTrait = true;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Feature 6.2: Health System ──────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private HealthState _healthState = HealthState.Healthy;
+        private float _healingTimer;
+        private float _criticalTimer;
+        private const float HEAL_TIME_HEALTHY = 120f;  // Seconds to heal from Injured
+        private const float HEAL_TIME_SICK = 180f;     // Seconds to heal from Sick
+        private const float CRITICAL_DEATH_TIME = 60f;  // Seconds before critical = death
+
+        /// <summary>Current health state.</summary>
+        public HealthState CurrentHealthState => _healthState;
+
+        /// <summary>Health status string for UI (replaces old HealthStatus).</summary>
+        public string HealthStatusDisplay => _healthState switch
+        {
+            HealthState.Healthy => "Healthy",
+            HealthState.Injured => "Injured",
+            HealthState.Sick => "Sick",
+            HealthState.CriticallyInjured => "CRITICAL",
+            _ => "Unknown"
+        };
+
+        /// <summary>Speed penalty from health state.</summary>
+        private float HealthSpeedMultiplier => _healthState switch
+        {
+            HealthState.Injured => 0.5f,
+            HealthState.Sick => 0.3f,
+            HealthState.CriticallyInjured => 0.1f,
+            _ => 1f
+        };
+
+        /// <summary>Apply damage from an external source (hunting, falls, predators).</summary>
+        public void TakeDamage(HealthState severity)
+        {
+            if (_healthState >= severity) return; // Already at or worse than this
+
+            var old = _healthState;
+            _healthState = severity;
+            _healingTimer = 0f;
+
+            if (severity == HealthState.CriticallyInjured)
+                _criticalTimer = CRITICAL_DEATH_TIME;
+
+            // Robust trait: +30% health = faster healing base
+            float healBonus = (_hasTrait && _trait == SettlerTrait.Robust) ? 0.3f : 0f;
+            _healingTimer -= healBonus * HEAL_TIME_HEALTHY;
+
+            EventBus.Publish(new HealthChangedEvent
+            {
+                SettlerName = name,
+                OldState = old,
+                NewState = _healthState
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Feature 6.3: Experience System ──────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private readonly System.Collections.Generic.Dictionary<ExperienceCategory, float> _experience = new();
+
+        /// <summary>Get experience level for a category (0 = none).</summary>
+        public float GetExperience(ExperienceCategory cat)
+        {
+            return _experience.TryGetValue(cat, out float xp) ? xp : 0f;
+        }
+
+        /// <summary>Get experience as level (0-10 scale).</summary>
+        public int GetExperienceLevel(ExperienceCategory cat)
+        {
+            float xp = GetExperience(cat);
+            return Mathf.Min(10, Mathf.FloorToInt(xp / 10f));
+        }
+
+        /// <summary>All experience categories with > 0 XP.</summary>
+        public System.Collections.Generic.IReadOnlyDictionary<ExperienceCategory, float> AllExperience => _experience;
+
+        /// <summary>
+        /// Add experience in a category. Failures give +50% XP, critical failures +100% XP.
+        /// </summary>
+        public void AddExperience(ExperienceCategory cat, float amount, bool isFailure = false, bool isCriticalFailure = false)
+        {
+            if (isCriticalFailure)
+                amount *= 2f;
+            else if (isFailure)
+                amount *= 1.5f;
+
+            // Curious trait: +25% discovery-related XP
+            if (_hasTrait && _trait == SettlerTrait.Curious)
+                amount *= 1.25f;
+
+            if (!_experience.ContainsKey(cat))
+                _experience[cat] = 0f;
+            _experience[cat] += amount;
+        }
+
+        /// <summary>Speed bonus from experience in a category (0-50% bonus at max).</summary>
+        public float GetExperienceSpeedBonus(ExperienceCategory cat)
+        {
+            int level = GetExperienceLevel(cat);
+            return level * 0.05f; // 5% per level, max 50%
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Feature 5.2: Shelter State ──────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private ShelterState _currentShelterState = ShelterState.Exposed;
+        private float _shelterCheckTimer;
+        private const float SHELTER_CHECK_INTERVAL = 5f;
+        private const float SHELTER_DISCOVERY_RADIUS = 12f;
 
         // ═══════════════════════════════════════════════════════════════
         //
@@ -555,6 +701,8 @@ namespace Terranova.Population
             UpdateHunger();
             UpdateThirst();
             UpdateSickness();
+            UpdateHealthState();
+            UpdateShelterCheck();
             UpdateOverheadBars();
 
             switch (_state)
@@ -630,8 +778,8 @@ namespace Terranova.Population
                 _ => 1.0f
             };
 
-            // Use the worst penalty
-            float mult = Mathf.Min(hungerMult, thirstMult);
+            // Use the worst penalty, also apply health penalty
+            float mult = Mathf.Min(hungerMult, thirstMult) * HealthSpeedMultiplier;
             return baseSpeed * mult;
         }
 
@@ -846,6 +994,9 @@ namespace Terranova.Population
 
                 Debug.Log($"[{name}] DELIVERED {resourceName} " +
                           $"(totals: Wood={_totalWoodDelivered}, Stone={_totalStoneDelivered}, Food={_totalFoodDelivered})");
+
+                // Feature 6.3: Gain experience from task completion
+                GainExperienceForTask(_currentTask.TaskType);
             }
 
             // Re-evaluate priorities: construction sites take precedence
@@ -910,7 +1061,9 @@ namespace Terranova.Population
             if (_hunger > 0f)
             {
                 float decayMult = GameplayModifiers.FoodDecayMultiplier;
-                _hunger -= HUNGER_RATE * decayMult * Time.deltaTime;
+                // Enduring trait: -20% hunger rate
+                float traitMult = (_hasTrait && _trait == SettlerTrait.Enduring) ? 0.8f : 1f;
+                _hunger -= HUNGER_RATE * decayMult * traitMult * Time.deltaTime;
                 if (_hunger < 0f) _hunger = 0f;
             }
 
@@ -1047,7 +1200,9 @@ namespace Terranova.Population
         {
             if (_thirst > 0f)
             {
-                _thirst -= THIRST_RATE * Time.deltaTime;
+                // Enduring trait: -20% thirst rate
+                float traitMult = (_hasTrait && _trait == SettlerTrait.Enduring) ? 0.8f : 1f;
+                _thirst -= THIRST_RATE * traitMult * Time.deltaTime;
                 if (_thirst < 0f) _thirst = 0f;
             }
 
@@ -1324,6 +1479,139 @@ namespace Terranova.Population
         }
 
         /// <summary>
+        /// Feature 6.2: Update health state. Heals over time, critical kills.
+        /// </summary>
+        private void UpdateHealthState()
+        {
+            if (_healthState == HealthState.Healthy) return;
+
+            float dt = Time.deltaTime;
+
+            // Robust trait heals faster
+            float healMult = (_hasTrait && _trait == SettlerTrait.Robust) ? 1.5f : 1f;
+
+            if (_healthState == HealthState.CriticallyInjured)
+            {
+                _criticalTimer -= dt;
+                if (_criticalTimer <= 0f && !_isDeathPending)
+                {
+                    Die("critical injuries");
+                    return;
+                }
+            }
+            else if (_healthState == HealthState.Injured)
+            {
+                _healingTimer += dt * healMult;
+                if (_healingTimer >= HEAL_TIME_HEALTHY)
+                {
+                    _healthState = HealthState.Healthy;
+                    _healingTimer = 0f;
+                    EventBus.Publish(new HealthChangedEvent
+                    {
+                        SettlerName = name,
+                        OldState = HealthState.Injured,
+                        NewState = HealthState.Healthy
+                    });
+                }
+            }
+            else if (_healthState == HealthState.Sick)
+            {
+                _healingTimer += dt * healMult;
+                if (_healingTimer >= HEAL_TIME_SICK)
+                {
+                    _healthState = HealthState.Healthy;
+                    _healingTimer = 0f;
+                    EventBus.Publish(new HealthChangedEvent
+                    {
+                        SettlerName = name,
+                        OldState = HealthState.Sick,
+                        NewState = HealthState.Healthy
+                    });
+                }
+            }
+
+            // Sickness from poison transitions to Sick health state
+            if (_isSick && _healthState == HealthState.Healthy)
+            {
+                TakeDamage(HealthState.Sick);
+            }
+        }
+
+        /// <summary>
+        /// Feature 5.2: Periodically check for nearby shelters and discover them.
+        /// Also update shelter state based on time of day.
+        /// </summary>
+        private void UpdateShelterCheck()
+        {
+            _shelterCheckTimer -= Time.deltaTime;
+            if (_shelterCheckTimer > 0f) return;
+            _shelterCheckTimer = SHELTER_CHECK_INTERVAL;
+
+            // Try discovering nearby shelters
+            var shelterMgr = ShelterManager.Instance;
+            if (shelterMgr != null)
+            {
+                // Curious trait: +25% discovery radius
+                float radius = SHELTER_DISCOVERY_RADIUS;
+                if (_hasTrait && _trait == SettlerTrait.Curious)
+                    radius *= 1.25f;
+
+                shelterMgr.TryDiscoverNearbyShelters(transform.position, radius);
+            }
+
+            // Update shelter state based on whether we're near a shelter
+            UpdateShelterState();
+        }
+
+        /// <summary>
+        /// Determine if settler is sheltered based on proximity to known shelters/buildings.
+        /// </summary>
+        private void UpdateShelterState()
+        {
+            var shelterMgr = ShelterManager.Instance;
+            if (shelterMgr == null)
+            {
+                _currentShelterState = ShelterState.Exposed;
+                return;
+            }
+
+            // Check if near any discovered shelter with room
+            float closestDist = float.MaxValue;
+            bool isSheltered = false;
+
+            foreach (var shelter in shelterMgr.DiscoveredShelters)
+            {
+                if (shelter == null) continue;
+                float dist = Vector3.Distance(transform.position, shelter.transform.position);
+                if (dist < 3f && shelter.HasRoom)
+                {
+                    isSheltered = true;
+                    break;
+                }
+                if (dist < closestDist) closestDist = dist;
+            }
+
+            // Also check buildings with shelter capacity
+            if (!isSheltered)
+            {
+                var buildings = Object.FindObjectsByType<Building>(FindObjectsSortMode.None);
+                foreach (var b in buildings)
+                {
+                    if (!b.IsConstructed || b.Definition == null) continue;
+                    if (b.Definition.ShelterCapacity <= 0) continue;
+                    float dist = Vector3.Distance(transform.position, b.transform.position);
+                    if (dist < 3f)
+                    {
+                        isSheltered = true;
+                        break;
+                    }
+                }
+            }
+
+            _currentShelterState = isSheltered ? ShelterState.Sheltered : ShelterState.Exposed;
+        }
+
+        /// <summary>
         /// Get the MaterialDefinition associated with a resource node, if any.
         /// Used for checking food properties (poison, nutrition).
         /// </summary>
@@ -1459,6 +1747,48 @@ namespace Terranova.Population
                 default:
                     return $"1x {taskType}";
             }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  E X P E R I E N C E   G A I N  (Feature 6.3)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Award experience based on task type completed.
+        /// </summary>
+        private void GainExperienceForTask(SettlerTaskType taskType)
+        {
+            float baseXP = 2f;
+            ExperienceCategory cat;
+
+            switch (taskType)
+            {
+                case SettlerTaskType.GatherWood:
+                    cat = ExperienceCategory.Woodwork;
+                    break;
+                case SettlerTaskType.GatherStone:
+                    cat = ExperienceCategory.Stonework;
+                    break;
+                case SettlerTaskType.Hunt:
+                    cat = ExperienceCategory.Hunting;
+                    break;
+                case SettlerTaskType.Build:
+                    cat = ExperienceCategory.Gathering;
+                    break;
+                case SettlerTaskType.GatherMaterial:
+                    cat = ExperienceCategory.Gathering;
+                    break;
+                case SettlerTaskType.CraftTool:
+                    cat = ExperienceCategory.Toolmaking;
+                    break;
+                default:
+                    cat = ExperienceCategory.Gathering;
+                    break;
+            }
+
+            AddExperience(cat, baseXP);
         }
 
         // ═══════════════════════════════════════════════════════════════

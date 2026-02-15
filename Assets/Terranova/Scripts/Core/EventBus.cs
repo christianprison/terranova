@@ -319,4 +319,102 @@ namespace Terranova.Core
         Dried,   // indefinite, -20% nutrition
         Smoked   // indefinite, full nutrition
     }
+
+    // ─── Feature 5 & 6 Enums ────────────────────────────────
+
+    /// <summary>
+    /// Types of natural shelters that spawn on terrain.
+    /// Feature 5.1: Terrain-Generated Shelters.
+    /// </summary>
+    public enum NaturalShelterType
+    {
+        Cave,             // Mountains biome, rare. Excellent protection, capacity 5-10
+        RockOverhang,     // Near hills/slopes. Good protection, capacity 3-5
+        DenseUndergrowth, // Forest biome. Moderate protection, capacity 2-3
+        FallenTree        // Forest biome. Moderate protection, capacity 2-3
+    }
+
+    /// <summary>
+    /// Health states for settlers.
+    /// Feature 6.2: Health System.
+    /// </summary>
+    public enum HealthState
+    {
+        Healthy,
+        Injured,           // -50% speed, from hunting/falls/predators
+        Sick,              // -70% speed, from spoiled food/poison/cold, can spread
+        CriticallyInjured  // Dies without medicinal plants + healer
+    }
+
+    /// <summary>
+    /// Settler trait types. Each settler has exactly 1 trait.
+    /// Feature 6.1: Settler Traits.
+    /// </summary>
+    public enum SettlerTrait
+    {
+        Curious,   // +25% discovery chance. Icon: eye
+        Cautious,  // -30% failure severity. Icon: shield
+        Skilled,   // +20% tool efficiency, +15% durability. Icon: hand
+        Robust,    // +30% health, faster healing. Icon: heart
+        Enduring   // -20% hunger/thirst rate. Icon: running figure
+    }
+
+    /// <summary>
+    /// Experience categories for settlers.
+    /// Feature 6.3: Extended Experience System.
+    /// </summary>
+    public enum ExperienceCategory
+    {
+        Gathering,
+        Stonework,
+        Woodwork,
+        Hunting,
+        Toolmaking,
+        Exploring,
+        PlantKnowledge,
+        Fishing
+    }
+
+    // ─── Feature 5 & 6 Events ───────────────────────────────
+
+    /// <summary>
+    /// Fired when a natural shelter is discovered by a settler.
+    /// Feature 5.1: Shelter discovery.
+    /// </summary>
+    public struct ShelterDiscoveredEvent
+    {
+        public string ShelterName;
+        public NaturalShelterType ShelterType;
+        public UnityEngine.Vector3 Position;
+    }
+
+    /// <summary>
+    /// Fired when a settler's health state changes.
+    /// Feature 6.2: Health System.
+    /// </summary>
+    public struct HealthChangedEvent
+    {
+        public string SettlerName;
+        public HealthState OldState;
+        public HealthState NewState;
+    }
+
+    /// <summary>
+    /// Fired when all settlers die and the tribe perishes.
+    /// Feature 6.4: Tribe Death &amp; Restart.
+    /// </summary>
+    public struct TribePerishedEvent
+    {
+        public int DayCount;
+        public int DiscoveriesLost;
+    }
+
+    /// <summary>
+    /// Fired when a new tribe arrives after the previous one perished.
+    /// Feature 6.4: Tribe Death &amp; Restart.
+    /// </summary>
+    public struct NewTribeArrivedEvent
+    {
+        public int TribeNumber;
+    }
 }

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using Terranova.Buildings;
 using Terranova.Core;
@@ -179,6 +180,10 @@ namespace Terranova.Population
             int count = _initialSettlerCount;
             float angleStep = 360f / count;
 
+            // Feature 6.1: Assign unique traits (no duplicates among starting 5)
+            var availableTraits = new List<SettlerTrait>(
+                (SettlerTrait[])System.Enum.GetValues(typeof(SettlerTrait)));
+
             for (int i = 0; i < count; i++)
             {
                 float angle = i * angleStep * Mathf.Deg2Rad;
@@ -202,6 +207,14 @@ namespace Terranova.Population
 
                 var settler = settlerObj.AddComponent<Settler>();
                 settler.Initialize(i, campfirePos);
+
+                // Feature 6.1: Assign unique trait
+                if (availableTraits.Count > 0)
+                {
+                    int traitIdx = Random.Range(0, availableTraits.Count);
+                    settler.SetTrait(availableTraits[traitIdx]);
+                    availableTraits.RemoveAt(traitIdx);
+                }
             }
 
             EventBus.Publish(new PopulationChangedEvent

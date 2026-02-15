@@ -162,6 +162,35 @@ namespace Terranova.Discovery
                 unlockedCapabilities: new[] { "traps" }
             ));
 
+            // ─── Feature 5.3: Structure-Enabling Discoveries ──────
+
+            engine.RegisterDiscovery(CreateDiscovery(
+                "Wickerwork",
+                DiscoveryType.Activity,
+                "Weaving plant fibers and branches together — strong enough to block wind and rain.",
+                "The hands learn what the mind cannot teach.",
+                requiredActivity: SettlerTaskType.GatherWood,
+                requiredActivityCount: 12,
+                baseProbability: 0.10f,
+                repetitionBonus: 0.025f,
+                badLuckThreshold: 40,
+                prerequisiteDiscoveries: new[] { "Primitive Cord" },
+                unlockedCapabilities: new[] { "wickerwork" }
+            ));
+
+            engine.RegisterDiscovery(CreateDiscovery(
+                "Digging",
+                DiscoveryType.Activity,
+                "Using tools to dig into the earth — for storage, shelter, and fire pits.",
+                "Beneath the surface lies warmth and safety.",
+                requiredActivity: SettlerTaskType.GatherStone,
+                requiredActivityCount: 15,
+                baseProbability: 0.10f,
+                repetitionBonus: 0.025f,
+                badLuckThreshold: 40,
+                unlockedCapabilities: new[] { "digging" }
+            ));
+
             // ─── Spontaneous Discoveries (2.3) ───────────────────
 
             engine.RegisterDiscovery(CreateDiscovery(

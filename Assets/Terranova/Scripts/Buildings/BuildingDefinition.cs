@@ -8,12 +8,21 @@ namespace Terranova.Buildings
     /// </summary>
     public enum BuildingType
     {
-        Campfire,       // Gathering point, center of settlement
-        WoodcutterHut,  // Auto-assigns settler to gather wood
-        HunterHut,      // Auto-assigns settler to hunt (produce food)
-        SimpleHut,      // Housing for 2 settlers
-        CookingFire,    // Unlocked by Fire discovery — reduces food decay
-        TrapSite        // Unlocked by Animal Traps discovery — passive food
+        Campfire,             // Gathering point, center of settlement
+        WoodcutterHut,        // Auto-assigns settler to gather wood
+        HunterHut,            // Auto-assigns settler to hunt (produce food)
+        SimpleHut,            // Housing for 2 settlers
+        CookingFire,          // Unlocked by Fire discovery — reduces food decay
+        TrapSite,             // Unlocked by Animal Traps discovery — passive food
+
+        // Feature 5.3: Buildable Structures (Epoch I.1)
+        Windscreen,           // Wickerwork discovery. Moderate protection, capacity 3-4
+        LeafHut,              // Wickerwork + Composite Tool. Good protection, capacity 2-3
+        OpenFireplace,        // Fire discovery. Warmth + light + animal deterrent
+        DugFireplace,         // Fire + Digging. Better warmth
+        DryingRack,           // Cord discovery. Enables food drying
+        StoragePit,           // Digging discovery. Food storage
+        StoneCircleWindbreak  // Composite Tool + multiple settlers. Good protection, capacity 5+
     }
 
     /// <summary>
@@ -69,5 +78,18 @@ namespace Terranova.Buildings
 
         [Tooltip("How many worker slots this building has (WoodcutterHut/HunterHut).")]
         public int WorkerSlots;
+
+        [Header("Feature 5.3: Shelter & Structure")]
+        [Tooltip("Plant fiber / cord required to build.")]
+        public int FiberCost;
+
+        [Tooltip("Protection value 0-1 (0=none, 1=perfect). For shelters/structures.")]
+        public float ProtectionValue;
+
+        [Tooltip("How many settlers can shelter here. 0 = not a shelter.")]
+        public int ShelterCapacity;
+
+        [Tooltip("Discovery capabilities required (e.g. 'wickerwork', 'fire', 'digging').")]
+        public string[] RequiredDiscoveries;
     }
 }

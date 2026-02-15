@@ -64,6 +64,12 @@ namespace Terranova.Core
             return _wood >= woodCost && _stone >= stoneCost;
         }
 
+        /// <summary>Check if we have enough resources including fiber cost.</summary>
+        public bool CanAfford(int woodCost, int stoneCost, int fiberCost)
+        {
+            return _wood >= woodCost && _stone >= stoneCost && _plantFiber >= fiberCost;
+        }
+
         /// <summary>
         /// Deduct resources. Returns false if not enough available.
         /// Publishes ResourceChangedEvent on success.
@@ -77,6 +83,28 @@ namespace Terranova.Core
             _stone -= stoneCost;
             PublishChanged();
             return true;
+        }
+
+        /// <summary>Deduct resources including fiber. Returns false if not enough.</summary>
+        public bool Spend(int woodCost, int stoneCost, int fiberCost)
+        {
+            if (!CanAfford(woodCost, stoneCost, fiberCost))
+                return false;
+
+            _wood -= woodCost;
+            _stone -= stoneCost;
+            _plantFiber -= fiberCost;
+            PublishChanged();
+            return true;
+        }
+
+        /// <summary>Partially spoil food (used by tribe restart). Removes a fraction.</summary>
+        public void SpoilFood(float fraction)
+        {
+            int spoiled = Mathf.FloorToInt(_food * fraction);
+            _food -= spoiled;
+            if (_food < 0) _food = 0;
+            PublishChanged();
         }
 
         /// <summary>
