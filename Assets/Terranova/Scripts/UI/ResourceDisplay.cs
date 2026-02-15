@@ -1,25 +1,26 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using Terranova.Core;
+using Terranova.Terrain;
 
 namespace Terranova.UI
 {
     /// <summary>
-    /// Simple HUD showing resource counts (Wood, Stone), game speed controls,
-    /// and epoch indicator.
+    /// HUD showing day counter, categorized resource panel, speed controls,
+    /// event/tool-break/needs notifications, game over panel, and version label.
     ///
-    /// For MS1: Static numbers, no gathering yet. The display reacts to
-    /// BuildingPlacedEvent to show that the event bus works.
-    /// Speed widget controls Time.timeScale (Pause/1x/2x/3x).
-    /// Epoch indicator shows current epoch (static "Epoch I.1" for MS1).
+    /// MS4 Changes:
+    ///   Feature 1.5 - "Day X" counter via DayNightCycle.Instance.DayCount.
+    ///   Feature 2.4 - Categorized resource panel with expand/collapse per category.
+    ///   Feature 3.4 - Tool break notifications.
+    ///   Feature 4.5 - Warning notifications for critical thirst/hunger.
     ///
     /// Scene setup:
     ///   1. Create Canvas (Screen Space - Overlay)
     ///   2. Add this component to the Canvas
-    ///   3. It auto-creates Text elements on Start
-    ///
-    /// Later milestones will replace this with a proper UI framework.
+    ///   3. It auto-creates UI elements on Start
     /// </summary>
     public class ResourceDisplay : MonoBehaviour
     {
@@ -30,35 +31,58 @@ namespace Terranova.UI
         [Tooltip("Minimum touch target size in points (Apple HIG: 44pt).")]
         [SerializeField] private float _minTouchTarget = 44f;
 
-        // Available game speeds (index 0 = pause)
+        // ─── Speed Widget ─────────────────────────────────────────
         private static readonly float[] SPEED_VALUES = { 0f, 1f, 3f, 5f };
-        private static readonly string[] SPEED_LABELS = { "❚❚", "1x", "3x", "5x" };
-        private int _currentSpeedIndex = 1; // Start at 1x
+        private static readonly string[] SPEED_LABELS = { "\u275A\u275A", "1x", "3x", "5x" };
+        private int _currentSpeedIndex = 1;
 
+        // ─── Game State ───────────────────────────────────────────
         private int _settlers;
         private bool _foodWarning;
         private bool _gameStarted;
 
-        // Calendar: 1 minute real-time at 1x = 1 month (30 days).
-        // Therefore 2 seconds of game-time = 1 day.
-        private const float SECONDS_PER_DAY = 2f;
-        private float _gameTime;
+        // ─── Category Colors ──────────────────────────────────────
+        private static readonly Color COLOR_WOOD  = new Color(0.55f, 0.33f, 0.14f);
+        private static readonly Color COLOR_STONE = new Color(0.60f, 0.60f, 0.60f);
+        private static readonly Color COLOR_PLANT = new Color(0.30f, 0.75f, 0.30f);
+        private static readonly Color COLOR_ANIMAL = new Color(0.75f, 0.40f, 0.30f);
+        private static readonly Color COLOR_OTHER = new Color(0.50f, 0.50f, 0.70f);
 
+        // ─── Category Expand/Collapse State ───────────────────────
+        private bool _woodExpanded;
+        private bool _stoneExpanded;
+        private bool _plantExpanded;
+        private bool _animalExpanded;
+        private bool _otherExpanded;
+
+        // Track which categories have discoveries unlocked (show detail after)
+        private readonly HashSet<string> _discoveredCategories = new();
+
+        // ─── UI References ────────────────────────────────────────
         private Text _resourceText;
         private Text _eventText;
-        private Text _calendarText;
+        private Text _dayCounterText;
         private Text _warningText;
         private Button[] _speedButtons;
         private Text[] _speedButtonTexts;
         private float _eventDisplayTimer;
         private GameObject _gameOverPanel;
 
+        // Category buttons for expand/collapse
+        private Button _woodButton;
+        private Button _stoneButton;
+        private Button _plantButton;
+        private Button _animalButton;
+        private Button _otherButton;
+
+        // ─── Lifecycle ────────────────────────────────────────────
+
         private void Start()
         {
             CreateUI();
             UpdateDisplay();
 
-            // Listen for events that affect the display
+            // Legacy events
             EventBus.Subscribe<BuildingPlacedEvent>(OnBuildingPlaced);
             EventBus.Subscribe<BuildingCompletedEvent>(OnBuildingCompleted);
             EventBus.Subscribe<PopulationChangedEvent>(OnPopulationChanged);
@@ -66,11 +90,17 @@ namespace Terranova.UI
             EventBus.Subscribe<SettlerDiedEvent>(OnSettlerDied);
             EventBus.Subscribe<FoodWarningEvent>(OnFoodWarning);
             EventBus.Subscribe<DiscoveryMadeEvent>(OnDiscoveryMade);
+
+            // MS4 events
+            EventBus.Subscribe<DayChangedEvent>(OnDayChanged);
+            EventBus.Subscribe<ToolBrokeEvent>(OnToolBroke);
+            EventBus.Subscribe<NeedsCriticalEvent>(OnNeedsCritical);
+            EventBus.Subscribe<SettlerPoisonedEvent>(OnSettlerPoisoned);
         }
 
         private void Update()
         {
-            // Fade out event notification after 3 seconds
+            // Fade out event notification after timer expires
             if (_eventDisplayTimer > 0)
             {
                 _eventDisplayTimer -= Time.deltaTime;
@@ -81,21 +111,15 @@ namespace Terranova.UI
                 }
             }
 
-            // Check food supply for warning (Story 5.4)
+            // Check food supply for warning
             CheckFoodWarning();
 
-            // Update calendar (uses scaled time so speed buttons affect it)
-            if (_gameStarted)
-            {
-                _gameTime += Time.deltaTime;
-                UpdateCalendar();
-            }
+            // Update day counter display
+            UpdateDayCounter();
         }
 
-        /// <summary>
-        /// Publish food warning when supply drops below threshold.
-        /// Story 5.4: Warning when food < 5 or < 1 per settler.
-        /// </summary>
+        // ─── Food Warning ─────────────────────────────────────────
+
         private void CheckFoodWarning()
         {
             var rm = ResourceManager.Instance;
@@ -109,6 +133,8 @@ namespace Terranova.UI
             }
         }
 
+        // ─── Event Handlers ───────────────────────────────────────
+
         private void OnPopulationChanged(PopulationChangedEvent evt)
         {
             _settlers = evt.CurrentPopulation;
@@ -117,14 +143,10 @@ namespace Terranova.UI
             if (_settlers > 0)
                 _gameStarted = true;
 
-            // Game over: all settlers dead after game has started
             if (_gameStarted && _settlers <= 0)
                 ShowGameOver();
         }
 
-        /// <summary>
-        /// Story 4.1: ResourceManager publishes this when resources change.
-        /// </summary>
         private void OnResourceChanged(ResourceChangedEvent evt)
         {
             UpdateDisplay();
@@ -133,25 +155,19 @@ namespace Terranova.UI
         private void OnBuildingPlaced(BuildingPlacedEvent evt)
         {
             UpdateDisplay();
-
-            if (_eventText != null)
-            {
-                _eventText.text = $"Building {evt.BuildingName}...";
-                _eventDisplayTimer = 3f;
-            }
+            ShowEvent($"Building {evt.BuildingName}...", Color.yellow, 3f);
         }
 
-        /// <summary>Story 5.4: Notification when settler dies.</summary>
+        private void OnBuildingCompleted(BuildingCompletedEvent evt)
+        {
+            ShowEvent($"{evt.BuildingName} complete!", Color.yellow, 3f);
+        }
+
         private void OnSettlerDied(SettlerDiedEvent evt)
         {
-            if (_eventText != null)
-            {
-                _eventText.text = $"{evt.SettlerName} died ({evt.CauseOfDeath})";
-                _eventDisplayTimer = 4f;
-            }
+            ShowEvent($"{evt.SettlerName} died ({evt.CauseOfDeath})", new Color(0.9f, 0.3f, 0.3f), 4f);
         }
 
-        /// <summary>Story 5.4: Food warning.</summary>
         private void OnFoodWarning(FoodWarningEvent evt)
         {
             _foodWarning = evt.IsWarning;
@@ -159,76 +175,192 @@ namespace Terranova.UI
                 _warningText.text = _foodWarning ? "Food is running low!" : "";
         }
 
-        /// <summary>Story 1.5: Notification when discovery is made.</summary>
         private void OnDiscoveryMade(DiscoveryMadeEvent evt)
         {
-            if (_eventText != null)
-            {
-                _eventText.text = $"Discovery: {evt.DiscoveryName}!";
-                _eventText.color = new Color(0.4f, 1f, 0.6f); // Green for discoveries
-                _eventDisplayTimer = 5f;
-            }
+            // Track that categories may now show detail
+            _discoveredCategories.Add(evt.DiscoveryName);
+            ShowEvent($"Discovery: {evt.DiscoveryName}!", new Color(0.4f, 1f, 0.6f), 5f);
+            UpdateDisplay();
         }
 
-        /// <summary>Story 4.2: Notification when construction completes.</summary>
-        private void OnBuildingCompleted(BuildingCompletedEvent evt)
+        /// <summary>Feature 1.5: Day counter updated via event.</summary>
+        private void OnDayChanged(DayChangedEvent evt)
         {
-            if (_eventText != null)
-            {
-                _eventText.text = $"{evt.BuildingName} complete!";
-                _eventDisplayTimer = 3f;
-            }
+            UpdateDayCounter();
+        }
+
+        /// <summary>Feature 3.4: Tool break notification.</summary>
+        private void OnToolBroke(ToolBrokeEvent evt)
+        {
+            ShowEvent($"{evt.SettlerName}'s {evt.ToolName} broke!", new Color(1f, 0.6f, 0.2f), 4f);
+        }
+
+        /// <summary>Feature 4.5: Critical needs warning.</summary>
+        private void OnNeedsCritical(NeedsCriticalEvent evt)
+        {
+            Color warningColor = evt.NeedType == "Thirst"
+                ? new Color(0.3f, 0.6f, 1f)   // Blue for thirst
+                : new Color(1f, 0.5f, 0.2f);   // Orange for hunger
+            ShowEvent($"{evt.SettlerName}: {evt.NeedType} critical!", warningColor, 3f);
+        }
+
+        /// <summary>Feature 4.3: Settler poisoned notification.</summary>
+        private void OnSettlerPoisoned(SettlerPoisonedEvent evt)
+        {
+            ShowEvent($"{evt.SettlerName} poisoned by {evt.FoodName}!", new Color(0.6f, 0.2f, 0.8f), 4f);
+        }
+
+        // ─── Display Helpers ──────────────────────────────────────
+
+        private void ShowEvent(string message, Color color, float duration)
+        {
+            if (_eventText == null) return;
+            _eventText.text = message;
+            _eventText.color = color;
+            _eventDisplayTimer = duration;
         }
 
         /// <summary>
-        /// Refresh the resource text from ResourceManager.
-        /// Story 4.1: Now reads from central ResourceManager instead of local counters.
+        /// Feature 1.5: Update "Day X" counter from DayNightCycle.
+        /// </summary>
+        private void UpdateDayCounter()
+        {
+            if (_dayCounterText == null) return;
+            var dnc = DayNightCycle.Instance;
+            int day = dnc != null ? dnc.DayCount : GameState.DayCount;
+            _dayCounterText.text = $"Day {day}";
+        }
+
+        /// <summary>
+        /// Feature 2.4: Categorized resource panel.
+        /// At start: simple "Wood: 12 | Stone: 8 | Food: 5"
+        /// After discoveries: categories expand to show individual materials.
         /// </summary>
         private void UpdateDisplay()
         {
             if (_resourceText == null) return;
 
-            var rm = ResourceManager.Instance;
-            if (rm != null)
+            var inv = MaterialInventory.Instance;
+            if (inv == null)
             {
-                string text = $"Wood: {rm.Wood}    Stone: {rm.Stone}    Food: {rm.Food}    Settlers: {_settlers}";
-                // Show discovery resources only after they've been unlocked
-                if (rm.Resin > 0 || rm.Flint > 0 || rm.PlantFiber > 0)
-                {
-                    string extras = "";
-                    if (rm.Resin > 0) extras += $"    Resin: {rm.Resin}";
-                    if (rm.Flint > 0) extras += $"    Flint: {rm.Flint}";
-                    if (rm.PlantFiber > 0) extras += $"    Fiber: {rm.PlantFiber}";
-                    text += extras;
-                }
-                _resourceText.text = text;
+                // Fallback to legacy ResourceManager
+                var rm = ResourceManager.Instance;
+                if (rm != null)
+                    _resourceText.text = $"Wood: {rm.Wood} | Stone: {rm.Stone} | Food: {rm.Food} | Settlers: {_settlers}";
+                else
+                    _resourceText.text = $"Settlers: {_settlers}";
+                return;
             }
-            else
-                _resourceText.text = $"Settlers: {_settlers}";
+
+            int woodTotal  = inv.GetCategoryTotal(MaterialCategory.Wood);
+            int stoneTotal = inv.GetCategoryTotal(MaterialCategory.Stone);
+            int plantTotal = inv.GetCategoryTotal(MaterialCategory.Plant);
+            int animalTotal = inv.GetCategoryTotal(MaterialCategory.Animal);
+            int otherTotal = inv.GetCategoryTotal(MaterialCategory.Other);
+            int foodTotal = plantTotal + animalTotal;
+
+            // Build display string
+            System.Text.StringBuilder sb = new();
+
+            // Wood category
+            sb.Append(BuildCategoryLine("Wood", woodTotal, MaterialCategory.Wood, _woodExpanded, inv));
+            sb.Append(" | ");
+
+            // Stone category
+            sb.Append(BuildCategoryLine("Stone", stoneTotal, MaterialCategory.Stone, _stoneExpanded, inv));
+            sb.Append(" | ");
+
+            // Food (Plant + Animal combined for summary)
+            sb.Append($"Food: {foodTotal}");
+
+            // If Plant expanded, show plant detail
+            if (_plantExpanded && HasDiscoveredMaterials(MaterialCategory.Plant, inv))
+            {
+                sb.Append(BuildCategoryDetail(MaterialCategory.Plant, inv));
+            }
+
+            // If Animal expanded, show animal detail
+            if (_animalExpanded && HasDiscoveredMaterials(MaterialCategory.Animal, inv))
+            {
+                sb.Append(BuildCategoryDetail(MaterialCategory.Animal, inv));
+            }
+
+            // Other (only show if > 0)
+            if (otherTotal > 0)
+            {
+                sb.Append(" | ");
+                sb.Append(BuildCategoryLine("Other", otherTotal, MaterialCategory.Other, _otherExpanded, inv));
+            }
+
+            sb.Append($" | Settlers: {_settlers}");
+
+            _resourceText.text = sb.ToString();
         }
 
         /// <summary>
-        /// Update the calendar display from accumulated game time.
-        /// 1 minute real-time at 1x = 1 month (30 days). 2 seconds = 1 day.
+        /// Build category header line (e.g., "Wood: 12").
+        /// If expanded and has discovered materials, append detail underneath.
         /// </summary>
-        private void UpdateCalendar()
+        private string BuildCategoryLine(string label, int total, MaterialCategory category,
+            bool expanded, MaterialInventory inv)
         {
-            if (_calendarText == null) return;
+            string line = $"{label}: {total}";
 
-            float totalDays = _gameTime / SECONDS_PER_DAY;
-            int day = 1 + (int)(totalDays % 30);
-            int month = 1 + (int)((totalDays % 360) / 30);
-            int year = (int)(totalDays / 360);
+            if (expanded && HasDiscoveredMaterials(category, inv))
+            {
+                line += BuildCategoryDetail(category, inv);
+            }
 
-            _calendarText.text = $"{day}.{month}.{year:D4}";
+            return line;
         }
 
         /// <summary>
-        /// Show full-screen game over overlay with restart button.
+        /// Build detail breakdown for a category showing individual materials.
+        /// Uses colored square icon per material type: [#] Name: count
         /// </summary>
+        private string BuildCategoryDetail(MaterialCategory category, MaterialInventory inv)
+        {
+            var breakdown = inv.GetCategoryBreakdown(category);
+            if (breakdown.Count == 0) return "";
+
+            System.Text.StringBuilder detail = new();
+            foreach (var kvp in breakdown)
+            {
+                string displayName = inv.GetDisplayName(kvp.Key);
+                detail.Append($"\n  \u25A0 {displayName}: {kvp.Value}");
+            }
+
+            return detail.ToString();
+        }
+
+        /// <summary>
+        /// Check if a category has any materials whose discovery is unlocked
+        /// (meaning we can show individual detail).
+        /// </summary>
+        private bool HasDiscoveredMaterials(MaterialCategory category, MaterialInventory inv)
+        {
+            var materials = MaterialDatabase.GetByCategory(category);
+            foreach (var mat in materials)
+            {
+                if (!string.IsNullOrEmpty(mat.DiscoveryRequired) && inv.IsMaterialDiscovered(mat.Id))
+                    return true;
+            }
+            return false;
+        }
+
+        // ─── Category Toggle ──────────────────────────────────────
+
+        private void ToggleWood() { _woodExpanded = !_woodExpanded; UpdateDisplay(); }
+        private void ToggleStone() { _stoneExpanded = !_stoneExpanded; UpdateDisplay(); }
+        private void TogglePlant() { _plantExpanded = !_plantExpanded; UpdateDisplay(); }
+        private void ToggleAnimal() { _animalExpanded = !_animalExpanded; UpdateDisplay(); }
+        private void ToggleOther() { _otherExpanded = !_otherExpanded; UpdateDisplay(); }
+
+        // ─── Game Over ────────────────────────────────────────────
+
         private void ShowGameOver()
         {
-            if (_gameOverPanel != null) return; // Already showing
+            if (_gameOverPanel != null) return;
 
             Time.timeScale = 0f;
 
@@ -259,11 +391,9 @@ namespace Terranova.UI
             titleText.fontStyle = FontStyle.Bold;
             titleText.text = "GAME OVER";
 
-            // Subtitle with calendar
-            float totalDays = _gameTime / SECONDS_PER_DAY;
-            int day = 1 + (int)(totalDays % 30);
-            int month = 1 + (int)((totalDays % 360) / 30);
-            int year = (int)(totalDays / 360);
+            // Subtitle with day count
+            var dnc = DayNightCycle.Instance;
+            int dayCount = dnc != null ? dnc.DayCount : GameState.DayCount;
             var subtitleObj = new GameObject("GameOverSubtitle");
             subtitleObj.transform.SetParent(_gameOverPanel.transform, false);
             var subRect = subtitleObj.AddComponent<RectTransform>();
@@ -277,7 +407,7 @@ namespace Terranova.UI
             subText.fontSize = 22;
             subText.color = new Color(0.8f, 0.8f, 0.8f);
             subText.alignment = TextAnchor.MiddleCenter;
-            subText.text = $"All settlers perished on {day}.{month}.{year:D4}";
+            subText.text = $"All settlers perished on Day {dayCount}";
 
             // Restart button
             float btnSize = _minTouchTarget * 2.5f;
@@ -317,10 +447,8 @@ namespace Terranova.UI
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
-        /// <summary>
-        /// Auto-create the UI elements. For MS1, this is simpler than
-        /// requiring manual UI setup in the scene.
-        /// </summary>
+        // ─── UI Construction ──────────────────────────────────────
+
         private void CreateUI()
         {
             // Ensure we have a Canvas
@@ -344,39 +472,43 @@ namespace Terranova.UI
             if (GetComponent<GraphicRaycaster>() == null)
                 gameObject.AddComponent<GraphicRaycaster>();
 
-            // Resource counter (top-left) — wider to accommodate discovery resources
+            // Resource text (top-left) — taller to support expanded category detail
             _resourceText = CreateText("ResourceText",
-                new Vector2(20, -20),    // Offset from top-left
-                new Vector2(700, 40),    // Size (wider for Resin/Flint/Fiber counters)
+                new Vector2(20, -20),
+                new Vector2(800, 200),
                 TextAnchor.UpperLeft);
+            _resourceText.verticalOverflow = VerticalWrapMode.Overflow;
 
             // Event notification (top-center)
             _eventText = CreateText("EventText",
-                new Vector2(0, -20),     // Centered, near top
+                new Vector2(0, -20),
                 new Vector2(500, 40),
                 TextAnchor.UpperCenter);
             _eventText.color = Color.yellow;
 
-            // Calendar display (top-right)
-            _calendarText = CreateText("CalendarText",
-                new Vector2(-20, -20),   // Offset from top-right
+            // Day counter (top-right) — replaces old calendar
+            _dayCounterText = CreateText("DayCounterText",
+                new Vector2(-20, -20),
                 new Vector2(250, 40),
                 TextAnchor.UpperRight);
-            _calendarText.text = "1.1.0000";
+            _dayCounterText.text = "Day 1";
 
-            // Food warning (below resource text)
+            // Warning text (below resource text)
             _warningText = CreateText("WarningText",
-                new Vector2(20, -50),
+                new Vector2(20, -230),
                 new Vector2(400, 30),
                 TextAnchor.UpperLeft);
-            _warningText.color = new Color(1f, 0.3f, 0.3f); // Red warning
+            _warningText.color = new Color(1f, 0.3f, 0.3f);
             _warningText.fontSize = _fontSize - 2;
             _warningText.text = "";
 
-            // Speed widget (top-right, below epoch)
+            // Category toggle buttons (below resource text area)
+            CreateCategoryButtons();
+
+            // Speed widget (top-right, below day counter)
             CreateSpeedWidget();
 
-            // Version label (bottom-right) with dark background for visibility
+            // Version label (bottom-right) with dark background
             var versionGo = new GameObject("VersionLabel");
             versionGo.transform.SetParent(transform, false);
             var versionBg = versionGo.AddComponent<Image>();
@@ -399,20 +531,106 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.3.0";
+            versionText.text = "v0.4.1";
         }
 
         /// <summary>
-        /// Create the speed control buttons (Pause/1x/2x/3x) in the top-right area.
-        /// All buttons meet the minimum 44×44pt touch target requirement.
+        /// Create small category toggle buttons next to the resource text.
+        /// Tap to expand/collapse category detail.
+        /// Feature 2.4: Categorized resource panel with expand/collapse.
         /// </summary>
+        private void CreateCategoryButtons()
+        {
+            float btnW = 60f;
+            float btnH = 28f;
+            float spacing = 4f;
+            float startX = 20f;
+            float startY = -50f;
+
+            var categories = new[]
+            {
+                ("Wood",   COLOR_WOOD),
+                ("Stone",  COLOR_STONE),
+                ("Plant",  COLOR_PLANT),
+                ("Animal", COLOR_ANIMAL),
+                ("Other",  COLOR_OTHER)
+            };
+
+            Button[] buttons = new Button[categories.Length];
+
+            for (int i = 0; i < categories.Length; i++)
+            {
+                int idx = i;
+                string label = categories[i].Item1;
+                Color color = categories[i].Item2;
+
+                var btnObj = new GameObject($"CategoryBtn_{label}");
+                btnObj.transform.SetParent(transform, false);
+
+                var btnRect = btnObj.AddComponent<RectTransform>();
+                btnRect.anchorMin = new Vector2(0, 1);
+                btnRect.anchorMax = new Vector2(0, 1);
+                btnRect.pivot = new Vector2(0, 1);
+                btnRect.anchoredPosition = new Vector2(startX + i * (btnW + spacing), startY);
+                btnRect.sizeDelta = new Vector2(btnW, btnH);
+
+                // Colored square icon
+                var colorIcon = new GameObject("ColorIcon");
+                colorIcon.transform.SetParent(btnObj.transform, false);
+                var iconRect = colorIcon.AddComponent<RectTransform>();
+                iconRect.anchorMin = new Vector2(0, 0.5f);
+                iconRect.anchorMax = new Vector2(0, 0.5f);
+                iconRect.pivot = new Vector2(0, 0.5f);
+                iconRect.anchoredPosition = new Vector2(3, 0);
+                iconRect.sizeDelta = new Vector2(10, 10);
+                var iconImage = colorIcon.AddComponent<Image>();
+                iconImage.color = color;
+
+                // Button background
+                var bgImage = btnObj.AddComponent<Image>();
+                bgImage.color = new Color(0.15f, 0.15f, 0.15f, 0.8f);
+
+                var button = btnObj.AddComponent<Button>();
+                button.targetGraphic = bgImage;
+                buttons[i] = button;
+
+                // Label
+                var labelObj = new GameObject("Label");
+                labelObj.transform.SetParent(btnObj.transform, false);
+                var labelRect = labelObj.AddComponent<RectTransform>();
+                labelRect.anchorMin = Vector2.zero;
+                labelRect.anchorMax = Vector2.one;
+                labelRect.offsetMin = new Vector2(15, 0);
+                labelRect.offsetMax = Vector2.zero;
+                var labelText = labelObj.AddComponent<Text>();
+                labelText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                labelText.fontSize = 14;
+                labelText.color = Color.white;
+                labelText.alignment = TextAnchor.MiddleLeft;
+                labelText.text = label;
+            }
+
+            buttons[0].onClick.AddListener(ToggleWood);
+            buttons[1].onClick.AddListener(ToggleStone);
+            buttons[2].onClick.AddListener(TogglePlant);
+            buttons[3].onClick.AddListener(ToggleAnimal);
+            buttons[4].onClick.AddListener(ToggleOther);
+
+            _woodButton = buttons[0];
+            _stoneButton = buttons[1];
+            _plantButton = buttons[2];
+            _animalButton = buttons[3];
+            _otherButton = buttons[4];
+        }
+
+        // ─── Speed Widget ─────────────────────────────────────────
+
         private void CreateSpeedWidget()
         {
             float buttonSize = _minTouchTarget;
             float spacing = 4f;
             float totalWidth = SPEED_LABELS.Length * buttonSize + (SPEED_LABELS.Length - 1) * spacing;
 
-            // Container anchored to top-right, below epoch text
             var container = new GameObject("SpeedWidget");
             container.transform.SetParent(transform, false);
             var containerRect = container.AddComponent<RectTransform>();
@@ -427,7 +645,7 @@ namespace Terranova.UI
 
             for (int i = 0; i < SPEED_LABELS.Length; i++)
             {
-                int speedIndex = i; // Capture for closure
+                int speedIndex = i;
 
                 var btnObj = new GameObject($"SpeedBtn_{SPEED_LABELS[i]}");
                 btnObj.transform.SetParent(container.transform, false);
@@ -439,17 +657,14 @@ namespace Terranova.UI
                 btnRect.anchoredPosition = new Vector2(i * (buttonSize + spacing), 0);
                 btnRect.sizeDelta = new Vector2(buttonSize, buttonSize);
 
-                // Button background
                 var image = btnObj.AddComponent<Image>();
                 image.color = new Color(0.2f, 0.2f, 0.2f, 0.7f);
 
-                // Button component
                 var button = btnObj.AddComponent<Button>();
                 button.targetGraphic = image;
                 button.onClick.AddListener(() => SetSpeed(speedIndex));
                 _speedButtons[i] = button;
 
-                // Button label
                 var labelObj = new GameObject("Label");
                 labelObj.transform.SetParent(btnObj.transform, false);
                 var labelRect = labelObj.AddComponent<RectTransform>();
@@ -469,24 +684,16 @@ namespace Terranova.UI
             UpdateSpeedButtons();
         }
 
-        /// <summary>
-        /// Set the game speed and update Time.timeScale.
-        /// Index 0 = Pause, 1 = 1x, 2 = 2x, 3 = 3x.
-        /// </summary>
         private void SetSpeed(int speedIndex)
         {
-            if (speedIndex < 0 || speedIndex >= SPEED_VALUES.Length)
-                return;
-            if (_gameOverPanel != null) return; // Ignore during game over
+            if (speedIndex < 0 || speedIndex >= SPEED_VALUES.Length) return;
+            if (_gameOverPanel != null) return;
 
             _currentSpeedIndex = speedIndex;
             Time.timeScale = SPEED_VALUES[speedIndex];
             UpdateSpeedButtons();
         }
 
-        /// <summary>
-        /// Highlight the active speed button and dim the others.
-        /// </summary>
         private void UpdateSpeedButtons()
         {
             for (int i = 0; i < _speedButtons.Length; i++)
@@ -494,16 +701,14 @@ namespace Terranova.UI
                 bool active = i == _currentSpeedIndex;
                 var image = _speedButtons[i].GetComponent<Image>();
                 image.color = active
-                    ? new Color(0.3f, 0.6f, 0.9f, 0.9f)  // Blue highlight
-                    : new Color(0.2f, 0.2f, 0.2f, 0.7f);  // Dark background
+                    ? new Color(0.3f, 0.6f, 0.9f, 0.9f)
+                    : new Color(0.2f, 0.2f, 0.2f, 0.7f);
                 _speedButtonTexts[i].color = active ? Color.white : new Color(0.7f, 0.7f, 0.7f);
             }
         }
 
-        /// <summary>
-        /// Helper to create a UI Text element anchored to the top of the screen.
-        /// Supports left, center, and right alignment.
-        /// </summary>
+        // ─── Text Helper ──────────────────────────────────────────
+
         private Text CreateText(string name, Vector2 offset, Vector2 size, TextAnchor alignment)
         {
             var textObj = new GameObject(name);
@@ -511,7 +716,6 @@ namespace Terranova.UI
 
             var rectTransform = textObj.AddComponent<RectTransform>();
 
-            // Set anchor based on alignment
             if (alignment == TextAnchor.UpperLeft)
             {
                 rectTransform.anchorMin = new Vector2(0, 1);
@@ -540,7 +744,6 @@ namespace Terranova.UI
             text.color = Color.white;
             text.alignment = alignment;
 
-            // Add shadow for readability over terrain
             var shadow = textObj.AddComponent<Shadow>();
             shadow.effectColor = new Color(0, 0, 0, 0.8f);
             shadow.effectDistance = new Vector2(1, -1);
@@ -548,8 +751,11 @@ namespace Terranova.UI
             return text;
         }
 
+        // ─── Cleanup ──────────────────────────────────────────────
+
         private void OnDestroy()
         {
+            // Legacy events
             EventBus.Unsubscribe<BuildingPlacedEvent>(OnBuildingPlaced);
             EventBus.Unsubscribe<BuildingCompletedEvent>(OnBuildingCompleted);
             EventBus.Unsubscribe<PopulationChangedEvent>(OnPopulationChanged);
@@ -558,7 +764,12 @@ namespace Terranova.UI
             EventBus.Unsubscribe<FoodWarningEvent>(OnFoodWarning);
             EventBus.Unsubscribe<DiscoveryMadeEvent>(OnDiscoveryMade);
 
-            // Clean up button listeners to prevent memory leaks
+            // MS4 events
+            EventBus.Unsubscribe<DayChangedEvent>(OnDayChanged);
+            EventBus.Unsubscribe<ToolBrokeEvent>(OnToolBroke);
+            EventBus.Unsubscribe<NeedsCriticalEvent>(OnNeedsCritical);
+            EventBus.Unsubscribe<SettlerPoisonedEvent>(OnSettlerPoisoned);
+
             if (_speedButtons != null)
             {
                 foreach (var btn in _speedButtons)
@@ -568,7 +779,12 @@ namespace Terranova.UI
                 }
             }
 
-            // Restore normal time scale if this UI is destroyed while paused
+            if (_woodButton != null) _woodButton.onClick.RemoveAllListeners();
+            if (_stoneButton != null) _stoneButton.onClick.RemoveAllListeners();
+            if (_plantButton != null) _plantButton.onClick.RemoveAllListeners();
+            if (_animalButton != null) _animalButton.onClick.RemoveAllListeners();
+            if (_otherButton != null) _otherButton.onClick.RemoveAllListeners();
+
             Time.timeScale = 1f;
         }
     }

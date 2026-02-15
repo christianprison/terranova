@@ -32,8 +32,20 @@ namespace Terranova.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void BootstrapAfterScene()
         {
+            // MS4: Check if we're in the MainMenu scene
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (sceneName == "MainMenu")
+            {
+                EnsureMainMenu();
+                EnsureEventSystem();
+                Debug.Log("GameBootstrapper: Main menu ready.");
+                return;
+            }
+
+            // Game scene bootstrap
             EnsureWorldManager();
             EnsureResourceManager();
+            EnsureMaterialInventory(); // MS4: Material system
             EnsureBuildingRegistry();
             EnsureCamera();
             EnsureBuildingPlacer();
@@ -47,6 +59,7 @@ namespace Terranova.Core
             EnsureDebugTerrainModifier();
             EnsureSelectionManager();
             EnsureDiscoverySystem();
+            EnsureDayNightCycle(); // MS4: Day-night cycle
 
             Debug.Log("GameBootstrapper: All systems ready.");
         }
@@ -272,6 +285,45 @@ namespace Terranova.Core
             go.AddComponent<DiscoveryRegistry>();
             go.AddComponent<DiscoveryEffectsManager>();
             Debug.Log("GameBootstrapper: Created DiscoverySystem (ActivityTracker, StateManager, Engine, Registry, EffectsManager).");
+        }
+
+        /// <summary>
+        /// MS4 Feature 1.1: Main Menu UI.
+        /// </summary>
+        private static void EnsureMainMenu()
+        {
+            if (Object.FindFirstObjectByType<MainMenuUI>() != null)
+                return;
+
+            var go = new GameObject("MainMenu");
+            go.AddComponent<MainMenuUI>();
+            Debug.Log("GameBootstrapper: Created MainMenuUI.");
+        }
+
+        /// <summary>
+        /// MS4 Feature 1.5: Day-Night Cycle.
+        /// </summary>
+        private static void EnsureDayNightCycle()
+        {
+            if (Object.FindFirstObjectByType<DayNightCycle>() != null)
+                return;
+
+            var go = new GameObject("DayNightCycle");
+            go.AddComponent<DayNightCycle>();
+            Debug.Log("GameBootstrapper: Created DayNightCycle.");
+        }
+
+        /// <summary>
+        /// MS4 Feature 2: Material Inventory system.
+        /// </summary>
+        private static void EnsureMaterialInventory()
+        {
+            if (MaterialInventory.Instance != null)
+                return;
+
+            var go = new GameObject("MaterialInventory");
+            go.AddComponent<MaterialInventory>();
+            Debug.Log("GameBootstrapper: Created MaterialInventory.");
         }
     }
 }

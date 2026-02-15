@@ -115,7 +115,7 @@ namespace Terranova.Terrain
         /// </summary>
         private IEnumerator GenerateWorldAsync()
         {
-            _generator = new TerrainGenerator(_seed);
+            _generator = new TerrainGenerator(GameState.Seed, GameState.SelectedBiome);
             int totalChunks = _worldSizeX * _worldSizeZ;
             int processed = 0;
 
@@ -159,7 +159,7 @@ namespace Terranova.Terrain
             }
 
             Debug.Log($"World generated: {_worldSizeX}×{_worldSizeZ} chunks " +
-                      $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={_seed}");
+                      $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={GameState.Seed}");
 
             // Phase 3: NavMesh – must complete before loading screen dismisses
             // because SettlerSpawner and ResourceSpawner check IsNavMeshReady.

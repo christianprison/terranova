@@ -174,6 +174,45 @@ namespace Terranova.Core
     }
 
     /// <summary>
+    /// Fired when a new day begins (day counter increments).
+    /// MS4 Feature 1.5: Day-Night Cycle.
+    /// </summary>
+    public struct DayChangedEvent
+    {
+        public int DayCount;
+    }
+
+    /// <summary>
+    /// Fired when a settler's tool breaks.
+    /// MS4 Feature 3.2: Tool Wear.
+    /// </summary>
+    public struct ToolBrokeEvent
+    {
+        public string SettlerName;
+        public string ToolName;
+    }
+
+    /// <summary>
+    /// Fired when a settler's need reaches critical levels.
+    /// MS4 Feature 4.5: Needs UI.
+    /// </summary>
+    public struct NeedsCriticalEvent
+    {
+        public string SettlerName;
+        public string NeedType; // "Thirst" or "Hunger"
+    }
+
+    /// <summary>
+    /// Fired when a settler gets poisoned from food.
+    /// MS4 Feature 4.3: Food Sources.
+    /// </summary>
+    public struct SettlerPoisonedEvent
+    {
+        public string SettlerName;
+        public string FoodName;
+    }
+
+    /// <summary>
     /// Fired during world generation to update loading bar progress.
     /// </summary>
     public struct WorldGenerationProgressEvent
@@ -210,7 +249,12 @@ namespace Terranova.Core
         GatherWood,     // Go to tree, chop, bring wood back
         GatherStone,    // Go to rock, mine, bring stone back
         Hunt,           // Go to hunting ground, hunt, bring food back
-        Build           // Go to construction site, build
+        Build,          // Go to construction site, build
+        GatherMaterial, // Go to material node, gather, bring back
+        CraftTool,      // Craft a tool from materials
+        DrinkWater,     // Walk to water source and drink
+        SeekFood,       // Autonomously seek food
+        SeekShelter     // Walk to nearest shelter
     }
 
     /// <summary>
@@ -225,5 +269,54 @@ namespace Terranova.Core
         Resin,
         Flint,
         PlantFiber
+    }
+
+    /// <summary>
+    /// Thirst states for settlers.
+    /// MS4 Feature 4.1: Thirst Mechanic.
+    /// </summary>
+    public enum ThirstState
+    {
+        Hydrated,    // Normal
+        Thirsty,     // -20% performance, seeks water
+        Dehydrated,  // -60% performance, no orders
+        Dying        // Will die soon
+    }
+
+    /// <summary>
+    /// Hunger states for settlers.
+    /// MS4 Feature 4.2: Extended Hunger System.
+    /// </summary>
+    public enum HungerState
+    {
+        Sated,       // 100-70%: normal
+        Hungry,      // 70-40%: -20%, prioritizes food
+        Exhausted,   // 40-10%: -50%, can only seek food
+        Starving     // <10%: barely moves, dies soon
+    }
+
+    /// <summary>
+    /// Protection/shelter states.
+    /// MS4 Feature 4.5: Needs UI.
+    /// </summary>
+    public enum ShelterState
+    {
+        Sheltered,
+        Exposed,
+        Hypothermic,
+        Sick
+    }
+
+    /// <summary>
+    /// Food freshness states.
+    /// MS4 Feature 4.4: Food Spoilage.
+    /// </summary>
+    public enum FoodFreshness
+    {
+        Fresh,   // 0-4h: full nutrition
+        Stale,   // 4-8h: -50% nutrition
+        Spoiled, // >8h: causes sickness
+        Dried,   // indefinite, -20% nutrition
+        Smoked   // indefinite, full nutrition
     }
 }

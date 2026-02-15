@@ -1,8 +1,10 @@
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.UI;
 using Terranova.Core;
 using Terranova.Buildings;
 using Terranova.Resources;
+using Terranova.Terrain;
 
 namespace Terranova.Population
 {
@@ -16,58 +18,105 @@ namespace Terranova.Population
     /// Story 2.0: Movement migrated to NavMesh (replaces block-grid pathfinding).
     /// Story 3.2: Gathering calls to ResourceNode on work completion.
     /// Story 3.3: Visual cargo indicator during transport.
+    /// MS4 Feature 3: Tool System (equip, durability, quality multiplier).
+    /// MS4 Feature 4.1: Thirst System (hydration, autonomous water-seeking).
+    /// MS4 Feature 4.2: Extended Hunger (hunger states, food nutrition values).
+    /// MS4 Feature 4.3: Food Sources (poison berries, honey damage).
+    /// MS4 Feature 4.5: Overhead Bars (thirst/hunger world-space UI).
     /// </summary>
     public class Settler : MonoBehaviour
     {
-        // ─── Movement & Idle Settings ────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Movement & Idle Settings ─────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
         private const float IDLE_RADIUS = 8f;
-        private const float WALK_SPEED = 1.5f;
-        private const float TASK_WALK_SPEED = 2f;       // Faster when on a task
+        private const float BASE_WALK_SPEED = 3.5f;
+        private const float TASK_WALK_SPEED = 3.5f;
         private const float MIN_PAUSE = 1f;
         private const float MAX_PAUSE = 3.5f;
         private const float ARRIVAL_THRESHOLD = 0.3f;
-
-        // How far to search for a valid NavMesh point when sampling
         private const float NAV_SAMPLE_RADIUS = 5f;
 
-        // ─── Hunger Settings (Story 5.1) ────────────────────────
+        // Movement animation speed thresholds
+        private const float SPEED_NORMAL = 3.5f;        // Normal walking
+        private const float SPEED_SLUGGISH = 2.5f;      // Hungry
+        private const float SPEED_STUMBLING = 1.5f;     // Exhausted
+        private const float SPEED_CRAWLING = 0.5f;      // Starving
 
-        private const float MAX_HUNGER = 100f;                  // 0 = satt, 100 = am Verhungern
-        private const float HUNGER_RATE = 0.55f;            // Per second (~3 min to starve at 1x)
-        private const float HUNGER_EAT_THRESHOLD = 70f;     // Seek food above this
-        private const float HUNGER_SLOW_THRESHOLD = 75f;    // Speed penalty above this
-        private const float HUNGER_SPEED_PENALTY = 0.5f;    // Half speed when very hungry
-        private const float STARVATION_GRACE = 30f;          // Seconds at max before death
-        private const float EAT_DURATION = 1.5f;             // How long eating takes
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Hunger Settings (MS4 Feature 4.2: Extended Hunger) ───────
+        // ═══════════════════════════════════════════════════════════════
 
-        // ─── Visual Settings ─────────────────────────────────────
+        private const float MAX_HUNGER = 100f;          // 100 = fully sated, 0 = starving
+        private const float HUNGER_RATE = 0.55f;        // Per second (~3 min to starve at 1x)
+        private const float STARVATION_GRACE = 30f;     // Seconds at 0 before death
+        private const float EAT_DURATION = 1.5f;        // How long eating takes
+        private const float DEFAULT_FOOD_RESTORE = 30f; // Fallback nutrition value
 
-        // Body colors: each settler gets a unique hue for visual distinction
+        // Hunger state thresholds (inverted: 100=full, 0=empty)
+        // Sated: 100-70, Hungry: 70-40, Exhausted: 40-10, Starving: <10
+        private const float HUNGER_SATED_THRESHOLD = 70f;
+        private const float HUNGER_HUNGRY_THRESHOLD = 40f;
+        private const float HUNGER_EXHAUSTED_THRESHOLD = 10f;
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Thirst Settings (MS4 Feature 4.1) ───────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private const float MAX_THIRST = 100f;          // 100 = hydrated, 0 = dying
+        private const float THIRST_RATE = 100f / 120f;  // ~0.833/sec, empty in ~2 game-minutes
+        private const float DRINK_DURATION_MIN = 3f;
+        private const float DRINK_DURATION_MAX = 5f;
+        private const float DEHYDRATION_GRACE = 20f;    // Seconds at Dying before death
+        private const float WATER_SEARCH_RADIUS = 50f;  // Max distance to search for water
+
+        // Thirst state thresholds (100=hydrated, 0=dying)
+        // Hydrated: 100-70, Thirsty: 70-40, Dehydrated: 40-10, Dying: <10
+        private const float THIRST_HYDRATED_THRESHOLD = 70f;
+        private const float THIRST_THIRSTY_THRESHOLD = 40f;
+        private const float THIRST_DEHYDRATED_THRESHOLD = 10f;
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Tool Settings (MS4 Feature 3) ────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private const float HONEY_GATHER_DAMAGE = 5f;   // Minor damage from honey gathering
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Visual Settings ──────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
         private static readonly Color[] SETTLER_COLORS =
         {
-            new Color(0.85f, 0.55f, 0.45f), // Warm skin tone
-            new Color(0.70f, 0.50f, 0.35f), // Tan
-            new Color(0.55f, 0.45f, 0.40f), // Olive
-            new Color(0.75f, 0.60f, 0.50f), // Light brown
-            new Color(0.60f, 0.42f, 0.35f), // Medium brown
+            new Color(0.85f, 0.55f, 0.45f),
+            new Color(0.70f, 0.50f, 0.35f),
+            new Color(0.55f, 0.45f, 0.40f),
+            new Color(0.75f, 0.60f, 0.50f),
+            new Color(0.60f, 0.42f, 0.35f),
         };
 
-        private static readonly Color HUNGRY_COLOR = new Color(0.90f, 0.30f, 0.30f);     // Red (hungry)
+        private static readonly Color HUNGRY_COLOR = new Color(0.90f, 0.30f, 0.30f);
 
-        // Role accent colors (applied to head AND body when assigned a specialized task)
-        private static readonly Color GATHERER_ACCENT = new Color(0.95f, 0.95f, 0.95f);   // White
-        private static readonly Color WOODCUTTER_ACCENT = new Color(0.55f, 0.33f, 0.14f);  // Brown
-        private static readonly Color HUNTER_ACCENT = new Color(0.20f, 0.50f, 0.20f);      // Green
+        // Role accent colors
+        private static readonly Color GATHERER_ACCENT = new Color(0.95f, 0.95f, 0.95f);
+        private static readonly Color WOODCUTTER_ACCENT = new Color(0.55f, 0.33f, 0.14f);
+        private static readonly Color HUNTER_ACCENT = new Color(0.20f, 0.50f, 0.20f);
+
+        // Overhead bar colors (MS4 Feature 4.5)
+        private static readonly Color THIRST_BAR_COLOR = new Color(0.2f, 0.5f, 1.0f);     // Blue
+        private static readonly Color HUNGER_BAR_COLOR = new Color(1.0f, 0.6f, 0.1f);     // Orange
 
         private static Material _sharedMaterial;
         private static readonly int ColorID = Shader.PropertyToID("_BaseColor");
 
-        // ─── State Machine ───────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── State Machine ────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// All possible settler states. The first two are idle behavior,
-        /// the rest form the work cycle (Story 1.3/1.4).
+        /// All possible settler states. Covers idle, work cycle,
+        /// hunger, thirst, and autonomous survival behaviors.
         /// </summary>
         private enum SettlerState
         {
@@ -76,32 +125,40 @@ namespace Terranova.Population
             IdleWalking,
 
             // Work cycle (Story 1.3/1.4)
-            WalkingToTarget,    // Moving to work location (tree, rock, site)
-            Working,            // At target, performing work (gathering, building)
-            ReturningToBase,    // Walking back to campfire/storage
-            Delivering,         // At base, dropping off resources
+            WalkingToTarget,
+            Working,
+            ReturningToBase,
+            Delivering,
 
-            // Hunger (Story 5.1/5.2)
-            WalkingToEat,       // Going to campfire because hungry
-            Eating              // At campfire, consuming food
+            // Hunger (Story 5.1/5.2, MS4 Feature 4.2)
+            WalkingToEat,
+            Eating,
+
+            // Thirst (MS4 Feature 4.1)
+            WalkingToDrink,
+            Drinking,
+
+            // Autonomous food seeking (MS4 Feature 4.2)
+            SeekingFood,
+            GatheringFood
         }
 
         private SettlerState _state = SettlerState.IdlePausing;
         private Vector3 _campfirePosition;
         private float _stateTimer;
 
-        // ─── NavMesh Agent (Story 2.0) ───────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── NavMesh Agent (Story 2.0) ────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
         private NavMeshAgent _agent;
         private bool _isMoving;
-
-        // True if the last completed path actually reached the destination.
-        // False when the path was partial or invalid (Story 2.2: obstacle handling).
         private bool _pathReachable;
 
-        // ─── Task System (Story 1.3) ─────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Task System (Story 1.3) ──────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
-        // Simple delivery counter (placeholder until economy system in Feature 3.x)
         private static int _totalWoodDelivered;
         private static int _totalStoneDelivered;
         private static int _totalFoodDelivered;
@@ -121,42 +178,165 @@ namespace Terranova.Population
         /// <summary>The settler's current task, or null if idle.</summary>
         public SettlerTask CurrentTask => _currentTask;
 
-        /// <summary>Whether the settler is currently busy (has task or is eating with saved task).</summary>
+        /// <summary>Whether the settler is currently busy (has task or is eating/drinking with saved task).</summary>
         public bool HasTask => _currentTask != null || _savedTask != null;
 
         /// <summary>Current state name (for UI/debug display).</summary>
         public string StateName => _state.ToString();
 
-        // ─── Hunger System (Story 5.1) ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Hunger System (MS4 Feature 4.2: Extended Hunger) ─────────
+        // ═══════════════════════════════════════════════════════════════
 
-        private float _hunger;  // Starts at 0 (satt)
+        private float _hunger;              // 100 = sated, 0 = starving
         private float _starvationTimer;
         private bool _isStarving;
-        private SettlerTask _savedTask;       // Task saved while eating
+        private SettlerTask _savedTask;     // Task saved while eating/drinking
 
-        /// <summary>Current hunger value (0 = satt, 100 = am Verhungern).</summary>
+        /// <summary>Current hunger value (100 = sated, 0 = starving).</summary>
         public float Hunger => _hunger;
-        /// <summary>Hunger as percentage (0.0 = satt, 1.0 = am Verhungern).</summary>
+
+        /// <summary>Hunger as percentage (1.0 = sated, 0.0 = starving).</summary>
         public float HungerPercent => _hunger / MAX_HUNGER;
-        /// <summary>True when hunger is at max and grace period is ticking.</summary>
+
+        /// <summary>True when hunger is at 0 and grace period is ticking.</summary>
         public bool IsStarving => _isStarving;
 
-        // ─── Cargo Visual (Story 3.3) ──────────────────────────
+        /// <summary>Current hunger state based on hunger level.</summary>
+        public HungerState CurrentHungerState
+        {
+            get
+            {
+                if (_hunger >= HUNGER_SATED_THRESHOLD) return HungerState.Sated;
+                if (_hunger >= HUNGER_HUNGRY_THRESHOLD) return HungerState.Hungry;
+                if (_hunger >= HUNGER_EXHAUSTED_THRESHOLD) return HungerState.Exhausted;
+                return HungerState.Starving;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Thirst System (MS4 Feature 4.1) ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private float _thirst;              // 100 = hydrated, 0 = dying
+        private float _dehydrationTimer;
+        private bool _isDying;              // Used for both starvation and dehydration
+
+        /// <summary>Current thirst value (100 = hydrated, 0 = dying of thirst).</summary>
+        public float Thirst => _thirst;
+
+        /// <summary>Current thirst state based on thirst level.</summary>
+        public ThirstState CurrentThirstState
+        {
+            get
+            {
+                if (_thirst >= THIRST_HYDRATED_THRESHOLD) return ThirstState.Hydrated;
+                if (_thirst >= THIRST_THIRSTY_THRESHOLD) return ThirstState.Thirsty;
+                if (_thirst >= THIRST_DEHYDRATED_THRESHOLD) return ThirstState.Dehydrated;
+                return ThirstState.Dying;
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Tool System (MS4 Feature 3) ──────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private ToolDefinition _equippedTool;
+        private int _toolDurability;
+
+        /// <summary>Currently equipped tool, or null if none.</summary>
+        public ToolDefinition EquippedTool => _equippedTool;
+
+        /// <summary>Remaining durability of equipped tool. 0 if no tool.</summary>
+        public int ToolDurability => _toolDurability;
+
+        /// <summary>Tool durability as percentage (0.0 - 1.0). 0 if no tool.</summary>
+        public float ToolDurabilityPercent =>
+            _equippedTool != null && _equippedTool.MaxDurability > 0
+                ? (float)_toolDurability / _equippedTool.MaxDurability
+                : 0f;
+
+        /// <summary>Whether the settler has a tool equipped.</summary>
+        public bool HasTool => _equippedTool != null;
+
+        /// <summary>ID of equipped tool for UI access. Null if no tool.</summary>
+        public string EquippedToolId => _equippedTool?.Id;
+
+        /// <summary>Max durability of current tool. 0 if no tool.</summary>
+        public int ToolMaxDurability => _equippedTool?.MaxDurability ?? 0;
+
+        /// <summary>Thirst as percentage (0.0 = empty, 1.0 = full).</summary>
+        public float ThirstPercent => _thirst / 100f;
+
+        /// <summary>Health status string for UI display.</summary>
+        public string HealthStatus => _isSick ? "Sick" :
+            (CurrentHungerState == HungerState.Starving ? "Critical" :
+            (CurrentHungerState == HungerState.Exhausted ? "Weakened" : "Healthy"));
+
+        /// <summary>
+        /// Quality-based work speed multiplier.
+        /// Q1=1.0, Q2=1.3, Q3=1.6, Q4=2.0, Q5=2.5
+        /// </summary>
+        public float ToolQualityMultiplier
+        {
+            get
+            {
+                if (_equippedTool == null) return 1.0f;
+                return _equippedTool.Quality switch
+                {
+                    1 => 1.0f,
+                    2 => 1.3f,
+                    3 => 1.6f,
+                    4 => 2.0f,
+                    5 => 2.5f,
+                    _ => 1.0f
+                };
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Shelter System (MS4 Feature 4.5 placeholder) ────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>Current shelter state. Placeholder for future shelter mechanic.</summary>
+        public ShelterState CurrentShelterState => ShelterState.Exposed;
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Cargo Visual (Story 3.3) ─────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
         private GameObject _cargoVisual;
 
-        // ─── Instance Data ───────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Overhead Bars (MS4 Feature 4.5) ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private Canvas _overheadCanvas;
+        private RectTransform _thirstBarFill;
+        private RectTransform _hungerBarFill;
+        private GameObject _thirstBarRoot;
+        private GameObject _hungerBarRoot;
+
+        // ═══════════════════════════════════════════════════════════════
+        // ─── Instance Data ────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
 
         private MaterialPropertyBlock _propBlock;
         private MaterialPropertyBlock _headPropBlock;
         private MeshRenderer _bodyRenderer;
         private MeshRenderer _headRenderer;
         private int _colorIndex;
-        private bool _isDying;
+        private bool _isDeathPending;       // Prevent double-death
+        private bool _isSick;               // Poison sickness flag
+        private float _sicknessTimer;
 
         public int ColorIndex => _colorIndex;
 
-        // ─── Initialization ──────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  I N I T I A L I Z A T I O N
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Initialize the settler. Called right after instantiation.
@@ -166,9 +346,17 @@ namespace Terranova.Population
             _colorIndex = colorIndex;
             _campfirePosition = campfirePosition;
 
+            // Start fully sated and hydrated
+            _hunger = MAX_HUNGER;
+            _thirst = MAX_THIRST;
+
             CreateVisual();
             SetupNavMeshAgent();
+            CreateOverheadBars();
             SettlerLocator.Register(transform);
+
+            // Start with a Q1 Simple Hand Axe (MS4 Feature 3)
+            EquipTool(ToolDatabase.Get("simple_hand_axe"));
 
             // Start with random pause (desync settlers)
             _state = SettlerState.IdlePausing;
@@ -187,7 +375,7 @@ namespace Terranova.Population
         private void SetupNavMeshAgent()
         {
             _agent = gameObject.AddComponent<NavMeshAgent>();
-            _agent.speed = WALK_SPEED;
+            _agent.speed = BASE_WALK_SPEED;
             _agent.angularSpeed = 360f;
             _agent.acceleration = 8f;
             _agent.stoppingDistance = ARRIVAL_THRESHOLD;
@@ -197,25 +385,111 @@ namespace Terranova.Population
             _agent.autoBraking = true;
             _agent.autoRepath = true;
 
-            // Warp to nearest valid NavMesh position (replaces SnapToTerrain)
             if (NavMesh.SamplePosition(transform.position, out NavMeshHit hit, NAV_SAMPLE_RADIUS, NavMesh.AllAreas))
             {
                 _agent.Warp(hit.position);
             }
         }
 
-        // ─── Task Assignment (Story 1.3) ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  T O O L   S Y S T E M  (MS4 Feature 3)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Equip a tool to this settler. Sets durability to max.
+        /// </summary>
+        public void EquipTool(ToolDefinition tool)
+        {
+            _equippedTool = tool;
+            _toolDurability = tool != null ? tool.MaxDurability : 0;
+            if (tool != null)
+            {
+                Debug.Log($"[{name}] Equipped {tool.DisplayName} (Q{tool.Quality}, durability {_toolDurability})");
+            }
+        }
+
+        /// <summary>
+        /// Decrement tool durability by one use. If durability reaches 0,
+        /// the tool breaks: fire ToolBrokeEvent and unequip.
+        /// </summary>
+        private void UseToolOnce()
+        {
+            if (_equippedTool == null) return;
+
+            _toolDurability--;
+            if (_toolDurability <= 0)
+            {
+                _toolDurability = 0;
+                string toolName = _equippedTool.DisplayName;
+                Debug.Log($"[{name}] Tool BROKE: {toolName}");
+
+                EventBus.Publish(new ToolBrokeEvent
+                {
+                    SettlerName = name,
+                    ToolName = toolName
+                });
+
+                _equippedTool = null;
+            }
+        }
+
+        /// <summary>
+        /// Check whether the settler can perform the given task type.
+        /// Settlers without a tool can only pick berries (Hunt) and drink water.
+        /// </summary>
+        private bool CanPerformTask(SettlerTaskType taskType)
+        {
+            if (_equippedTool != null) return true;
+
+            // Without a tool, settlers can only pick berries and drink water
+            return taskType == SettlerTaskType.Hunt
+                || taskType == SettlerTaskType.DrinkWater
+                || taskType == SettlerTaskType.SeekFood;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  T A S K   A S S I G N M E N T  (Story 1.3)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Assign a task to this settler. Interrupts idle behavior
         /// and starts the work cycle (Story 1.4).
-        /// Returns false if the settler already has a task.
+        /// Returns false if the settler already has a task, is dehydrated,
+        /// or cannot perform the task without a tool.
         /// </summary>
         public bool AssignTask(SettlerTask task)
         {
             if (_currentTask != null)
             {
                 Debug.Log($"[{name}] REJECTED task {task.TaskType} - already has {_currentTask.TaskType}");
+                return false;
+            }
+
+            // MS4 Feature 4.1: Dehydrated settlers refuse new orders
+            if (CurrentThirstState == ThirstState.Dehydrated || CurrentThirstState == ThirstState.Dying)
+            {
+                Debug.Log($"[{name}] REJECTED task {task.TaskType} - too dehydrated to accept orders");
+                return false;
+            }
+
+            // MS4 Feature 4.2: Exhausted settlers can only seek food
+            if (CurrentHungerState == HungerState.Exhausted || CurrentHungerState == HungerState.Starving)
+            {
+                if (task.TaskType != SettlerTaskType.SeekFood && task.TaskType != SettlerTaskType.DrinkWater)
+                {
+                    Debug.Log($"[{name}] REJECTED task {task.TaskType} - too exhausted, can only seek food");
+                    return false;
+                }
+            }
+
+            // MS4 Feature 3: Check tool requirement
+            if (!CanPerformTask(task.TaskType))
+            {
+                Debug.Log($"[{name}] REJECTED task {task.TaskType} - no tool equipped");
                 return false;
             }
 
@@ -229,10 +503,18 @@ namespace Terranova.Population
             }
 
             _state = SettlerState.WalkingToTarget;
-            _agent.speed = TASK_WALK_SPEED * task.SpeedMultiplier;
+            _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED * task.SpeedMultiplier);
             UpdateVisualColor();
             Debug.Log($"[{name}] ASSIGNED {task.TaskType} - walking to target (speed x{task.SpeedMultiplier})");
             return true;
+        }
+
+        /// <summary>
+        /// Cancel the current task externally. Alias for ClearTask.
+        /// </summary>
+        public void CancelTask()
+        {
+            ClearTask();
         }
 
         /// <summary>
@@ -253,7 +535,7 @@ namespace Terranova.Population
             _currentTask = null;
             _isMoving = false;
             _agent.ResetPath();
-            _agent.speed = WALK_SPEED;
+            _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED);
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
             DestroyCargo();
@@ -261,12 +543,19 @@ namespace Terranova.Population
             Debug.Log($"[{name}] Task ended ({wasTask}) - returning to IDLE");
         }
 
-        // ─── Update Loop ─────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  U P D A T E   L O O P
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         private void Update()
         {
-            // Decrease hunger every frame (scales with Time.timeScale automatically)
+            // Tick all need systems
             UpdateHunger();
+            UpdateThirst();
+            UpdateSickness();
+            UpdateOverheadBars();
 
             switch (_state)
             {
@@ -294,10 +583,82 @@ namespace Terranova.Population
                 case SettlerState.Eating:
                     UpdateEating();
                     break;
+                case SettlerState.WalkingToDrink:
+                    UpdateWalkingToDrink();
+                    break;
+                case SettlerState.Drinking:
+                    UpdateDrinking();
+                    break;
+                case SettlerState.SeekingFood:
+                    UpdateSeekingFood();
+                    break;
+                case SettlerState.GatheringFood:
+                    UpdateGatheringFood();
+                    break;
             }
         }
 
-        // ─── Idle States (Story 1.2) ─────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  M O V E M E N T   S P E E D  (MS4 Feature 4.2 / 4.5)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Calculate effective movement speed factoring in hunger and thirst penalties.
+        /// MS4 Feature 4.2: Hunger states affect speed.
+        /// MS4 Feature 4.1: Thirst states affect speed.
+        /// Returns the lowest resulting speed from all penalties.
+        /// </summary>
+        private float GetEffectiveSpeed(float baseSpeed)
+        {
+            float hungerMult = CurrentHungerState switch
+            {
+                HungerState.Sated => 1.0f,
+                HungerState.Hungry => 0.8f,       // -20% speed
+                HungerState.Exhausted => 0.5f,     // -50% speed
+                HungerState.Starving => 0.14f,     // ~10% speed, barely moves
+                _ => 1.0f
+            };
+
+            float thirstMult = CurrentThirstState switch
+            {
+                ThirstState.Hydrated => 1.0f,
+                ThirstState.Thirsty => 0.8f,       // -20% speed
+                ThirstState.Dehydrated => 0.4f,     // -60% speed
+                ThirstState.Dying => 0.15f,
+                _ => 1.0f
+            };
+
+            // Use the worst penalty
+            float mult = Mathf.Min(hungerMult, thirstMult);
+            return baseSpeed * mult;
+        }
+
+        /// <summary>
+        /// Get the movement animation speed tier for overhead bar display.
+        /// Returns: 3.5 (normal), 2.5 (sluggish), 1.5 (stumbling), 0.5 (crawling)
+        /// </summary>
+        private float GetAnimationSpeedTier()
+        {
+            var hunger = CurrentHungerState;
+            var thirst = CurrentThirstState;
+
+            // Worst condition takes priority
+            if (hunger == HungerState.Starving || thirst == ThirstState.Dying)
+                return SPEED_CRAWLING;
+            if (hunger == HungerState.Exhausted || thirst == ThirstState.Dehydrated)
+                return SPEED_STUMBLING;
+            if (hunger == HungerState.Hungry || thirst == ThirstState.Thirsty)
+                return SPEED_SLUGGISH;
+            return SPEED_NORMAL;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  I D L E   S T A T E S  (Story 1.2)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         private void UpdateIdlePausing()
         {
@@ -308,8 +669,7 @@ namespace Terranova.Population
             if (TryPickWalkTarget())
             {
                 _state = SettlerState.IdleWalking;
-                _agent.speed = _hunger > HUNGER_SLOW_THRESHOLD
-                    ? WALK_SPEED * HUNGER_SPEED_PENALTY : WALK_SPEED;
+                _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED);
             }
             else
                 _stateTimer = 0.5f;
@@ -319,13 +679,16 @@ namespace Terranova.Population
         {
             if (HasReachedDestination())
             {
-                // Path unreachable is fine for idle – just pause and pick a new spot
                 _state = SettlerState.IdlePausing;
                 _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
             }
         }
 
-        // ─── Work Cycle States (Story 1.3/1.4) ──────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  W O R K   C Y C L E   S T A T E S  (Story 1.3/1.4)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Walk toward the work target (tree, rock, building site).
@@ -352,7 +715,13 @@ namespace Terranova.Population
                 _agent.ResetPath();
                 _isMoving = false;
                 _state = SettlerState.Working;
-                _stateTimer = _currentTask.WorkDuration;
+                // Apply tool quality multiplier to work duration (faster with better tools)
+                float workDuration = _currentTask.WorkDuration;
+                if (_equippedTool != null && workDuration > 0f)
+                {
+                    workDuration /= ToolQualityMultiplier;
+                }
+                _stateTimer = workDuration;
                 Debug.Log($"[{name}] Arrived at target - WORKING ({_currentTask.TaskType}, {_stateTimer:F1}s)");
             }
         }
@@ -360,13 +729,18 @@ namespace Terranova.Population
         /// <summary>
         /// Perform work at the target location.
         /// Story 3.2: On completion, calls ResourceNode.CompleteGathering().
-        /// Story 4.2: Build tasks complete construction and go idle (no delivery).
+        /// Story 4.2: Build tasks complete construction and go idle.
+        /// MS4 Feature 3: Each work action uses tool durability.
+        /// MS4 Feature 4.3: Honey gathering causes minor damage.
         /// </summary>
         private void UpdateWorking()
         {
             _stateTimer -= Time.deltaTime;
             if (_stateTimer > 0f)
                 return;
+
+            // MS4 Feature 3: Use tool durability on work completion
+            UseToolOnce();
 
             // Story 4.2: Build tasks complete the construction and return to idle
             if (_currentTask?.TaskType == SettlerTaskType.Build)
@@ -375,14 +749,26 @@ namespace Terranova.Population
                     _currentTask.TargetBuilding.CompleteConstruction();
 
                 Debug.Log($"[{name}] Construction complete - going idle");
-                _currentTask = null; // Don't call ClearTask – construction is already released
+                _currentTask = null;
                 _isMoving = false;
                 _agent.ResetPath();
-                _agent.speed = WALK_SPEED;
+                _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED);
                 _state = SettlerState.IdlePausing;
                 _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
                 UpdateVisualColor();
                 return;
+            }
+
+            // MS4 Feature 4.3: Honey gathering causes minor damage
+            if (_currentTask?.TargetResource != null)
+            {
+                var matDef = GetMaterialDefinitionForResource(_currentTask.TargetResource);
+                if (matDef != null && matDef.Id == "honey")
+                {
+                    // Minor damage from bee stings
+                    _hunger = Mathf.Max(0f, _hunger - HONEY_GATHER_DAMAGE);
+                    Debug.Log($"[{name}] Stung by bees while gathering honey! (-{HONEY_GATHER_DAMAGE} hunger)");
+                }
             }
 
             // Complete gathering on the resource node (Story 3.2)
@@ -399,13 +785,12 @@ namespace Terranova.Population
                 return;
             }
             _state = SettlerState.ReturningToBase;
-            _agent.speed = TASK_WALK_SPEED * _currentTask.SpeedMultiplier;
+            _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED * _currentTask.SpeedMultiplier);
             Debug.Log($"[{name}] Work done - RETURNING to base");
         }
 
         /// <summary>
         /// Walk back to the campfire/storage with gathered resources.
-        /// Story 2.2: If return path blocked, go idle (don't freeze).
         /// </summary>
         private void UpdateReturningToBase()
         {
@@ -436,15 +821,12 @@ namespace Terranova.Population
             if (_stateTimer > 0f)
                 return;
 
-            // Remove cargo visual (Story 3.3)
             DestroyCargo();
 
-            // Deliver resources and log to console
             if (_currentTask != null)
             {
                 string resourceName = TrackDelivery(_currentTask.TaskType);
 
-                // Determine actual resource type from the target node (for discovery resources)
                 var actualType = _currentTask.TaskType switch
                 {
                     SettlerTaskType.GatherWood => ResourceType.Wood,
@@ -466,8 +848,7 @@ namespace Terranova.Population
                           $"(totals: Wood={_totalWoodDelivered}, Stone={_totalStoneDelivered}, Food={_totalFoodDelivered})");
             }
 
-            // Re-evaluate priorities: construction sites take precedence over gathering
-            // BUT specialized workers stay at their building — they don't get reassigned
+            // Re-evaluate priorities: construction sites take precedence
             if (_currentTask != null && !_currentTask.IsSpecialized
                 && _currentTask.TaskType != SettlerTaskType.Build
                 && HasPendingConstructionSite())
@@ -484,7 +865,6 @@ namespace Terranova.Population
                 {
                     if (!_currentTask.TargetResource.TryReserve())
                     {
-                        // Specialized workers search for a new resource instead of going idle
                         if (_currentTask.IsSpecialized && TryFindNewResource())
                             return;
 
@@ -501,12 +881,11 @@ namespace Terranova.Population
                     return;
                 }
                 _state = SettlerState.WalkingToTarget;
-                _agent.speed = TASK_WALK_SPEED * _currentTask.SpeedMultiplier;
+                _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED * _currentTask.SpeedMultiplier);
                 Debug.Log($"[{name}] REPEATING cycle ({_currentTask.TaskType})");
             }
             else
             {
-                // Specialized workers search for a new resource instead of going idle
                 if (_currentTask != null && _currentTask.IsSpecialized && TryFindNewResource())
                     return;
 
@@ -515,25 +894,28 @@ namespace Terranova.Population
             }
         }
 
-        // ─── Hunger System (Story 5.1/5.2) ──────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  H U N G E R   S Y S T E M  (MS4 Feature 4.2: Extended Hunger)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Tick hunger down, check for starvation, and trigger eating when hungry.
-        /// Called every frame before the state machine.
+        /// MS4 Feature 4.2: Extended hunger with multiple states.
+        /// Hunger goes from 100 (sated) to 0 (starving).
         /// </summary>
         private void UpdateHunger()
         {
-            // Increase hunger over time (0 = satt, 100 = am Verhungern)
-            // Feature 3.1: Fire discovery reduces food decay by 50%
-            if (_hunger < MAX_HUNGER)
+            if (_hunger > 0f)
             {
                 float decayMult = GameplayModifiers.FoodDecayMultiplier;
-                _hunger += HUNGER_RATE * decayMult * Time.deltaTime;
-                if (_hunger > MAX_HUNGER) _hunger = MAX_HUNGER;
+                _hunger -= HUNGER_RATE * decayMult * Time.deltaTime;
+                if (_hunger < 0f) _hunger = 0f;
             }
 
             // Starvation: grace period before death
-            if (_hunger >= MAX_HUNGER)
+            if (_hunger <= 0f)
             {
                 if (!_isStarving)
                 {
@@ -541,35 +923,52 @@ namespace Terranova.Population
                     _starvationTimer = STARVATION_GRACE;
                     UpdateVisualColor();
                     Debug.Log($"[{name}] STARVING - grace period {STARVATION_GRACE}s");
+
+                    EventBus.Publish(new NeedsCriticalEvent
+                    {
+                        SettlerName = name,
+                        NeedType = "Hunger"
+                    });
                 }
 
                 _starvationTimer -= Time.deltaTime;
                 if (_starvationTimer <= 0f)
                 {
-                    Die();
+                    Die("Starvation");
                     return;
                 }
             }
-
-            // Check if should eat (only interrupt safe states)
-            if (_hunger > HUNGER_EAT_THRESHOLD
-                && _state != SettlerState.WalkingToEat
-                && _state != SettlerState.Eating
-                && _state != SettlerState.ReturningToBase
-                && _state != SettlerState.Delivering)
+            else
             {
-                StartEating();
+                _isStarving = false;
+            }
+
+            // MS4 Feature 4.2: Hungry settlers autonomously seek food
+            if (CurrentHungerState == HungerState.Hungry || CurrentHungerState == HungerState.Exhausted)
+            {
+                // Only interrupt from safe states
+                if (_state == SettlerState.IdlePausing
+                    || _state == SettlerState.IdleWalking
+                    || _state == SettlerState.WalkingToTarget
+                    || _state == SettlerState.Working)
+                {
+                    if (_state != SettlerState.WalkingToEat
+                        && _state != SettlerState.Eating
+                        && _state != SettlerState.SeekingFood
+                        && _state != SettlerState.GatheringFood)
+                    {
+                        StartEating();
+                    }
+                }
             }
         }
 
         /// <summary>
         /// Interrupt current activity and walk to campfire to eat.
         /// Saves the current task so it can be resumed after eating.
-        /// Story 5.2: Nahrungsaufnahme
         /// </summary>
         private void StartEating()
         {
-            // Save task for later (don't release reservations)
             if (_currentTask != null && _savedTask == null)
             {
                 _savedTask = _currentTask;
@@ -582,22 +981,17 @@ namespace Terranova.Population
 
             if (!SetAgentDestination(_campfirePosition))
             {
-                // Can't reach campfire — stay put and hope
                 _state = SettlerState.IdlePausing;
                 _stateTimer = 2f;
                 return;
             }
 
-            float speed = TASK_WALK_SPEED;
-            if (_hunger > HUNGER_SLOW_THRESHOLD)
-                speed *= HUNGER_SPEED_PENALTY;
-            _agent.speed = speed;
-
+            _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED);
             _state = SettlerState.WalkingToEat;
             Debug.Log($"[{name}] HUNGRY ({_hunger:F0}) - walking to campfire to eat");
         }
 
-        /// <summary>Walk to campfire to eat. Story 5.2.</summary>
+        /// <summary>Walk to campfire to eat.</summary>
         private void UpdateWalkingToEat()
         {
             if (HasReachedDestination())
@@ -611,9 +1005,9 @@ namespace Terranova.Population
 
         /// <summary>
         /// Try to consume food at the campfire.
-        /// If food is available: hunger restored, resume previous task.
-        /// If not: return hungry, try again later.
-        /// Story 5.2: Nahrungsaufnahme
+        /// MS4 Feature 4.2: Different foods restore different amounts
+        /// based on MaterialDefinition.NutritionValue.
+        /// MS4 Feature 4.3: Poisonous berries cause sickness.
         /// </summary>
         private void UpdateEating()
         {
@@ -623,9 +1017,11 @@ namespace Terranova.Population
             var rm = ResourceManager.Instance;
             if (rm != null && rm.TryConsumeFood())
             {
-                _hunger = 0f;
+                // Restore hunger based on default nutrition value
+                float nutrition = DEFAULT_FOOD_RESTORE;
+                _hunger = Mathf.Min(MAX_HUNGER, _hunger + nutrition);
                 _isStarving = false;
-                Debug.Log($"[{name}] ATE food - hunger reset to 0 (satt)");
+                Debug.Log($"[{name}] ATE food - hunger restored to {_hunger:F0}");
             }
             else
             {
@@ -633,20 +1029,333 @@ namespace Terranova.Population
             }
 
             UpdateVisualColor();
-            ResumeAfterEating();
+            ResumeAfterNeedsFulfilled();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  T H I R S T   S Y S T E M  (MS4 Feature 4.1)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Tick thirst down and trigger water-seeking behavior when thirsty.
+        /// Thirst goes from 100 (hydrated) to 0 (dying).
+        /// Decay rate: 100/120 per second = empty in ~2 game-minutes.
+        /// </summary>
+        private void UpdateThirst()
+        {
+            if (_thirst > 0f)
+            {
+                _thirst -= THIRST_RATE * Time.deltaTime;
+                if (_thirst < 0f) _thirst = 0f;
+            }
+
+            // Dying of dehydration: grace period before death
+            if (CurrentThirstState == ThirstState.Dying)
+            {
+                if (_dehydrationTimer <= 0f)
+                {
+                    _dehydrationTimer = DEHYDRATION_GRACE;
+                    Debug.Log($"[{name}] DYING OF THIRST - grace period {DEHYDRATION_GRACE}s");
+
+                    EventBus.Publish(new NeedsCriticalEvent
+                    {
+                        SettlerName = name,
+                        NeedType = "Thirst"
+                    });
+                }
+
+                _dehydrationTimer -= Time.deltaTime;
+                if (_dehydrationTimer <= 0f)
+                {
+                    Die("Dehydration");
+                    return;
+                }
+            }
+            else
+            {
+                _dehydrationTimer = 0f;
+            }
+
+            // MS4 Feature 4.1: Thirsty settlers abandon task and seek water autonomously
+            if (CurrentThirstState == ThirstState.Thirsty
+                || CurrentThirstState == ThirstState.Dehydrated
+                || CurrentThirstState == ThirstState.Dying)
+            {
+                // Only interrupt from safe states (don't interrupt drinking)
+                if (_state != SettlerState.WalkingToDrink
+                    && _state != SettlerState.Drinking
+                    && _state != SettlerState.WalkingToEat
+                    && _state != SettlerState.Eating)
+                {
+                    StartDrinking();
+                }
+            }
         }
 
         /// <summary>
-        /// After eating (or failing to eat), resume the saved task or go idle.
+        /// Interrupt current activity and walk to nearest water source.
+        /// MS4 Feature 4.1: DrinkWater behavior.
         /// </summary>
-        private void ResumeAfterEating()
+        private void StartDrinking()
+        {
+            // Save task for later
+            if (_currentTask != null && _savedTask == null)
+            {
+                _savedTask = _currentTask;
+                _currentTask = null;
+            }
+
+            _isMoving = false;
+            _agent.ResetPath();
+            DestroyCargo();
+
+            // Find nearest water source
+            Vector3 waterPos;
+            if (!TryFindWaterSource(out waterPos))
+            {
+                // No water found - stay put and hope
+                Debug.Log($"[{name}] THIRSTY but no water source found nearby!");
+                _state = SettlerState.IdlePausing;
+                _stateTimer = 3f;
+                return;
+            }
+
+            if (!SetAgentDestination(waterPos))
+            {
+                _state = SettlerState.IdlePausing;
+                _stateTimer = 2f;
+                return;
+            }
+
+            _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED);
+            _state = SettlerState.WalkingToDrink;
+            Debug.Log($"[{name}] THIRSTY ({_thirst:F0}) - walking to water source");
+        }
+
+        /// <summary>Walk to water source.</summary>
+        private void UpdateWalkingToDrink()
+        {
+            if (HasReachedDestination())
+            {
+                _agent.ResetPath();
+                _isMoving = false;
+                _state = SettlerState.Drinking;
+                _stateTimer = Random.Range(DRINK_DURATION_MIN, DRINK_DURATION_MAX);
+                Debug.Log($"[{name}] Arrived at water - DRINKING ({_stateTimer:F1}s)");
+            }
+        }
+
+        /// <summary>
+        /// Drinking at water source. Kneels for 3-5 seconds then restores thirst.
+        /// </summary>
+        private void UpdateDrinking()
+        {
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer > 0f) return;
+
+            _thirst = MAX_THIRST;
+            _dehydrationTimer = 0f;
+            Debug.Log($"[{name}] Drank water - thirst fully restored");
+
+            UpdateVisualColor();
+            ResumeAfterNeedsFulfilled();
+        }
+
+        /// <summary>
+        /// Search for the nearest water voxel in the world.
+        /// Scans in an expanding spiral from the settler's position.
+        /// </summary>
+        private bool TryFindWaterSource(out Vector3 waterPosition)
+        {
+            waterPosition = Vector3.zero;
+
+            var world = WorldManager.Instance;
+            if (world == null) return false;
+
+            Vector3 pos = transform.position;
+            int cx = Mathf.RoundToInt(pos.x);
+            int cz = Mathf.RoundToInt(pos.z);
+            int searchRadius = Mathf.CeilToInt(WATER_SEARCH_RADIUS);
+
+            float bestDist = float.MaxValue;
+            bool found = false;
+
+            // Scan in expanding rings for water blocks
+            for (int r = 1; r <= searchRadius; r++)
+            {
+                for (int dx = -r; dx <= r; dx++)
+                {
+                    for (int dz = -r; dz <= r; dz++)
+                    {
+                        // Only check perimeter of ring for efficiency
+                        if (Mathf.Abs(dx) != r && Mathf.Abs(dz) != r) continue;
+
+                        int wx = cx + dx;
+                        int wz = cz + dz;
+
+                        // Check several y levels for water
+                        for (int wy = 0; wy < 64; wy++)
+                        {
+                            VoxelType voxel = world.GetBlockAtWorldPos(wx, wy, wz);
+                            if (voxel == VoxelType.Water)
+                            {
+                                // Found water - check if we can reach a position adjacent to it
+                                Vector3 candidate = new Vector3(wx + 0.5f, wy + 1f, wz + 0.5f);
+                                float dist = Vector3.Distance(pos, candidate);
+                                if (dist < bestDist)
+                                {
+                                    // Find a walkable spot near the water
+                                    if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, NAV_SAMPLE_RADIUS, NavMesh.AllAreas))
+                                    {
+                                        waterPosition = hit.position;
+                                        bestDist = dist;
+                                        found = true;
+                                    }
+                                }
+                                break; // Only need the surface water at this x,z
+                            }
+                        }
+                    }
+                }
+
+                // If we found water in this ring, don't search further
+                if (found) return true;
+            }
+
+            return false;
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  F O O D   S O U R C E S  (MS4 Feature 4.3)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Autonomous food seeking when hungry. Walks to nearest berry bush
+        /// or food source.
+        /// </summary>
+        private void UpdateSeekingFood()
+        {
+            if (HasReachedDestination())
+            {
+                if (!_pathReachable)
+                {
+                    Debug.Log($"[{name}] Food source unreachable - going idle");
+                    _state = SettlerState.IdlePausing;
+                    _stateTimer = 2f;
+                    return;
+                }
+
+                _agent.ResetPath();
+                _isMoving = false;
+                _state = SettlerState.GatheringFood;
+                _stateTimer = EAT_DURATION;
+            }
+        }
+
+        /// <summary>
+        /// Gathering food at a food source. On completion, restore hunger
+        /// based on the food's nutrition value.
+        /// MS4 Feature 4.3: Poisonous berries cause sickness.
+        /// </summary>
+        private void UpdateGatheringFood()
+        {
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer > 0f) return;
+
+            // Restore some hunger from foraging
+            _hunger = Mathf.Min(MAX_HUNGER, _hunger + 15f);
+            _isStarving = false;
+            Debug.Log($"[{name}] Foraged food - hunger at {_hunger:F0}");
+
+            UpdateVisualColor();
+            ResumeAfterNeedsFulfilled();
+        }
+
+        /// <summary>
+        /// Apply food nutrition and handle poisonous food effects.
+        /// MS4 Feature 4.3: Different foods restore different amounts.
+        /// Poisonous berries cause SettlerPoisonedEvent.
+        /// </summary>
+        public void ConsumeFood(MaterialDefinition food)
+        {
+            if (food == null) return;
+
+            float nutrition = food.NutritionValue > 0 ? food.NutritionValue : DEFAULT_FOOD_RESTORE;
+            _hunger = Mathf.Min(MAX_HUNGER, _hunger + nutrition);
+            _isStarving = false;
+
+            Debug.Log($"[{name}] Consumed {food.DisplayName} (+{nutrition} hunger, now {_hunger:F0})");
+
+            // MS4 Feature 4.3: Poisonous berries cause sickness
+            if (food.IsPoisonous)
+            {
+                _isSick = true;
+                _sicknessTimer = 30f; // 30 seconds of sickness
+                // Poisoned food gives minimal nutrition
+                _hunger = Mathf.Max(0f, _hunger - nutrition * 0.5f);
+
+                EventBus.Publish(new SettlerPoisonedEvent
+                {
+                    SettlerName = name,
+                    FoodName = food.DisplayName
+                });
+
+                Debug.Log($"[{name}] POISONED by {food.DisplayName}!");
+            }
+        }
+
+        /// <summary>
+        /// Update sickness timer. Sick settlers have reduced speed.
+        /// </summary>
+        private void UpdateSickness()
+        {
+            if (!_isSick) return;
+
+            _sicknessTimer -= Time.deltaTime;
+            if (_sicknessTimer <= 0f)
+            {
+                _isSick = false;
+                Debug.Log($"[{name}] Recovered from sickness");
+            }
+        }
+
+        /// <summary>
+        /// Get the MaterialDefinition associated with a resource node, if any.
+        /// Used for checking food properties (poison, nutrition).
+        /// </summary>
+        private MaterialDefinition GetMaterialDefinitionForResource(ResourceNode resource)
+        {
+            if (resource == null) return null;
+
+            // Map resource type to common material IDs
+            return resource.Type switch
+            {
+                ResourceType.Food => MaterialDatabase.Get("berries_safe"),
+                _ => null
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  R E S U M E   A F T E R   N E E D S
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// After eating or drinking, resume the saved task or go idle.
+        /// Shared between hunger and thirst systems.
+        /// </summary>
+        private void ResumeAfterNeedsFulfilled()
         {
             if (_savedTask != null)
             {
                 var task = _savedTask;
                 _savedTask = null;
 
-                // Check if the saved task is still valid
                 if (task.IsTargetValid)
                 {
                     _currentTask = task;
@@ -654,41 +1363,44 @@ namespace Terranova.Population
                     if (SetAgentDestination(task.TargetPosition))
                     {
                         _state = SettlerState.WalkingToTarget;
-                        float speed = TASK_WALK_SPEED * task.SpeedMultiplier;
-                        if (_hunger > HUNGER_SLOW_THRESHOLD)
-                            speed *= HUNGER_SPEED_PENALTY;
-                        _agent.speed = speed;
+                        _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED * task.SpeedMultiplier);
                         UpdateVisualColor();
-                        Debug.Log($"[{name}] Resuming {task.TaskType} after eating");
+                        Debug.Log($"[{name}] Resuming {task.TaskType} after needs fulfilled");
                         return;
                     }
                 }
 
-                // Task no longer valid — release reservations
+                // Task no longer valid - release reservations
                 if (task.TargetResource != null && task.TargetResource.IsReserved)
                     task.TargetResource.Release();
                 if (task.TargetBuilding != null && task.TargetBuilding.IsBeingBuilt)
                     task.TargetBuilding.ReleaseConstruction();
             }
 
-            // No saved task or it's invalid — go idle
+            // No saved task or it's invalid - go idle
             _currentTask = null;
-            _agent.speed = WALK_SPEED;
+            _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED);
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(MIN_PAUSE, MAX_PAUSE);
             UpdateVisualColor();
         }
 
-        /// <summary>
-        /// Settler dies from starvation. Cleans up task, publishes event, destroys.
-        /// Story 5.4: Tod
-        /// </summary>
-        private void Die()
-        {
-            if (_isDying) return; // Prevent double-death
-            _isDying = true;
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  D E A T H
+        //
+        // ═══════════════════════════════════════════════════════════════
 
-            Debug.Log($"[{name}] DIED of starvation!");
+        /// <summary>
+        /// Settler dies from the given cause. Cleans up task, publishes event, destroys.
+        /// Story 5.4: Tod. Handles starvation and dehydration.
+        /// </summary>
+        private void Die(string causeOfDeath)
+        {
+            if (_isDeathPending) return;
+            _isDeathPending = true;
+
+            Debug.Log($"[{name}] DIED of {causeOfDeath}!");
 
             // Release any held resources
             if (_currentTask?.TargetResource != null && _currentTask.TargetResource.IsReserved)
@@ -713,14 +1425,13 @@ namespace Terranova.Population
             {
                 SettlerName = name,
                 Position = transform.position,
-                CauseOfDeath = "Starvation"
+                CauseOfDeath = causeOfDeath
             });
 
-            // Count only settlers not already dying (handles multiple deaths per frame)
             var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
             int alive = 0;
             foreach (var s in settlers)
-                if (!s._isDying) alive++;
+                if (!s._isDeathPending) alive++;
             EventBus.Publish(new PopulationChangedEvent
             {
                 CurrentPopulation = alive
@@ -750,7 +1461,11 @@ namespace Terranova.Population
             }
         }
 
-        // ─── NavMesh Movement (Story 2.0) ────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  N A V M E S H   M O V E M E N T  (Story 2.0)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Set the NavMeshAgent destination. Samples the target position onto the
@@ -777,14 +1492,12 @@ namespace Terranova.Population
         /// Check whether the NavMeshAgent has reached its current destination.
         /// Handles edge cases: path pending, invalid/partial path, not yet moving.
         /// Sets _pathReachable so callers know if the destination was truly reached.
-        /// Story 2.2: Settlers stay put when no valid path exists.
         /// </summary>
         private bool HasReachedDestination()
         {
             if (!_isMoving) return true;
             if (_agent.pathPending) return false;
 
-            // Path failed or only partially reachable (Story 2.2)
             if (_agent.pathStatus != NavMeshPathStatus.PathComplete)
             {
                 _isMoving = false;
@@ -816,13 +1529,11 @@ namespace Terranova.Population
 
                 Vector3 candidate = new Vector3(x, _campfirePosition.y, z);
 
-                // Don't pick a target right on the campfire block
                 Vector3 toCampfire = candidate - _campfirePosition;
                 toCampfire.y = 0f;
                 if (toCampfire.magnitude < 1.2f)
                     continue;
 
-                // Validate position is on NavMesh
                 if (NavMesh.SamplePosition(candidate, out NavMeshHit hit, NAV_SAMPLE_RADIUS, NavMesh.AllAreas))
                 {
                     if (SetAgentDestination(hit.position))
@@ -833,11 +1544,14 @@ namespace Terranova.Population
             return false;
         }
 
-        // ─── Cargo Visual (Story 3.3) ──────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  C A R G O   V I S U A L  (Story 3.3)
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Show a small colored cube above the settler to indicate carried resource.
-        /// Brown for wood, gray for stone.
         /// </summary>
         private void CreateCargo()
         {
@@ -850,16 +1564,14 @@ namespace Terranova.Population
             _cargoVisual.transform.localScale = new Vector3(0.15f, 0.15f, 0.15f);
             _cargoVisual.transform.localPosition = new Vector3(0f, 1.05f, 0f);
 
-            // Remove collider
             var col = _cargoVisual.GetComponent<Collider>();
             if (col != null) Destroy(col);
 
-            // Color based on resource type
             Color cargoColor = _currentTask.TaskType switch
             {
-                SettlerTaskType.GatherWood => new Color(0.45f, 0.28f, 0.10f),  // Brown
-                SettlerTaskType.GatherStone => new Color(0.55f, 0.55f, 0.55f), // Gray
-                SettlerTaskType.Hunt => new Color(0.20f, 0.65f, 0.20f),        // Green (berries)
+                SettlerTaskType.GatherWood => new Color(0.45f, 0.28f, 0.10f),
+                SettlerTaskType.GatherStone => new Color(0.55f, 0.55f, 0.55f),
+                SettlerTaskType.Hunt => new Color(0.20f, 0.65f, 0.20f),
                 _ => Color.white
             };
 
@@ -880,7 +1592,123 @@ namespace Terranova.Population
             }
         }
 
-        // ─── Visual Setup ────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  O V E R H E A D   B A R S  (MS4 Feature 4.5)
+        //
+        // ═══════════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Create thin world-space UI bars above the settler for thirst (blue)
+        /// and hunger (orange). Only visible when below 80%.
+        /// </summary>
+        private void CreateOverheadBars()
+        {
+            // Create a world-space canvas above the settler
+            var canvasObj = new GameObject("OverheadBars");
+            canvasObj.transform.SetParent(transform, false);
+            canvasObj.transform.localPosition = new Vector3(0f, 1.3f, 0f);
+
+            _overheadCanvas = canvasObj.AddComponent<Canvas>();
+            _overheadCanvas.renderMode = RenderMode.WorldSpace;
+
+            var canvasRect = canvasObj.GetComponent<RectTransform>();
+            canvasRect.sizeDelta = new Vector2(0.5f, 0.12f);
+            canvasRect.localScale = Vector3.one;
+
+            // Scale down the canvas
+            canvasObj.AddComponent<CanvasScaler>();
+
+            // Thirst bar (blue) - top bar
+            _thirstBarRoot = CreateOverheadBar(canvasObj.transform, "ThirstBar",
+                new Vector2(0f, 0.03f), THIRST_BAR_COLOR, out _thirstBarFill);
+
+            // Hunger bar (orange) - bottom bar
+            _hungerBarRoot = CreateOverheadBar(canvasObj.transform, "HungerBar",
+                new Vector2(0f, -0.03f), HUNGER_BAR_COLOR, out _hungerBarFill);
+
+            // Start hidden
+            _thirstBarRoot.SetActive(false);
+            _hungerBarRoot.SetActive(false);
+        }
+
+        /// <summary>
+        /// Create a single overhead bar (background + fill).
+        /// </summary>
+        private GameObject CreateOverheadBar(Transform parent, string barName,
+            Vector2 localOffset, Color fillColor, out RectTransform fillRect)
+        {
+            var barObj = new GameObject(barName);
+            barObj.transform.SetParent(parent, false);
+
+            var barRect = barObj.AddComponent<RectTransform>();
+            barRect.anchorMin = new Vector2(0.5f, 0.5f);
+            barRect.anchorMax = new Vector2(0.5f, 0.5f);
+            barRect.pivot = new Vector2(0.5f, 0.5f);
+            barRect.sizeDelta = new Vector2(0.4f, 0.04f);
+            barRect.anchoredPosition = localOffset;
+
+            // Background
+            var bgImage = barObj.AddComponent<Image>();
+            bgImage.color = new Color(0.1f, 0.1f, 0.1f, 0.7f);
+
+            // Fill
+            var fillObj = new GameObject("Fill");
+            fillObj.transform.SetParent(barObj.transform, false);
+
+            fillRect = fillObj.AddComponent<RectTransform>();
+            fillRect.anchorMin = Vector2.zero;
+            fillRect.anchorMax = Vector2.one;
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            fillRect.pivot = new Vector2(0f, 0.5f);
+
+            var fillImage = fillObj.AddComponent<Image>();
+            fillImage.color = fillColor;
+
+            return barObj;
+        }
+
+        /// <summary>
+        /// Update overhead bar visibility and fill amounts.
+        /// Only visible when the corresponding need is below 80%.
+        /// The bars billboard toward the camera.
+        /// </summary>
+        private void UpdateOverheadBars()
+        {
+            if (_overheadCanvas == null) return;
+
+            // Billboard: face the camera
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                _overheadCanvas.transform.rotation = cam.transform.rotation;
+            }
+
+            // Thirst bar: visible when below 80%
+            bool showThirst = _thirst < 80f;
+            _thirstBarRoot.SetActive(showThirst);
+            if (showThirst && _thirstBarFill != null)
+            {
+                float pct = _thirst / MAX_THIRST;
+                _thirstBarFill.anchorMax = new Vector2(pct, 1f);
+            }
+
+            // Hunger bar: visible when below 80%
+            bool showHunger = _hunger < 80f;
+            _hungerBarRoot.SetActive(showHunger);
+            if (showHunger && _hungerBarFill != null)
+            {
+                float pct = _hunger / MAX_HUNGER;
+                _hungerBarFill.anchorMax = new Vector2(pct, 1f);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  V I S U A L   S E T U P
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         private void CreateVisual()
         {
@@ -893,7 +1721,7 @@ namespace Terranova.Population
             body.transform.localScale = new Vector3(0.3f, 0.35f, 0.2f);
             body.transform.localPosition = new Vector3(0f, 0.35f, 0f);
             var bodyCol = body.GetComponent<Collider>();
-            if (bodyCol != null) Destroy(bodyCol); // Use root collider instead
+            if (bodyCol != null) Destroy(bodyCol);
 
             _bodyRenderer = body.GetComponent<MeshRenderer>();
             _bodyRenderer.sharedMaterial = _sharedMaterial;
@@ -939,8 +1767,7 @@ namespace Terranova.Population
                 legRenderer.SetPropertyBlock(legPb);
             }
 
-            // Selection collider on root: generous box covering the full settler
-            // (body + head). Trigger so it doesn't affect NavMeshAgent physics.
+            // Selection collider
             var selectionCol = gameObject.AddComponent<BoxCollider>();
             selectionCol.isTrigger = true;
             selectionCol.center = new Vector3(0f, 0.5f, 0f);
@@ -948,17 +1775,20 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Update the settler's color to reflect role and hunger status.
-        /// Priority: Hungry (red) > Role color > Default skin tone.
-        /// Role colors: Gatherer=white, Hunter=green, Woodcutter=brown (head+body).
-        /// Story 5.5: Visuelles Feedback
+        /// Update the settler's color to reflect role and hunger/thirst status.
+        /// Priority: Critical needs (red) > Role color > Default skin tone.
         /// </summary>
         private void UpdateVisualColor()
         {
             if (_bodyRenderer == null || _propBlock == null) return;
 
-            // Hunger overrides everything when critical
-            if (_hunger > HUNGER_SLOW_THRESHOLD)
+            // Critical hunger or thirst overrides everything
+            bool isCritical = CurrentHungerState == HungerState.Exhausted
+                || CurrentHungerState == HungerState.Starving
+                || CurrentThirstState == ThirstState.Dehydrated
+                || CurrentThirstState == ThirstState.Dying;
+
+            if (isCritical)
             {
                 _propBlock.SetColor(ColorID, HUNGRY_COLOR);
                 _bodyRenderer.SetPropertyBlock(_propBlock);
@@ -970,7 +1800,7 @@ namespace Terranova.Population
                 return;
             }
 
-            // Determine role color for both body and head
+            // Determine role color
             var roleTask = _currentTask ?? _savedTask;
             if (roleTask != null && roleTask.IsSpecialized)
             {
@@ -978,7 +1808,6 @@ namespace Terranova.Population
             }
             else
             {
-                // Gatherer (default role): white body + white head
                 _propBlock.SetColor(ColorID, GATHERER_ACCENT);
                 _bodyRenderer.SetPropertyBlock(_propBlock);
                 if (_headRenderer != null && _headPropBlock != null)
@@ -990,8 +1819,7 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Update body and head color when settler gets a specialized role.
-        /// Gatherer=white, Hunter=green, Woodcutter=brown (both head and body).
+        /// Update body and head color for specialized roles.
         /// </summary>
         public void UpdateRoleAccent(SettlerTaskType role)
         {
@@ -1032,7 +1860,11 @@ namespace Terranova.Population
             _sharedMaterial.name = "Settler_Shared (Auto)";
         }
 
-        // ─── Specialized Worker Helpers ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  S P E C I A L I Z E D   W O R K E R   H E L P E R S
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Find a new resource for a specialized worker whose current target
@@ -1076,12 +1908,16 @@ namespace Terranova.Population
             }
 
             _state = SettlerState.WalkingToTarget;
-            _agent.speed = TASK_WALK_SPEED * _currentTask.SpeedMultiplier;
+            _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED * _currentTask.SpeedMultiplier);
             Debug.Log($"[{name}] Specialized worker found new {resType} target");
             return true;
         }
 
-        // ─── Priority Check ──────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+        //
+        //  P R I O R I T Y   C H E C K
+        //
+        // ═══════════════════════════════════════════════════════════════
 
         /// <summary>
         /// Check if any construction site needs a builder.

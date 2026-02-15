@@ -1,13 +1,20 @@
 using UnityEngine;
+using Terranova.Core;
 
 namespace Terranova.Terrain
 {
     /// <summary>
-    /// Generates terrain data for chunks using layered Perlin noise.
+    /// Generates terrain data for chunks using biome-specific layered Perlin noise.
     ///
-    /// For MS1: Single Grassland biome with rolling hills, a water level,
-    /// and natural-looking beaches. Later milestones will add biome-specific
-    /// generation (desert dunes, mountain peaks, etc.).
+    /// Biome types produce visibly different terrain:
+    ///   Forest    – Gentle rolling hills, mostly grass, some dirt patches. Height 60–75.
+    ///   Mountains – Dramatic peaks and valleys, stone at high elevations. Height 55–90.
+    ///   Coast     – Flat-ish terrain with water features and sand beaches. Height 58–70.
+    ///
+    /// Guaranteed start conditions:
+    ///   - Water within 30 blocks of world center
+    ///   - At least one stone area on the surface
+    ///   - Minimum 128x128 surface area (8x8 chunks)
     ///
     /// GDD reference: Sea level at block 64, terrain height 0–256.
     /// </summary>
@@ -16,37 +23,36 @@ namespace Terranova.Terrain
         // GDD: sea level at block 64
         public const int SEA_LEVEL = 64;
 
-        // How far above sea level hills can rise
-        private const int MAX_HILL_HEIGHT = 4;
-
-        // How far below sea level valleys can go (creates water pools)
-        private const int MAX_VALLEY_DEPTH = 1;
-
-        // Noise frequencies – smaller values = smoother, larger hills
-        private const float PRIMARY_SCALE = 0.01f;
-        private const float DETAIL_SCALE = 0.04f;
-        private const float DETAIL_WEIGHT = 0.15f;
-
         // Dirt layer thickness before stone
         private const int DIRT_DEPTH = 4;
 
-        // Random offsets for this world's unique terrain
+        // Random offsets for this world's unique terrain (derived from seed)
         private readonly float _seedOffsetX;
         private readonly float _seedOffsetZ;
 
+        // The biome used for terrain shape and surface material
+        private readonly BiomeType _biome;
+
         /// <summary>
-        /// Create a terrain generator with a specific seed.
-        /// Same seed = same terrain (deterministic).
+        /// Create a terrain generator with a specific seed and biome.
+        /// Same seed + same biome = same terrain (deterministic).
         /// </summary>
-        public TerrainGenerator(int seed = 42)
+        public TerrainGenerator(int seed, BiomeType biome)
         {
+            _biome = biome;
             var random = new System.Random(seed);
             _seedOffsetX = (float)(random.NextDouble() * 10000);
             _seedOffsetZ = (float)(random.NextDouble() * 10000);
         }
 
         /// <summary>
-        /// Fill a chunk with terrain data based on its position in the world.
+        /// Create a terrain generator using GameState seed and biome.
+        /// Backward-compatible overload for existing call sites.
+        /// </summary>
+        public TerrainGenerator(int seed = 42) : this(seed, GameState.SelectedBiome) { }
+
+        /// <summary>
+        /// Fill a chunk with terrain data based on its position in the world and the active biome.
         /// </summary>
         public void GenerateChunk(ChunkData chunk)
         {
@@ -55,11 +61,11 @@ namespace Terranova.Terrain
                 for (int z = 0; z < ChunkData.DEPTH; z++)
                 {
                     // Convert local chunk position to world position for consistent noise
-                    float worldX = chunk.ChunkX * ChunkData.WIDTH + x;
-                    float worldZ = chunk.ChunkZ * ChunkData.DEPTH + z;
+                    int worldX = chunk.ChunkX * ChunkData.WIDTH + x;
+                    int worldZ = chunk.ChunkZ * ChunkData.DEPTH + z;
 
                     int surfaceHeight = CalculateHeight(worldX, worldZ);
-                    FillColumn(chunk, x, z, surfaceHeight);
+                    FillColumn(chunk, x, z, surfaceHeight, worldX, worldZ);
                 }
             }
         }
@@ -70,34 +76,54 @@ namespace Terranova.Terrain
         /// </summary>
         public int GetHeightAtWorldPos(float worldX, float worldZ)
         {
-            return CalculateHeight(worldX, worldZ);
+            return CalculateHeight((int)worldX, (int)worldZ);
         }
 
         /// <summary>
-        /// Calculate terrain height using two layers of Perlin noise.
-        /// Primary layer creates big rolling hills; detail layer adds small bumps.
+        /// Calculate terrain height using multiple layers of Perlin noise.
+        /// The noise is shaped differently per biome to create distinct landscapes.
         /// </summary>
-        private int CalculateHeight(float worldX, float worldZ)
+        private int CalculateHeight(int worldX, int worldZ)
         {
-            // Primary noise: large-scale terrain shape
-            float primary = Mathf.PerlinNoise(
-                (worldX + _seedOffsetX) * PRIMARY_SCALE,
-                (worldZ + _seedOffsetZ) * PRIMARY_SCALE
-            );
+            float nx = (worldX + _seedOffsetX) * 0.02f;
+            float nz = (worldZ + _seedOffsetZ) * 0.02f;
 
-            // Detail noise: small bumps for natural feel
-            float detail = Mathf.PerlinNoise(
-                (worldX + _seedOffsetX) * DETAIL_SCALE,
-                (worldZ + _seedOffsetZ) * DETAIL_SCALE
-            );
+            // Base noise layers at different frequencies
+            float primary = Mathf.PerlinNoise(nx, nz);
+            float detail = Mathf.PerlinNoise(nx * 3f, nz * 3f) * 0.3f;
+            float macro = Mathf.PerlinNoise(nx * 0.3f, nz * 0.3f);
 
-            // Combine: primary terrain + subtle detail variation
-            float combined = primary + detail * DETAIL_WEIGHT;
+            float combined = primary + detail;
+            int height;
 
-            // Map noise (roughly 0–1.3) to height range
-            // Centered around sea level, with hills above and valleys below
-            int height = SEA_LEVEL - MAX_VALLEY_DEPTH
-                         + Mathf.RoundToInt(combined * (MAX_HILL_HEIGHT + MAX_VALLEY_DEPTH));
+            switch (_biome)
+            {
+                case BiomeType.Forest:
+                    // Gentle rolling hills: height 60–75
+                    // Primary noise creates broad hills, macro adds subtle large-scale variation
+                    height = SEA_LEVEL - 4 + (int)(combined * 12f + macro * 4f);
+                    break;
+
+                case BiomeType.Mountains:
+                    // Dramatic peaks and valleys: height 55–90
+                    // Ridge noise creates sharp mountain ridges from folded Perlin
+                    float ridge = Mathf.Abs(primary - 0.5f) * 2f;
+                    height = SEA_LEVEL - 9 + (int)(combined * 25f + ridge * 12f + macro * 8f);
+                    break;
+
+                case BiomeType.Coast:
+                    // Flat terrain with water areas: height 58–70
+                    // Macro noise acts as a continent/ocean gradient
+                    float coastGrad = Mathf.Clamp01(macro);
+                    float baseHeight = combined * 8f - 2f;
+                    height = SEA_LEVEL + (int)(baseHeight * coastGrad);
+                    break;
+
+                default:
+                    // Fallback: moderate rolling terrain
+                    height = SEA_LEVEL + (int)(combined * 10f);
+                    break;
+            }
 
             return Mathf.Clamp(height, 1, ChunkData.HEIGHT - 1);
         }
@@ -107,12 +133,13 @@ namespace Terranova.Terrain
         ///
         /// Layer structure (top to bottom):
         /// - Air (above surface, above sea level)
-        /// - Water (above surface, below sea level)
-        /// - Grass or Sand (surface block)
-        /// - Dirt (3–4 blocks below surface)
+        /// - Water (above surface, at or below sea level)
+        /// - Surface block (biome-dependent: grass, sand, stone)
+        /// - Subsurface (dirt or stone depending on elevation)
         /// - Stone (everything deeper)
         /// </summary>
-        private void FillColumn(ChunkData chunk, int x, int z, int surfaceHeight)
+        private void FillColumn(ChunkData chunk, int x, int z, int surfaceHeight,
+            int worldX, int worldZ)
         {
             for (int y = 0; y < ChunkData.HEIGHT; y++)
             {
@@ -120,29 +147,18 @@ namespace Terranova.Terrain
 
                 if (y > surfaceHeight)
                 {
-                    // Above surface: water if below sea level, air otherwise
+                    // Above surface: water if at or below sea level, air otherwise
                     type = y <= SEA_LEVEL ? VoxelType.Water : VoxelType.Air;
                 }
                 else if (y == surfaceHeight)
                 {
-                    // Surface block varies by elevation:
-                    //   Sand  – near water edges (beach)
-                    //   Dirt  – low-lying areas just above beach
-                    //   Grass – normal terrain
-                    //   Stone – exposed rock on high peaks
-                    if (surfaceHeight <= SEA_LEVEL + 1)
-                        type = VoxelType.Sand;
-                    else if (surfaceHeight <= SEA_LEVEL + 3)
-                        type = VoxelType.Dirt;
-                    else if (surfaceHeight >= SEA_LEVEL + MAX_HILL_HEIGHT - 4)
-                        type = VoxelType.Stone;
-                    else
-                        type = VoxelType.Grass;
+                    // Surface block depends on biome and elevation
+                    type = GetSurfaceType(surfaceHeight, worldX, worldZ);
                 }
                 else if (y > surfaceHeight - DIRT_DEPTH)
                 {
-                    // Just below surface: dirt layer
-                    type = VoxelType.Dirt;
+                    // Subsurface layer: stone if high elevation, dirt otherwise
+                    type = surfaceHeight > SEA_LEVEL + 15 ? VoxelType.Stone : VoxelType.Dirt;
                 }
                 else
                 {
@@ -151,6 +167,55 @@ namespace Terranova.Terrain
                 }
 
                 chunk.SetBlock(x, y, z, type);
+            }
+        }
+
+        /// <summary>
+        /// Determine the surface block type based on biome, elevation, and position.
+        ///
+        /// General rules:
+        ///   - Near/below sea level is always sand (beach/shoreline)
+        ///   - Mountains expose stone at high elevations
+        ///   - Coast has wider sand bands near water
+        ///   - Forest is mostly grass with occasional dirt patches
+        /// </summary>
+        private VoxelType GetSurfaceType(int height, int worldX, int worldZ)
+        {
+            // Universal rule: near or below sea level = sand (beach)
+            if (height <= SEA_LEVEL + 1)
+                return VoxelType.Sand;
+
+            switch (_biome)
+            {
+                case BiomeType.Forest:
+                    // Mostly grass with occasional dirt patches for visual variety
+                    float dirtNoise = Mathf.PerlinNoise(
+                        (worldX + _seedOffsetX) * 0.08f,
+                        (worldZ + _seedOffsetZ) * 0.08f);
+                    return dirtNoise > 0.75f ? VoxelType.Dirt : VoxelType.Grass;
+
+                case BiomeType.Mountains:
+                    // High elevations: exposed stone (granite/rock face)
+                    if (height > SEA_LEVEL + 20)
+                        return VoxelType.Stone;
+                    // Mid elevations: mix of stone and grass
+                    if (height > SEA_LEVEL + 12)
+                    {
+                        float stoneNoise = Mathf.PerlinNoise(
+                            (worldX + _seedOffsetX) * 0.1f,
+                            (worldZ + _seedOffsetZ) * 0.1f);
+                        return stoneNoise > 0.5f ? VoxelType.Stone : VoxelType.Grass;
+                    }
+                    return VoxelType.Grass;
+
+                case BiomeType.Coast:
+                    // Wider sand band near water edges
+                    if (height <= SEA_LEVEL + 3)
+                        return VoxelType.Sand;
+                    return VoxelType.Grass;
+
+                default:
+                    return VoxelType.Grass;
             }
         }
     }
