@@ -33,6 +33,9 @@ namespace Terranova.Terrain
         // The biome used for terrain shape and surface material
         private readonly BiomeType _biome;
 
+        // Total world size in blocks — set by WorldManager before generation
+        private int _worldBlocksZ = 128;
+
         /// <summary>
         /// Create a terrain generator with a specific seed and biome.
         /// Same seed + same biome = same terrain (deterministic).
@@ -44,6 +47,9 @@ namespace Terranova.Terrain
             _seedOffsetX = (float)(random.NextDouble() * 10000);
             _seedOffsetZ = (float)(random.NextDouble() * 10000);
         }
+
+        /// <summary>Tell the generator the total world depth so Coast biome can place the ocean edge.</summary>
+        public void SetWorldSize(int blocksZ) { _worldBlocksZ = blocksZ; }
 
         /// <summary>
         /// Create a terrain generator using GameState seed and biome.
@@ -112,11 +118,12 @@ namespace Terranova.Terrain
                     break;
 
                 case BiomeType.Coast:
-                    // Flat terrain with water areas: height 58–70
-                    // Macro noise acts as a continent/ocean gradient
-                    float coastGrad = Mathf.Clamp01(macro);
-                    float baseHeight = combined * 8f - 2f;
-                    height = SEA_LEVEL + (int)(baseHeight * coastGrad);
+                    // Ocean along the Z=0 edge, land rises toward Z=max.
+                    // coastGrad: 0 at Z=0 (ocean) → 1 at Z=worldBlocksZ (inland).
+                    float coastGrad = Mathf.Clamp01((float)worldZ / (_worldBlocksZ * 0.4f));
+                    // Ocean floor below sea level, land rises above
+                    float coastBase = Mathf.Lerp(-10f, 8f, coastGrad) + combined * 4f;
+                    height = SEA_LEVEL + (int)coastBase;
                     break;
 
                 default:

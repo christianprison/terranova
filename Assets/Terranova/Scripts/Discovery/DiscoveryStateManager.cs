@@ -66,7 +66,7 @@ namespace Terranova.Discovery
         /// Register a discovery as completed. Fires DiscoveryMadeEvent.
         /// Returns false if already discovered.
         /// </summary>
-        public bool CompleteDiscovery(DiscoveryDefinition definition)
+        public bool CompleteDiscovery(DiscoveryDefinition definition, string reason = null)
         {
             if (_completedDiscoveries.Contains(definition.DisplayName))
                 return false;
@@ -89,10 +89,11 @@ namespace Terranova.Discovery
             EventBus.Publish(new DiscoveryMadeEvent
             {
                 DiscoveryName = definition.DisplayName,
-                Description = definition.Description
+                Description = definition.Description,
+                Reason = reason ?? ""
             });
 
-            Debug.Log($"[Discovery] Discovered: {definition.DisplayName}");
+            Debug.Log($"[Discovery] Discovered: {definition.DisplayName} ({reason})");
             return true;
         }
 

@@ -281,7 +281,7 @@ namespace Terranova.Population
         {
             get
             {
-                if (_equippedTool == null) return 1.0f;
+                if (_equippedTool == null) return 0.6f; // Toolless: 40% slower
                 return _equippedTool.Quality switch
                 {
                     1 => 1.0f,
@@ -477,12 +477,11 @@ namespace Terranova.Population
         /// </summary>
         private bool CanPerformTask(SettlerTaskType taskType)
         {
-            if (_equippedTool != null) return true;
-
-            // Without a tool, settlers can only pick berries and drink water
-            return taskType == SettlerTaskType.Hunt
-                || taskType == SettlerTaskType.DrinkWater
-                || taskType == SettlerTaskType.SeekFood;
+            // Epoch I.1: ALL basic gathering works without tools (deadwood,
+            // berries, roots, insects, drinking). Tools only increase speed
+            // and enable advanced actions. A toolless settler must never
+            // stand idle and starve.
+            return true;
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -1136,11 +1135,10 @@ namespace Terranova.Population
                 || CurrentThirstState == ThirstState.Dehydrated
                 || CurrentThirstState == ThirstState.Dying)
             {
-                // Only interrupt from safe states (don't interrupt drinking)
+                // Thirst overrides EVERYTHING except already walking-to/drinking.
+                // Drinking requires no tool. Priority above hunger and work.
                 if (_state != SettlerState.WalkingToDrink
-                    && _state != SettlerState.Drinking
-                    && _state != SettlerState.WalkingToEat
-                    && _state != SettlerState.Eating)
+                    && _state != SettlerState.Drinking)
                 {
                     StartDrinking();
                 }

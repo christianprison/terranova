@@ -4,9 +4,16 @@ using Terranova.Core;
 namespace Terranova.Terrain
 {
     /// <summary>
-    /// Visual day/night cycle with lighting transitions.
+    /// Visual day/night cycle driven by a smooth sun arc.
     /// MS4 Feature 1.5: Day-Night Cycle.
     /// ~3 game-minutes per day (180 seconds of game time).
+    ///
+    /// The directional light rotates 360° over one full day:
+    ///   Dawn (east, warm orange) → Noon (overhead, bright white)
+    ///   → Dusk (west, warm red) → Night (below horizon, dark blue ambient only)
+    ///
+    /// Sun altitude (0° horizon, 90° zenith, negative = below horizon) drives
+    /// all lighting smoothly — no hard-coded phase thresholds.
     /// </summary>
     public class DayNightCycle : MonoBehaviour
     {
@@ -20,24 +27,29 @@ namespace Terranova.Terrain
         private int _dayCount = 1;
         private float _temperature = 20f; // Celsius, simplified
 
-        // Lighting colors
-        private static readonly Color DAY_AMBIENT = new Color(0.75f, 0.78f, 0.82f);
-        private static readonly Color NIGHT_AMBIENT = new Color(0.08f, 0.08f, 0.15f);
-        private static readonly Color DAWN_AMBIENT = new Color(0.6f, 0.4f, 0.3f);
-        private static readonly Color DUSK_AMBIENT = new Color(0.55f, 0.3f, 0.25f);
-        private static readonly Color DAY_SUN = new Color(1f, 0.96f, 0.84f);
-        private static readonly Color NIGHT_SUN = new Color(0.15f, 0.15f, 0.3f);
-        private static readonly Color DAWN_SUN = new Color(1f, 0.6f, 0.3f);
+        // Sun arc color stops
+        private static readonly Color SUN_NOON    = new Color(1f, 0.96f, 0.84f);     // Warm white
+        private static readonly Color SUN_HORIZON = new Color(1f, 0.45f, 0.15f);     // Deep orange
+        private static readonly Color SUN_NIGHT   = new Color(0.05f, 0.05f, 0.12f);  // Near-black
+
+        // Ambient color stops
+        private static readonly Color AMB_DAY     = new Color(0.75f, 0.78f, 0.82f);
+        private static readonly Color AMB_HORIZON = new Color(0.45f, 0.28f, 0.20f);  // Warm orange-brown
+        private static readonly Color AMB_NIGHT   = new Color(0.06f, 0.06f, 0.14f);  // Dark blue
 
         public int DayCount => _dayCount;
         public float TimeOfDay => _timeOfDay;
         public float Temperature => _temperature;
-        public bool IsNight => _timeOfDay < 0.22f || _timeOfDay > 0.78f;
-        public bool IsDawn => _timeOfDay >= 0.22f && _timeOfDay < 0.30f;
-        public bool IsDusk => _timeOfDay >= 0.70f && _timeOfDay < 0.78f;
 
-        /// <summary>Visibility range multiplier (1.0 day, 0.3 night).</summary>
-        public float VisibilityMultiplier => IsNight ? 0.3f : 1f;
+        /// <summary>Sun altitude: 0 at horizon, positive above, negative below.</summary>
+        public float SunAltitude => Mathf.Sin((_timeOfDay - 0.25f) * Mathf.PI * 2f) * 90f;
+
+        public bool IsNight => SunAltitude < -5f;
+        public bool IsDawn => _timeOfDay >= 0.20f && _timeOfDay < 0.30f;
+        public bool IsDusk => _timeOfDay >= 0.70f && _timeOfDay < 0.80f;
+
+        /// <summary>Visibility range multiplier (smooth).</summary>
+        public float VisibilityMultiplier => Mathf.Clamp01(Mathf.InverseLerp(-10f, 10f, SunAltitude));
 
         private void Awake()
         {
@@ -88,84 +100,72 @@ namespace Terranova.Terrain
         {
             if (_sunLight == null) return;
 
-            // Sun angle: 0 at midnight, 90 at noon
+            // ── Sun rotation: full 360° arc ──────────────────────────
+            // timeOfDay 0.25 = sunrise (east), 0.5 = noon (overhead),
+            // 0.75 = sunset (west), 0.0/1.0 = midnight (below horizon).
             float sunAngle = (_timeOfDay - 0.25f) * 360f;
             _sunLight.transform.rotation = Quaternion.Euler(sunAngle, -30f, 0f);
 
-            // Sun color and intensity
+            // ── Sun altitude drives everything smoothly ──────────────
+            // altitude: -90 (midnight) → 0 (sunrise/sunset) → +90 (noon)
+            float altitude = SunAltitude;
+
+            // Normalized altitude: 0 = horizon, 1 = zenith
+            float altNorm = Mathf.Clamp01(altitude / 90f);
+
+            // How far below horizon (0 = at horizon, 1 = deep night)
+            float belowHorizon = Mathf.Clamp01(-altitude / 30f);
+
+            // ── Sun color: horizon→orange, zenith→white, below→dark ──
             Color sunColor;
             float intensity;
-            Color ambient;
-
-            if (IsNight)
+            if (altitude > 0f)
             {
-                sunColor = NIGHT_SUN;
-                intensity = 0.1f;
-                ambient = NIGHT_AMBIENT;
-            }
-            else if (IsDawn)
-            {
-                float t = (_timeOfDay - 0.22f) / 0.08f;
-                sunColor = Color.Lerp(NIGHT_SUN, DAWN_SUN, t);
-                intensity = Mathf.Lerp(0.1f, 0.8f, t);
-                ambient = Color.Lerp(NIGHT_AMBIENT, DAWN_AMBIENT, t);
-            }
-            else if (IsDusk)
-            {
-                float t = (_timeOfDay - 0.70f) / 0.08f;
-                sunColor = Color.Lerp(DAY_SUN, DUSK_AMBIENT, t);
-                intensity = Mathf.Lerp(1.2f, 0.3f, t);
-                ambient = Color.Lerp(DAY_AMBIENT, DUSK_AMBIENT, t);
+                // Above horizon: orange at low angles, white at high
+                sunColor = Color.Lerp(SUN_HORIZON, SUN_NOON, altNorm);
+                intensity = Mathf.Lerp(0.4f, 1.3f, altNorm);
             }
             else
             {
-                // Daytime
-                float dawnEnd = 0.30f;
-                float duskStart = 0.70f;
-                if (_timeOfDay < 0.35f)
-                {
-                    float t = (_timeOfDay - dawnEnd) / 0.05f;
-                    sunColor = Color.Lerp(DAWN_SUN, DAY_SUN, t);
-                    intensity = Mathf.Lerp(0.8f, 1.2f, t);
-                    ambient = Color.Lerp(DAWN_AMBIENT, DAY_AMBIENT, t);
-                }
-                else if (_timeOfDay > 0.65f)
-                {
-                    float t = (_timeOfDay - 0.65f) / 0.05f;
-                    sunColor = Color.Lerp(DAY_SUN, DUSK_AMBIENT, t);
-                    intensity = Mathf.Lerp(1.2f, 0.8f, t);
-                    ambient = Color.Lerp(DAY_AMBIENT, DUSK_AMBIENT, t);
-                }
-                else
-                {
-                    sunColor = DAY_SUN;
-                    intensity = 1.2f;
-                    ambient = DAY_AMBIENT;
-                }
+                // Below horizon: fade to dark
+                sunColor = Color.Lerp(SUN_HORIZON, SUN_NIGHT, belowHorizon);
+                intensity = Mathf.Lerp(0.4f, 0f, belowHorizon);
+            }
+
+            // ── Ambient: smooth blend night→horizon→day ──────────────
+            Color ambient;
+            if (altitude > 0f)
+            {
+                ambient = Color.Lerp(AMB_HORIZON, AMB_DAY, altNorm);
+            }
+            else
+            {
+                ambient = Color.Lerp(AMB_HORIZON, AMB_NIGHT, belowHorizon);
             }
 
             _sunLight.color = sunColor;
             _sunLight.intensity = intensity;
             RenderSettings.ambientLight = ambient;
 
-            // Fog for night visibility reduction
-            RenderSettings.fog = IsNight;
-            if (IsNight)
+            // ── Fog for night visibility ─────────────────────────────
+            bool fogActive = altitude < 5f;
+            RenderSettings.fog = fogActive;
+            if (fogActive)
             {
-                RenderSettings.fogColor = NIGHT_AMBIENT;
+                float fogStrength = Mathf.Clamp01(Mathf.InverseLerp(5f, -15f, altitude));
+                RenderSettings.fogColor = Color.Lerp(AMB_HORIZON, AMB_NIGHT, fogStrength);
                 RenderSettings.fogMode = FogMode.Linear;
-                RenderSettings.fogStartDistance = 20f;
-                RenderSettings.fogEndDistance = 80f;
+                RenderSettings.fogStartDistance = Mathf.Lerp(80f, 20f, fogStrength);
+                RenderSettings.fogEndDistance = Mathf.Lerp(200f, 80f, fogStrength);
             }
         }
 
         private void UpdateTemperature()
         {
-            // Simplified temperature: warmer midday, cooler at night
-            float basetemp = 18f;
-            if (IsNight) _temperature = basetemp - 8f;
-            else if (IsDawn || IsDusk) _temperature = basetemp - 3f;
-            else _temperature = basetemp + 4f;
+            // Temperature follows sun altitude smoothly
+            float altitude = SunAltitude;
+            float altNorm = Mathf.Clamp01((altitude + 90f) / 180f); // 0=midnight, 1=noon
+            _temperature = Mathf.Lerp(8f, 24f, altNorm);
         }
 
         private void OnDestroy()

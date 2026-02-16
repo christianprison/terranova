@@ -171,6 +171,8 @@ namespace Terranova.Core
     {
         public string DiscoveryName;
         public string Description;
+        /// <summary>Brief reason why the discovery happened, shown in toast.</summary>
+        public string Reason;
     }
 
     /// <summary>

@@ -116,6 +116,7 @@ namespace Terranova.Terrain
         private IEnumerator GenerateWorldAsync()
         {
             _generator = new TerrainGenerator(GameState.Seed, GameState.SelectedBiome);
+            _generator.SetWorldSize(WorldBlocksZ);
             int totalChunks = _worldSizeX * _worldSizeZ;
             int processed = 0;
 
@@ -185,19 +186,28 @@ namespace Terranova.Terrain
         /// <summary>
         /// Carve an elevation-independent pond near the world center (spawn point).
         /// Runs after all chunks exist so we can use world coordinates directly.
-        /// Offset 10 blocks from center — well within 30-block walking distance.
+        /// Uses solid height (skips existing water) to carve into actual terrain.
+        /// Pond is 15 blocks from center — settlers can walk there in seconds.
         /// </summary>
         private void CarveSpawnPond()
         {
             int centerX = WorldBlocksX / 2;
             int centerZ = WorldBlocksZ / 2;
-            int pondCX = centerX + 10;
-            int pondCZ = centerZ + 6;
-            int pondRadius = 4;
+
+            // Place pond 15 blocks east of center (same side as campfire facing)
+            int pondCX = centerX + 15;
+            int pondCZ = centerZ;
+            int pondRadius = 5;
             int pondDepth = 3;
 
             var affectedChunks = new HashSet<Vector2Int>();
 
+            // First, find what height the terrain is at the pond center
+            int refHeight = GetSolidHeightAtWorldPos(pondCX, pondCZ);
+            if (refHeight < 2) refHeight = GetSolidHeightAtWorldPos(centerX, centerZ);
+            if (refHeight < 2) refHeight = TerrainGenerator.SEA_LEVEL;
+
+            int carved = 0;
             for (int wx = pondCX - pondRadius; wx <= pondCX + pondRadius; wx++)
             {
                 for (int wz = pondCZ - pondRadius; wz <= pondCZ + pondRadius; wz++)
@@ -207,31 +217,41 @@ namespace Terranova.Terrain
                     float dist = Mathf.Sqrt(dx * dx + dz * dz);
                     if (dist > pondRadius) continue;
 
-                    // Find the surface height at this world column
-                    int surfaceY = GetHeightAtWorldPos(wx, wz);
-                    if (surfaceY < 2) continue;
+                    // Use solid height (terrain, not water surface)
+                    int solidY = GetSolidHeightAtWorldPos(wx, wz);
+                    if (solidY < 1) continue;
 
                     // Deeper in center, shallower at edge
                     float t = 1f - (dist / pondRadius);
                     int scoop = Mathf.Max(1, Mathf.RoundToInt(pondDepth * t));
 
-                    // Carve terrain and fill with water
+                    // Carve from surface down and fill with water
                     for (int d = 0; d < scoop; d++)
                     {
-                        int y = surfaceY - d;
+                        int y = solidY - d;
                         if (y < 1) break;
                         SetBlockInternal(wx, y, wz, VoxelType.Water, affectedChunks);
                     }
 
+                    // Also ensure air above the water surface for visibility
+                    for (int y = solidY + 1; y <= refHeight + 2; y++)
+                    {
+                        var existing = GetBlockAtWorldPos(wx, y, wz);
+                        if (existing != VoxelType.Air)
+                            SetBlockInternal(wx, y, wz, VoxelType.Air, affectedChunks);
+                    }
+
                     // Sand bottom
-                    int bottomY = surfaceY - scoop;
+                    int bottomY = solidY - scoop;
                     if (bottomY >= 0)
                         SetBlockInternal(wx, bottomY, wz, VoxelType.Sand, affectedChunks);
+
+                    carved++;
                 }
             }
 
             Debug.Log($"CarveSpawnPond: Pond at ({pondCX},{pondCZ}), radius={pondRadius}, " +
-                      $"distance from spawn={Mathf.Sqrt(10*10 + 6*6):F0} blocks");
+                      $"carved {carved} columns, 15 blocks from spawn center ({centerX},{centerZ})");
         }
 
         /// <summary>

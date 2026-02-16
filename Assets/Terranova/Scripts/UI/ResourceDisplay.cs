@@ -33,7 +33,7 @@ namespace Terranova.UI
 
         // ─── Speed Widget ─────────────────────────────────────────
         private static readonly float[] SPEED_VALUES = { 0f, 1f, 3f, 5f };
-        private static readonly string[] SPEED_LABELS = { "\u275A\u275A", "1x", "3x", "5x" };
+        private static readonly string[] SPEED_LABELS = { "||", "1x", "3x", "5x" };
         private int _currentSpeedIndex = 1;
 
         // ─── Game State ───────────────────────────────────────────
@@ -179,7 +179,12 @@ namespace Terranova.UI
         {
             // Track that categories may now show detail
             _discoveredCategories.Add(evt.DiscoveryName);
-            ShowEvent($"Discovery: {evt.DiscoveryName}!", new Color(0.4f, 1f, 0.6f), 5f);
+
+            // Show toast with trigger reason so player understands WHY
+            string msg = string.IsNullOrEmpty(evt.Reason)
+                ? $"Discovery: {evt.DiscoveryName}!"
+                : $"Discovery: {evt.DiscoveryName}! ({evt.Reason})";
+            ShowEvent(msg, new Color(0.4f, 1f, 0.6f), 6f);
             UpdateDisplay();
         }
 
@@ -488,7 +493,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.4.4";
+            versionText.text = "v0.4.5";
         }
 
         /// <summary>

@@ -127,7 +127,7 @@ namespace Terranova.Discovery
                 {
                     if (discovery.DisplayName == "Lightning Fire")
                     {
-                        TriggerDiscovery(discovery, stateManager);
+                        TriggerDiscovery(discovery, stateManager, "after witnessing a lightning strike");
                         Debug.Log("[Discovery] A settler witnessed lightning strike a tree — Fire discovered!");
                         return;
                     }
@@ -202,7 +202,8 @@ namespace Terranova.Discovery
                 // Roll against probability
                 if (Random.value < finalProb)
                 {
-                    TriggerDiscovery(discovery, stateManager);
+                    string reason = BuildDiscoveryReason(discovery, tracker);
+                    TriggerDiscovery(discovery, stateManager, reason);
                     anyDiscoveredThisCycle = true;
                     break; // One discovery per cycle
                 }
@@ -217,7 +218,8 @@ namespace Terranova.Discovery
                     _cyclesWithoutDiscovery >= bestCandidate.BadLuckThreshold)
                 {
                     Debug.Log($"[Discovery] Bad luck protection triggered after {_cyclesWithoutDiscovery} cycles.");
-                    TriggerDiscovery(bestCandidate, stateManager);
+                    string reason = BuildDiscoveryReason(bestCandidate, activityTracker);
+                    TriggerDiscovery(bestCandidate, stateManager, reason);
                 }
             }
         }
@@ -301,11 +303,43 @@ namespace Terranova.Discovery
             }
         }
 
-        private void TriggerDiscovery(DiscoveryDefinition discovery, DiscoveryStateManager stateManager)
+        private void TriggerDiscovery(DiscoveryDefinition discovery, DiscoveryStateManager stateManager, string reason = null)
         {
-            stateManager.CompleteDiscovery(discovery);
+            stateManager.CompleteDiscovery(discovery, reason);
             _cyclesWithoutDiscovery = 0;
             _eligibleCycles.Remove(discovery.DisplayName);
+        }
+
+        /// <summary>Build a human-readable reason for the discovery trigger.</summary>
+        private string BuildDiscoveryReason(DiscoveryDefinition discovery, ActivityTracker tracker)
+        {
+            // Pick the best settler name for the toast
+            string settlerName = "A settler";
+            var settlers = SettlerLocator.ActiveSettlers;
+            if (settlers != null && settlers.Count > 0)
+            {
+                int idx = Random.Range(0, settlers.Count);
+                if (settlers[idx] != null) settlerName = settlers[idx].name;
+            }
+
+            switch (discovery.Type)
+            {
+                case DiscoveryType.Activity:
+                    string actName = discovery.RequiredActivity.ToString().ToLower();
+                    actName = actName.Replace("gather", "gathering ");
+                    actName = actName.Replace("hunt", "foraging");
+                    actName = actName.Replace("build", "building");
+                    return $"{settlerName} discovered this from {actName}";
+
+                case DiscoveryType.Biome:
+                    return $"{settlerName} discovered this by exploring the terrain";
+
+                case DiscoveryType.Spontaneous:
+                    return $"{settlerName} stumbled upon this by chance";
+
+                default:
+                    return $"{settlerName} made a discovery";
+            }
         }
 
         /// <summary>
