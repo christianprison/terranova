@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
+using UnityEngine.SceneManagement;
 using Terranova.Terrain;
 using Terranova.Buildings;
 using Terranova.Camera;
@@ -26,10 +27,19 @@ namespace Terranova.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         private static void Bootstrap()
         {
-            // Defer actual creation to AfterSceneLoad so scene objects are available
+            // Subscribe to sceneLoaded so bootstrap runs on EVERY scene load,
+            // not just the first. This is critical: when MainMenuUI calls
+            // SceneManager.LoadScene the RuntimeInitializeOnLoadMethod callbacks
+            // do NOT fire again, but sceneLoaded does.
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.sceneLoaded += OnSceneLoaded;
         }
 
-        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
+        private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+        {
+            BootstrapAfterScene();
+        }
+
         private static void BootstrapAfterScene()
         {
             // Show main menu on every fresh Play; skip once the player has started a game.
