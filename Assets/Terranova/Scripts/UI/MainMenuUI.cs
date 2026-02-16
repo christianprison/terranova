@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.SceneManagement;
 using Terranova.Core;
 
 namespace Terranova.UI
@@ -19,6 +18,8 @@ namespace Terranova.UI
         private Button[] _biomeButtons;
         private Text _titleText;
         private Text _versionText;
+        private Text _debugLogText;
+        private string _debugLog = "";
 
         private void Start()
         {
@@ -154,6 +155,52 @@ namespace Terranova.UI
             // Version
             _versionText = CreateText("v0.4.1", 18, new Color(0.5f, 0.5f, 0.5f),
                 new Vector2(0, -300), transform);
+
+            // Debug log overlay – bottom-left, captures all Debug.Log output
+            var debugGo = new GameObject("DebugLog");
+            debugGo.transform.SetParent(transform, false);
+            var debugRect = debugGo.AddComponent<RectTransform>();
+            debugRect.anchorMin = new Vector2(0, 0);
+            debugRect.anchorMax = new Vector2(1, 0);
+            debugRect.pivot = new Vector2(0, 0);
+            debugRect.anchoredPosition = new Vector2(8, 8);
+            debugRect.sizeDelta = new Vector2(-16, 180);
+            _debugLogText = debugGo.AddComponent<Text>();
+            _debugLogText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _debugLogText.fontSize = 12;
+            _debugLogText.color = new Color(0f, 1f, 0.4f, 0.9f);
+            _debugLogText.alignment = TextAnchor.LowerLeft;
+            _debugLogText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            _debugLogText.verticalOverflow = VerticalWrapMode.Truncate;
+            AppendDebug($"Menu ready. GameStarted={GameState.GameStarted}, scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+        }
+
+        private void OnEnable()
+        {
+            Application.logMessageReceived += OnLogMessage;
+        }
+
+        private void OnDisable()
+        {
+            Application.logMessageReceived -= OnLogMessage;
+        }
+
+        private void OnLogMessage(string message, string stackTrace, LogType type)
+        {
+            string prefix = type == LogType.Error || type == LogType.Exception ? "[ERR] " :
+                            type == LogType.Warning ? "[WARN] " : "";
+            AppendDebug($"{prefix}{message}");
+        }
+
+        private void AppendDebug(string msg)
+        {
+            _debugLog += msg + "\n";
+            // Keep last 12 lines
+            var lines = _debugLog.Split('\n');
+            if (lines.Length > 13)
+                _debugLog = string.Join("\n", lines, lines.Length - 13, 13);
+            if (_debugLogText != null)
+                _debugLogText.text = _debugLog;
         }
 
         private void OnSeedChanged(string value)
@@ -204,8 +251,8 @@ namespace Terranova.UI
             if (int.TryParse(_seedInput.text, out int seed))
                 GameState.Seed = seed;
 
-            // Load game scene
-            SceneManager.LoadScene("SampleScene");
+            Debug.Log($"MainMenuUI: StartNewGame – seed={GameState.Seed}, biome={GameState.SelectedBiome}");
+            LaunchGame();
         }
 
         private void ContinueGame()
@@ -213,7 +260,17 @@ namespace Terranova.UI
             // Placeholder: just start a new game
             GameState.IsNewGame = false;
             GameState.GameStarted = true;
-            SceneManager.LoadScene("SampleScene");
+
+            Debug.Log("MainMenuUI: ContinueGame");
+            LaunchGame();
+        }
+
+        private void LaunchGame()
+        {
+            // Destroy the menu and bootstrap game systems directly.
+            // No scene reload needed – we're already in SampleScene.
+            Destroy(gameObject);
+            GameBootstrapper.BootstrapGameSystems();
         }
 
         private Text CreateText(string content, int fontSize, Color color, Vector2 position, Transform parent)

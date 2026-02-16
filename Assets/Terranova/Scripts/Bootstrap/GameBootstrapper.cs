@@ -53,6 +53,16 @@ namespace Terranova.Core
                 return;
             }
 
+            BootstrapGameSystems();
+        }
+
+        /// <summary>
+        /// Public entry point called by MainMenuUI to create all game systems
+        /// without requiring a scene reload. Safe to call multiple times —
+        /// every Ensure* method is idempotent.
+        /// </summary>
+        public static void BootstrapGameSystems()
+        {
             // Game scene bootstrap
             EnsureWorldManager();
             EnsureResourceManager();
