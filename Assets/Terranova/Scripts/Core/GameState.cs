@@ -20,6 +20,13 @@ namespace Terranova.Core
         /// </summary>
         public static bool GameStarted { get; set; }
 
+        /// <summary>
+        /// Callback registered by GameBootstrapper to create all game systems.
+        /// MainMenuUI invokes this to launch the game without a direct assembly
+        /// reference to Terranova.Bootstrap (which would be circular).
+        /// </summary>
+        public static System.Action LaunchGameCallback { get; set; }
+
         [UnityEngine.RuntimeInitializeOnLoadMethod(UnityEngine.RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
@@ -29,6 +36,7 @@ namespace Terranova.Core
             DayCount = 1;
             GameTimeSeconds = 0f;
             GameStarted = false;
+            LaunchGameCallback = null;
         }
     }
 }

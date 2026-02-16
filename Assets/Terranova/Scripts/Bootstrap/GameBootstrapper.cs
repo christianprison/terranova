@@ -33,6 +33,7 @@ namespace Terranova.Core
             // do NOT fire again, but sceneLoaded does.
             SceneManager.sceneLoaded -= OnSceneLoaded;
             SceneManager.sceneLoaded += OnSceneLoaded;
+            GameState.LaunchGameCallback = BootstrapGameSystems;
         }
 
         private static void OnSceneLoaded(Scene scene, LoadSceneMode mode)
