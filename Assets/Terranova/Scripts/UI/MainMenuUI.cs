@@ -269,8 +269,10 @@ namespace Terranova.UI
         {
             // Destroy the menu and bootstrap game systems directly.
             // No scene reload needed – we're already in SampleScene.
+            // Uses callback registered by GameBootstrapper (avoids circular
+            // assembly reference between Terranova.UI and Terranova.Bootstrap).
             Destroy(gameObject);
-            GameBootstrapper.BootstrapGameSystems();
+            GameState.LaunchGameCallback?.Invoke();
         }
 
         private Text CreateText(string content, int fontSize, Color color, Vector2 position, Transform parent)
