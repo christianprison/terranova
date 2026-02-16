@@ -199,6 +199,7 @@ namespace Terranova.UI
             GameState.IsNewGame = true;
             GameState.DayCount = 1;
             GameState.GameTimeSeconds = 0f;
+            GameState.GameStarted = true;
 
             if (int.TryParse(_seedInput.text, out int seed))
                 GameState.Seed = seed;
@@ -211,6 +212,7 @@ namespace Terranova.UI
         {
             // Placeholder: just start a new game
             GameState.IsNewGame = false;
+            GameState.GameStarted = true;
             SceneManager.LoadScene("SampleScene");
         }
 
