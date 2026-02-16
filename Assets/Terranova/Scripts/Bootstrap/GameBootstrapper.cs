@@ -32,9 +32,10 @@ namespace Terranova.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void BootstrapAfterScene()
         {
-            // MS4: Check if we're in the MainMenu scene
-            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
-            if (sceneName == "MainMenu")
+            // Show main menu on every fresh Play; skip once the player has started a game.
+            // GameState.GameStarted is reset to false by ResetStatics (SubsystemRegistration)
+            // and set to true by MainMenuUI before loading the game scene.
+            if (!GameState.GameStarted)
             {
                 EnsureMainMenu();
                 EnsureEventSystem();
