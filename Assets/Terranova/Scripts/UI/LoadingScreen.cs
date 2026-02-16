@@ -52,7 +52,7 @@ namespace Terranova.UI
             titleRect.anchoredPosition = new Vector2(0, 60);
             titleRect.sizeDelta = new Vector2(400, 60);
             var titleText = titleObj.AddComponent<Text>();
-            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             titleText.fontSize = 42;
             titleText.color = new Color(0.9f, 0.85f, 0.7f);
             titleText.alignment = TextAnchor.MiddleCenter;
@@ -93,7 +93,7 @@ namespace Terranova.UI
             statusRect.anchoredPosition = new Vector2(0, -40);
             statusRect.sizeDelta = new Vector2(400, 30);
             _statusText = statusObj.AddComponent<Text>();
-            _statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _statusText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             _statusText.fontSize = 18;
             _statusText.color = new Color(0.7f, 0.7f, 0.7f);
             _statusText.alignment = TextAnchor.MiddleCenter;

@@ -86,7 +86,7 @@ namespace Terranova.UI
             seedTextRect.offsetMin = new Vector2(8, 0);
             seedTextRect.offsetMax = new Vector2(-8, 0);
             var seedText = seedTextGo.AddComponent<Text>();
-            seedText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            seedText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             seedText.fontSize = 24;
             seedText.color = Color.white;
             seedText.alignment = TextAnchor.MiddleLeft;
@@ -133,7 +133,7 @@ namespace Terranova.UI
                 labelRect.anchorMax = Vector2.one;
                 labelRect.sizeDelta = Vector2.zero;
                 var label = labelGo.AddComponent<Text>();
-                label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                label.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 label.fontSize = 22;
                 label.color = Color.white;
                 label.alignment = TextAnchor.MiddleCenter;
@@ -225,7 +225,7 @@ namespace Terranova.UI
             rect.anchoredPosition = position;
             rect.sizeDelta = new Vector2(600, fontSize + 20);
             var text = go.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
             text.color = color;
             text.alignment = TextAnchor.MiddleCenter;
@@ -261,7 +261,7 @@ namespace Terranova.UI
             labelRect.anchorMax = Vector2.one;
             labelRect.sizeDelta = Vector2.zero;
             var text = labelGo.AddComponent<Text>();
-            text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            text.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             text.fontSize = fontSize;
             text.color = Color.white;
             text.alignment = TextAnchor.MiddleCenter;
