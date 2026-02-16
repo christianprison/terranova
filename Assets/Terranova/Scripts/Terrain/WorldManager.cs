@@ -116,6 +116,8 @@ namespace Terranova.Terrain
         private IEnumerator GenerateWorldAsync()
         {
             _generator = new TerrainGenerator(GameState.Seed, GameState.SelectedBiome);
+            // Tell generator where world center is so it can place a pond near spawn
+            _generator.SetWorldCenter(WorldBlocksX / 2, WorldBlocksZ / 2);
             int totalChunks = _worldSizeX * _worldSizeZ;
             int processed = 0;
 

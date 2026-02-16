@@ -32,8 +32,8 @@ namespace Terranova.UI
         [SerializeField] private float _minTouchTarget = 44f;
 
         // ─── Speed Widget ─────────────────────────────────────────
-        private static readonly float[] SPEED_VALUES = { 0f, 1f, 3f, 5f };
-        private static readonly string[] SPEED_LABELS = { "\u275A\u275A", "1x", "3x", "5x" };
+        private static readonly float[] SPEED_VALUES = { 0f, 1f, 2f, 3f };
+        private static readonly string[] SPEED_LABELS = { "\u275A\u275A", "1x", "2x", "3x" };
         private int _currentSpeedIndex = 1;
 
         // ─── Game State ───────────────────────────────────────────
@@ -240,61 +240,16 @@ namespace Terranova.UI
         {
             if (_resourceText == null) return;
 
-            var inv = MaterialInventory.Instance;
-            if (inv == null)
+            // Always read from ResourceManager for accurate counters
+            var rm = ResourceManager.Instance;
+            if (rm != null)
             {
-                // Fallback to legacy ResourceManager
-                var rm = ResourceManager.Instance;
-                if (rm != null)
-                    _resourceText.text = $"Wood: {rm.Wood} | Stone: {rm.Stone} | Food: {rm.Food} | Settlers: {_settlers}";
-                else
-                    _resourceText.text = $"Settlers: {_settlers}";
-                return;
+                _resourceText.text = $"Wood: {rm.Wood} | Stone: {rm.Stone} | Food: {rm.Food} | Settlers: {_settlers}";
             }
-
-            int woodTotal  = inv.GetCategoryTotal(MaterialCategory.Wood);
-            int stoneTotal = inv.GetCategoryTotal(MaterialCategory.Stone);
-            int plantTotal = inv.GetCategoryTotal(MaterialCategory.Plant);
-            int animalTotal = inv.GetCategoryTotal(MaterialCategory.Animal);
-            int otherTotal = inv.GetCategoryTotal(MaterialCategory.Other);
-            int foodTotal = plantTotal + animalTotal;
-
-            // Build display string
-            System.Text.StringBuilder sb = new();
-
-            // Wood category
-            sb.Append(BuildCategoryLine("Wood", woodTotal, MaterialCategory.Wood, _woodExpanded, inv));
-            sb.Append(" | ");
-
-            // Stone category
-            sb.Append(BuildCategoryLine("Stone", stoneTotal, MaterialCategory.Stone, _stoneExpanded, inv));
-            sb.Append(" | ");
-
-            // Food (Plant + Animal combined for summary)
-            sb.Append($"Food: {foodTotal}");
-
-            // If Plant expanded, show plant detail
-            if (_plantExpanded && HasDiscoveredMaterials(MaterialCategory.Plant, inv))
+            else
             {
-                sb.Append(BuildCategoryDetail(MaterialCategory.Plant, inv));
+                _resourceText.text = $"Settlers: {_settlers}";
             }
-
-            // If Animal expanded, show animal detail
-            if (_animalExpanded && HasDiscoveredMaterials(MaterialCategory.Animal, inv))
-            {
-                sb.Append(BuildCategoryDetail(MaterialCategory.Animal, inv));
-            }
-
-            // Other (only show if > 0)
-            if (otherTotal > 0)
-            {
-                sb.Append(" | ");
-                sb.Append(BuildCategoryLine("Other", otherTotal, MaterialCategory.Other, _otherExpanded, inv));
-            }
-
-            sb.Append($" | Settlers: {_settlers}");
-
-            _resourceText.text = sb.ToString();
         }
 
         /// <summary>
@@ -382,10 +337,10 @@ namespace Terranova.UI
             titleRect.anchorMax = new Vector2(0.5f, 0.5f);
             titleRect.pivot = new Vector2(0.5f, 0.5f);
             titleRect.anchoredPosition = new Vector2(0, 60);
-            titleRect.sizeDelta = new Vector2(500, 80);
+            titleRect.sizeDelta = new Vector2(700, 100);
             var titleText = titleObj.AddComponent<Text>();
             titleText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            titleText.fontSize = 48;
+            titleText.fontSize = 72;
             titleText.color = new Color(0.9f, 0.3f, 0.3f);
             titleText.alignment = TextAnchor.MiddleCenter;
             titleText.fontStyle = FontStyle.Bold;
@@ -401,10 +356,10 @@ namespace Terranova.UI
             subRect.anchorMax = new Vector2(0.5f, 0.5f);
             subRect.pivot = new Vector2(0.5f, 0.5f);
             subRect.anchoredPosition = new Vector2(0, 10);
-            subRect.sizeDelta = new Vector2(500, 40);
+            subRect.sizeDelta = new Vector2(700, 50);
             var subText = subtitleObj.AddComponent<Text>();
             subText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            subText.fontSize = 22;
+            subText.fontSize = 32;
             subText.color = new Color(0.8f, 0.8f, 0.8f);
             subText.alignment = TextAnchor.MiddleCenter;
             subText.text = $"All settlers perished on Day {dayCount}";
@@ -444,6 +399,8 @@ namespace Terranova.UI
         {
             EventBus.Clear();
             Time.timeScale = 1f;
+            // Keep GameStarted true so bootstrapper goes straight to game (not menu)
+            GameState.GameStarted = true;
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
         }
 
@@ -531,7 +488,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.4.1";
+            versionText.text = "v0.4.3";
         }
 
         /// <summary>

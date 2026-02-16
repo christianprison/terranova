@@ -51,6 +51,22 @@ namespace Terranova.Terrain
         /// </summary>
         public TerrainGenerator(int seed = 42) : this(seed, GameState.SelectedBiome) { }
 
+        // Pond placement: world center coordinates (set once per world)
+        private int _worldCenterX;
+        private int _worldCenterZ;
+        private bool _centerInitialized;
+
+        /// <summary>
+        /// Set the world center coordinates so the pond can be placed near spawn.
+        /// Called by WorldManager after determining the chunk layout.
+        /// </summary>
+        public void SetWorldCenter(int centerX, int centerZ)
+        {
+            _worldCenterX = centerX;
+            _worldCenterZ = centerZ;
+            _centerInitialized = true;
+        }
+
         /// <summary>
         /// Fill a chunk with terrain data based on its position in the world and the active biome.
         /// </summary>
@@ -66,6 +82,69 @@ namespace Terranova.Terrain
 
                     int surfaceHeight = CalculateHeight(worldX, worldZ);
                     FillColumn(chunk, x, z, surfaceHeight, worldX, worldZ);
+                }
+            }
+
+            // Carve an elevation-independent pond near spawn
+            if (_centerInitialized)
+                CarvePondInChunk(chunk);
+        }
+
+        /// <summary>
+        /// Carve a small circular pond near the world center.
+        /// The pond is offset 12 blocks from center so it doesn't overlap the campfire
+        /// but is within easy walking distance. Elevation-independent: works on any biome.
+        /// </summary>
+        private void CarvePondInChunk(ChunkData chunk)
+        {
+            // Pond center offset from world center
+            int pondCX = _worldCenterX + 12;
+            int pondCZ = _worldCenterZ + 8;
+            int pondRadius = 4;
+            int pondDepth = 3;
+
+            for (int x = 0; x < ChunkData.WIDTH; x++)
+            {
+                for (int z = 0; z < ChunkData.DEPTH; z++)
+                {
+                    int worldX = chunk.ChunkX * ChunkData.WIDTH + x;
+                    int worldZ = chunk.ChunkZ * ChunkData.DEPTH + z;
+
+                    int dx = worldX - pondCX;
+                    int dz = worldZ - pondCZ;
+                    float dist = Mathf.Sqrt(dx * dx + dz * dz);
+
+                    if (dist > pondRadius) continue;
+
+                    // Find surface height at this column
+                    int surfaceY = -1;
+                    for (int y = ChunkData.HEIGHT - 1; y >= 0; y--)
+                    {
+                        if (chunk.GetBlock(x, y, z) != VoxelType.Air
+                            && chunk.GetBlock(x, y, z) != VoxelType.Water)
+                        {
+                            surfaceY = y;
+                            break;
+                        }
+                    }
+                    if (surfaceY < 2) continue;
+
+                    // Scoop depth: deeper in center, shallower at edge
+                    float t = 1f - (dist / pondRadius);
+                    int scoop = Mathf.Max(1, Mathf.RoundToInt(pondDepth * t));
+
+                    // Carve out terrain and fill with water
+                    int waterSurface = surfaceY;
+                    for (int d = 0; d < scoop; d++)
+                    {
+                        int y = surfaceY - d;
+                        if (y < 1) break;
+                        chunk.SetBlock(x, y, z, VoxelType.Water);
+                    }
+                    // Sand bottom
+                    int bottomY = surfaceY - scoop;
+                    if (bottomY >= 0)
+                        chunk.SetBlock(x, bottomY, z, VoxelType.Sand);
                 }
             }
         }

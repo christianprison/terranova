@@ -68,6 +68,10 @@ namespace Terranova.UI
         private Text _shelterStatusText;
         private Text _healthStatusText;
 
+        // Trait display (v0.4.0 bugfix)
+        private Text _traitText;
+        private static readonly Color TRAIT_GOLD = new Color(1f, 0.84f, 0f);
+
         // Tool info panel (Feature 3.4)
         private GameObject _toolRoot;
         private Text _toolNameText;
@@ -185,6 +189,9 @@ namespace Terranova.UI
             // ─── Tool Info (Feature 3.4) ───────────────────────
             RefreshToolInfo(settler);
 
+            // ─── Trait display (gold label) ─────────────────────
+            RefreshTraitInfo(settler);
+
             // ─── Task & State Info ─────────────────────────────
             string task = settler.HasTask
                 ? settler.CurrentTask?.TaskType.ToString() ?? "Eating"
@@ -224,6 +231,51 @@ namespace Terranova.UI
             {
                 _titleText.text = settler.name;
                 _infoText.text = $"Task: {task}\nState: {state}";
+            }
+        }
+
+        /// <summary>
+        /// Display the settler's trait with a gold label.
+        /// v0.4.0 bugfix: 5 traits visible in info panel.
+        /// </summary>
+        private void RefreshTraitInfo(Settler settler)
+        {
+            if (_traitText == null) return;
+
+            var traitProp = settler.GetType().GetProperty("Trait");
+            if (traitProp != null)
+            {
+                object val = traitProp.GetValue(settler);
+                if (val != null)
+                {
+                    string traitName = val.ToString();
+                    string traitDesc = traitName switch
+                    {
+                        "Curious" => "+20% XP",
+                        "Cautious" => "Poison resist",
+                        "Skilled" => "+15% work speed",
+                        "Robust" => "Slower decay",
+                        "Enduring" => "Longer grace",
+                        _ => ""
+                    };
+                    _traitText.text = $"\u2605 {traitName} ({traitDesc})";
+                    _traitText.color = TRAIT_GOLD;
+                }
+            }
+            else
+            {
+                _traitText.text = "";
+            }
+
+            // Show XP if available
+            var xpProp = settler.GetType().GetProperty("Experience");
+            if (xpProp != null)
+            {
+                object xpVal = xpProp.GetValue(settler);
+                if (xpVal is float xp && xp > 0f)
+                {
+                    _traitText.text += $"  XP: {xp:F0}";
+                }
             }
         }
 
@@ -446,10 +498,11 @@ namespace Terranova.UI
             string displayName = building.Definition != null
                 ? building.Definition.DisplayName : building.name;
 
-            // Hide needs and tool panels for buildings
+            // Hide needs, tool, and trait panels for buildings
             _hungerBarRoot.SetActive(false);
             _needsRoot.SetActive(false);
             _toolRoot.SetActive(false);
+            if (_traitText != null) _traitText.text = "";
 
             // Basic status
             string statusLine;
@@ -578,6 +631,11 @@ namespace Terranova.UI
 
             // Title
             _titleText = CreateLabel("Title", FONT_SIZE_TITLE, Color.white);
+
+            // Trait label (gold)
+            _traitText = CreateLabel("Trait", FONT_SIZE_SMALL, TRAIT_GOLD);
+            _traitText.fontStyle = FontStyle.Bold;
+            _traitText.text = "";
 
             // Legacy hunger bar (kept for backward compatibility, used in building worker info)
             CreateHungerBar();

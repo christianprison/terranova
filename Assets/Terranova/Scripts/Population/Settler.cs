@@ -49,10 +49,10 @@ namespace Terranova.Population
         // ═══════════════════════════════════════════════════════════════
 
         private const float MAX_HUNGER = 100f;          // 100 = fully sated, 0 = starving
-        private const float HUNGER_RATE = 0.55f;        // Per second (~3 min to starve at 1x)
+        private const float HUNGER_RATE = 0.1f;         // Per second (slow drain, ~16 min to starve at 1x)
         private const float STARVATION_GRACE = 30f;     // Seconds at 0 before death
         private const float EAT_DURATION = 1.5f;        // How long eating takes
-        private const float DEFAULT_FOOD_RESTORE = 30f; // Fallback nutrition value
+        private const float DEFAULT_FOOD_RESTORE = 50f; // Fallback nutrition value
 
         // Hunger state thresholds (inverted: 100=full, 0=empty)
         // Sated: 100-70, Hungry: 70-40, Exhausted: 40-10, Starving: <10
@@ -65,7 +65,7 @@ namespace Terranova.Population
         // ═══════════════════════════════════════════════════════════════
 
         private const float MAX_THIRST = 100f;          // 100 = hydrated, 0 = dying
-        private const float THIRST_RATE = 100f / 120f;  // ~0.833/sec, empty in ~2 game-minutes
+        private const float THIRST_RATE = 0.15f;        // Per second (slow drain, ~11 min at 1x)
         private const float DRINK_DURATION_MIN = 3f;
         private const float DRINK_DURATION_MAX = 5f;
         private const float DEHYDRATION_GRACE = 20f;    // Seconds at Dying before death
@@ -298,8 +298,11 @@ namespace Terranova.Population
         // ─── Shelter System (MS4 Feature 4.5 placeholder) ────────────
         // ═══════════════════════════════════════════════════════════════
 
-        /// <summary>Current shelter state. Placeholder for future shelter mechanic.</summary>
-        public ShelterState CurrentShelterState => ShelterState.Exposed;
+        private ShelterState _shelterState = ShelterState.Exposed;
+        private float _shelterCheckTimer;
+
+        /// <summary>Current shelter state.</summary>
+        public ShelterState CurrentShelterState => _shelterState;
 
         // ═══════════════════════════════════════════════════════════════
         // ─── Cargo Visual (Story 3.3) ─────────────────────────────────
@@ -333,6 +336,29 @@ namespace Terranova.Population
         public int ColorIndex => _colorIndex;
 
         // ═══════════════════════════════════════════════════════════════
+        // ─── Traits & Names (v0.4.0 bugfix) ─────────────────────────
+        // ═══════════════════════════════════════════════════════════════
+
+        private SettlerTrait _trait;
+        private float _experience;
+
+        /// <summary>This settler's personality trait.</summary>
+        public SettlerTrait Trait => _trait;
+
+        /// <summary>Accumulated experience points from completing tasks.</summary>
+        public float Experience => _experience;
+
+        /// <summary>26-name pool for settler names (A-Z).</summary>
+        private static readonly string[] NAME_POOL =
+        {
+            "Ada", "Bruno", "Cora", "Dion", "Elva",
+            "Finn", "Greta", "Hugo", "Iris", "Jasper",
+            "Kira", "Lev", "Mara", "Nico", "Opal",
+            "Pax", "Quinn", "Runa", "Soren", "Tova",
+            "Uli", "Vera", "Wren", "Xena", "Yael", "Zara"
+        };
+
+        // ═══════════════════════════════════════════════════════════════
         //
         //  I N I T I A L I Z A T I O N
         //
@@ -345,6 +371,14 @@ namespace Terranova.Population
         {
             _colorIndex = colorIndex;
             _campfirePosition = campfirePosition;
+
+            // Assign a unique name from the 26-name pool
+            gameObject.name = NAME_POOL[colorIndex % NAME_POOL.Length];
+
+            // Assign a random trait
+            var traits = System.Enum.GetValues(typeof(SettlerTrait));
+            _trait = (SettlerTrait)traits.GetValue(Random.Range(0, traits.Length));
+            _experience = 0f;
 
             // Start fully sated and hydrated
             _hunger = MAX_HUNGER;
@@ -361,6 +395,8 @@ namespace Terranova.Population
             // Start with random pause (desync settlers)
             _state = SettlerState.IdlePausing;
             _stateTimer = Random.Range(0f, MAX_PAUSE);
+
+            Debug.Log($"[{name}] Spawned with trait: {_trait}");
         }
 
         private void OnDestroy()
@@ -555,6 +591,7 @@ namespace Terranova.Population
             UpdateHunger();
             UpdateThirst();
             UpdateSickness();
+            UpdateShelterState();
             UpdateOverheadBars();
 
             switch (_state)
@@ -721,6 +758,8 @@ namespace Terranova.Population
                 {
                     workDuration /= ToolQualityMultiplier;
                 }
+                // Skilled trait: +15% work speed
+                if (_trait == SettlerTrait.Skilled) workDuration *= 0.85f;
                 _stateTimer = workDuration;
                 Debug.Log($"[{name}] Arrived at target - WORKING ({_currentTask.TaskType}, {_stateTimer:F1}s)");
             }
@@ -827,6 +866,11 @@ namespace Terranova.Population
             {
                 string resourceName = TrackDelivery(_currentTask.TaskType);
 
+                // XP bonus on delivery (Curious trait: +20% XP)
+                float xpGain = 10f;
+                if (_trait == SettlerTrait.Curious) xpGain *= 1.2f;
+                _experience += xpGain;
+
                 var actualType = _currentTask.TaskType switch
                 {
                     SettlerTaskType.GatherWood => ResourceType.Wood,
@@ -910,6 +954,8 @@ namespace Terranova.Population
             if (_hunger > 0f)
             {
                 float decayMult = GameplayModifiers.FoodDecayMultiplier;
+                // Robust trait: hunger drains 25% slower
+                if (_trait == SettlerTrait.Robust) decayMult *= 0.75f;
                 _hunger -= HUNGER_RATE * decayMult * Time.deltaTime;
                 if (_hunger < 0f) _hunger = 0f;
             }
@@ -920,7 +966,9 @@ namespace Terranova.Population
                 if (!_isStarving)
                 {
                     _isStarving = true;
-                    _starvationTimer = STARVATION_GRACE;
+                    // Enduring trait: +30% grace period
+                    _starvationTimer = _trait == SettlerTrait.Enduring
+                        ? STARVATION_GRACE * 1.3f : STARVATION_GRACE;
                     UpdateVisualColor();
                     Debug.Log($"[{name}] STARVING - grace period {STARVATION_GRACE}s");
 
@@ -1047,7 +1095,10 @@ namespace Terranova.Population
         {
             if (_thirst > 0f)
             {
-                _thirst -= THIRST_RATE * Time.deltaTime;
+                float thirstMult = 1f;
+                // Robust trait: thirst drains 25% slower
+                if (_trait == SettlerTrait.Robust) thirstMult = 0.75f;
+                _thirst -= THIRST_RATE * thirstMult * Time.deltaTime;
                 if (_thirst < 0f) _thirst = 0f;
             }
 
@@ -1056,8 +1107,10 @@ namespace Terranova.Population
             {
                 if (_dehydrationTimer <= 0f)
                 {
-                    _dehydrationTimer = DEHYDRATION_GRACE;
-                    Debug.Log($"[{name}] DYING OF THIRST - grace period {DEHYDRATION_GRACE}s");
+                    // Enduring trait: +30% grace period
+                    _dehydrationTimer = _trait == SettlerTrait.Enduring
+                        ? DEHYDRATION_GRACE * 1.3f : DEHYDRATION_GRACE;
+                    Debug.Log($"[{name}] DYING OF THIRST - grace period {_dehydrationTimer}s");
 
                     EventBus.Publish(new NeedsCriticalEvent
                     {
@@ -1291,7 +1344,8 @@ namespace Terranova.Population
             Debug.Log($"[{name}] Consumed {food.DisplayName} (+{nutrition} hunger, now {_hunger:F0})");
 
             // MS4 Feature 4.3: Poisonous berries cause sickness
-            if (food.IsPoisonous)
+            // Cautious trait: 30% chance to avoid poison
+            if (food.IsPoisonous && !(_trait == SettlerTrait.Cautious && Random.value < 0.3f))
             {
                 _isSick = true;
                 _sicknessTimer = 30f; // 30 seconds of sickness
@@ -1320,6 +1374,37 @@ namespace Terranova.Population
             {
                 _isSick = false;
                 Debug.Log($"[{name}] Recovered from sickness");
+            }
+        }
+
+        /// <summary>
+        /// Update shelter state based on proximity to buildings (huts).
+        /// Settlers near a SimpleHut or Campfire are considered Sheltered.
+        /// </summary>
+        private void UpdateShelterState()
+        {
+            _shelterCheckTimer -= Time.deltaTime;
+            if (_shelterCheckTimer > 0f) return;
+            _shelterCheckTimer = 2f; // Check every 2 seconds
+
+            // Check if near any shelter building
+            var buildings = Object.FindObjectsByType<Building>(FindObjectsSortMode.None);
+            _shelterState = ShelterState.Exposed;
+            foreach (var b in buildings)
+            {
+                if (!b.IsConstructed) continue;
+                if (b.Definition == null) continue;
+                // Huts and campfire provide shelter
+                if (b.Definition.Type == BuildingType.SimpleHut
+                    || b.Definition.Type == BuildingType.Campfire)
+                {
+                    float dist = Vector3.Distance(transform.position, b.transform.position);
+                    if (dist < 6f)
+                    {
+                        _shelterState = ShelterState.Sheltered;
+                        break;
+                    }
+                }
             }
         }
 
