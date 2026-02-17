@@ -416,9 +416,9 @@ namespace Terranova.Core
         /// Get the verb form for sentence building.
         /// Feature 7.4: Result Line.
         /// </summary>
-        public static string ToVerb(this OrderPredicate predicate, bool negated = false)
+        public static string ToVerb(this OrderPredicate predicate, bool negated = false, bool plural = false)
         {
-            if (negated) return predicate.ToString().ToLower();
+            if (negated || plural) return predicate.ToString().ToLower();
 
             return predicate switch
             {

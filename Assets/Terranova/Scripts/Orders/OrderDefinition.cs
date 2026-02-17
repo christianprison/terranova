@@ -72,8 +72,9 @@ namespace Terranova.Orders
             // NICHT
             string negation = Negated ? " do NOT" : "";
 
-            // DOES
-            string verb = Predicate.ToVerb(Negated);
+            // DOES — "All" uses plural verb (e.g. "All gather" not "All gathers")
+            bool plural = Subject == OrderSubject.All;
+            string verb = Predicate.ToVerb(Negated, plural);
 
             // WHAT/WHERE
             string what = "";

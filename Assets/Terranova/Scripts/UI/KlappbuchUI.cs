@@ -8,12 +8,12 @@ using Terranova.Population;
 namespace Terranova.UI
 {
     /// <summary>
-    /// Feature 7.3 (v0.4.13): Klappbuch UI — iOS-style scroll-picker.
+    /// Feature 7.3 (v0.4.14): Klappbuch UI — iOS-style scroll-picker.
     ///
     /// Three columns (WHO / DOES / WHAT-WHERE) where the user scrolls each
     /// column and the center item is the current selection (like UIPickerView).
     ///
-    /// Layout: 90 % of screen width, each column exactly 1/3 with 5 px padding.
+    /// Layout: 80 % of screen width, columns WHO 25 % / DOES 35 % / WHAT 40 %.
     /// Pauses game and disables camera input while open.
     /// </summary>
     public class KlappbuchUI : MonoBehaviour
@@ -31,7 +31,7 @@ namespace Terranova.UI
         private const float CLOSE_SIZE = 44f;
         private const int FONT_MIN = 14;
         private const float SNAP_THRESHOLD = 80f;
-        private const float SNAP_SPEED = 12f;
+        private const float SNAP_DURATION = 0.2f;
 
         // ─── Colors ─────────────────────────────────────────────
         private static readonly Color BG = new(0.08f, 0.10f, 0.08f, 0.95f);
@@ -57,7 +57,7 @@ namespace Terranova.UI
         private Vector3? _tapPosition;
 
         // Computed layout
-        private float _panelW, _panelH, _colW, _colH;
+        private float _panelW, _panelH, _whoColW, _doesColW, _whatColW, _colH;
 
         // Picker scroll rects and content rects
         private ScrollRect _whoScroll, _doesScroll, _whatScroll;
@@ -195,10 +195,13 @@ namespace Terranova.UI
 
         private void BuildPanel(OpenKlappbuchEvent context)
         {
-            // Compute layout: 90 % screen width, capped height
-            _panelW = Screen.width * 0.9f;
+            // Compute layout: 80 % screen width, capped height
+            _panelW = Screen.width * 0.8f;
             _panelH = Mathf.Min(Screen.height * 0.85f, 600f);
-            _colW = (_panelW - COL_PAD * 4f) / 3f;
+            float usableW = _panelW - COL_PAD * 4f;
+            _whoColW = usableW * 0.25f;
+            _doesColW = usableW * 0.35f;
+            _whatColW = usableW * 0.40f;
             _colH = _panelH - TITLE_H - RESULT_H - BTN_H - 24f;
 
             // Full-screen overlay
@@ -270,19 +273,19 @@ namespace Terranova.UI
 
             // ── Three picker columns ──
             float columnsY = (_panelH / 2 - TITLE_H) - _colH / 2 - 4;
-            float col1X = -_panelW / 2 + COL_PAD + _colW / 2;
-            float col2X = col1X + _colW + COL_PAD;
-            float col3X = col2X + _colW + COL_PAD;
+            float col1X = -_panelW / 2 + COL_PAD + _whoColW / 2;
+            float col2X = col1X + _whoColW / 2 + COL_PAD + _doesColW / 2;
+            float col3X = col2X + _doesColW / 2 + COL_PAD + _whatColW / 2;
 
             PopulateWhoItems(context);
             PopulateDoesItems(context);
             PopulateWhatItems();
 
-            _whoScroll = BuildPickerColumn(card.transform, "WHO", col1X, columnsY,
+            _whoScroll = BuildPickerColumn(card.transform, "WHO", col1X, columnsY, _whoColW,
                 _whoItems.Count, BuildWhoRows, out _whoContentRect);
-            _doesScroll = BuildPickerColumn(card.transform, "DOES", col2X, columnsY,
+            _doesScroll = BuildPickerColumn(card.transform, "DOES", col2X, columnsY, _doesColW,
                 _doesItems.Count, BuildDoesRows, out _doesContentRect);
-            _whatScroll = BuildPickerColumn(card.transform, "WHAT / WHERE", col3X, columnsY,
+            _whatScroll = BuildPickerColumn(card.transform, "WHAT / WHERE", col3X, columnsY, _whatColW,
                 _whatItems.Count, BuildWhatRows, out _whatContentRect);
 
             // ── Result line ──
@@ -303,16 +306,16 @@ namespace Terranova.UI
         // ─── Picker Column Builder ──────────────────────────────
 
         private ScrollRect BuildPickerColumn(Transform parent, string header,
-            float x, float y, int itemCount,
+            float x, float y, float colWidth, int itemCount,
             System.Action<Transform> populateRows, out RectTransform contentRect)
         {
             float totalH = _colH + 28; // header + column
             var col = MakeRect(parent, $"Col_{header}", new Vector2(x, y),
-                new Vector2(_colW, totalH));
+                new Vector2(colWidth, totalH));
 
             // Header
             var hdrGo = MakeRect(col.transform, "Header",
-                new Vector2(0, totalH / 2 - 14), new Vector2(_colW, 28));
+                new Vector2(0, totalH / 2 - 14), new Vector2(colWidth, 28));
             var hdrTxt = hdrGo.AddComponent<Text>();
             hdrTxt.font = GetFont();
             hdrTxt.fontSize = 15;
@@ -323,13 +326,13 @@ namespace Terranova.UI
 
             // Scroll viewport
             var vpGo = MakeRect(col.transform, "Viewport",
-                new Vector2(0, -14), new Vector2(_colW, _colH));
+                new Vector2(0, -14), new Vector2(colWidth, _colH));
             vpGo.AddComponent<Image>().color = COL_BG;
             vpGo.AddComponent<RectMask2D>();
 
             // Highlight band (center selection indicator, non-interactive)
             var band = MakeRect(vpGo.transform, "Band",
-                Vector2.zero, new Vector2(_colW, ROW_HEIGHT + 4));
+                Vector2.zero, new Vector2(colWidth, ROW_HEIGHT + 4));
             var bandImg = band.AddComponent<Image>();
             bandImg.color = BAND_COLOR;
             bandImg.raycastTarget = false;
@@ -421,9 +424,8 @@ namespace Terranova.UI
             foreach (var item in _whoItems)
             {
                 Color bg = item.IsBusy ? ROW_BUSY : ROW_N;
-                Color txt = item.IsBusy ? TXT_B : TXT_N;
                 CreatePickerRow(content, item.DisplayLabel, item.Subtitle,
-                    false, ROW_HEIGHT, bg, txt);
+                    false, ROW_HEIGHT, bg, Color.white);
             }
         }
 
@@ -488,10 +490,9 @@ namespace Terranova.UI
                 float h = (item.IsLocked && !string.IsNullOrEmpty(subtitle))
                     ? ROW_HEIGHT_LOCKED : ROW_HEIGHT;
                 Color bg = item.IsLocked ? ROW_LOCK : ROW_N;
-                Color txt = item.IsLocked ? TXT_L : TXT_N;
 
                 CreatePickerRow(content, item.Predicate.ToString(), subtitle,
-                    item.IsLocked, h, bg, txt);
+                    item.IsLocked, h, bg, Color.white);
             }
         }
 
@@ -567,12 +568,12 @@ namespace Terranova.UI
             // Calculate nearest item index
             int nearest = Mathf.Clamp(Mathf.RoundToInt(y / step), 0, itemCount - 1);
 
-            // When velocity is low, snap to nearest
+            // When velocity is low, snap to nearest with 0.2s lerp
             if (Mathf.Abs(scroll.velocity.y) < SNAP_THRESHOLD)
             {
                 float targetY = nearest * step;
-                float newY = Mathf.MoveTowards(y, targetY,
-                    Time.unscaledDeltaTime * SNAP_SPEED * step);
+                float lerpT = 1f - Mathf.Pow(0.001f, Time.unscaledDeltaTime / SNAP_DURATION);
+                float newY = Mathf.Lerp(y, targetY, lerpT);
                 content.anchoredPosition = new Vector2(content.anchoredPosition.x, newY);
 
                 if (Mathf.Abs(newY - targetY) < 0.5f)
@@ -620,8 +621,8 @@ namespace Terranova.UI
             if (Mathf.Abs(_doesScroll.velocity.y) < SNAP_THRESHOLD)
             {
                 float targetY = nearest * step;
-                float newY = Mathf.MoveTowards(y, targetY,
-                    Time.unscaledDeltaTime * SNAP_SPEED * step);
+                float lerpT = 1f - Mathf.Pow(0.001f, Time.unscaledDeltaTime / SNAP_DURATION);
+                float newY = Mathf.Lerp(y, targetY, lerpT);
                 _doesContentRect.anchoredPosition =
                     new Vector2(_doesContentRect.anchoredPosition.x, newY);
 
@@ -791,21 +792,19 @@ namespace Terranova.UI
             row.AddComponent<LayoutElement>().preferredHeight = height;
             row.AddComponent<Image>().color = bgColor;
 
-            float rightPad = isLocked ? 30 : 4;
-
             // Main label
             var labelGo = new GameObject("Label");
             labelGo.transform.SetParent(row.transform, false);
             var lr = labelGo.AddComponent<RectTransform>();
             lr.anchorMin = new Vector2(0, hasSub ? 0.42f : 0);
             lr.anchorMax = Vector2.one;
-            lr.offsetMin = new Vector2(8, 0);
-            lr.offsetMax = new Vector2(-rightPad, -2);
+            lr.offsetMin = new Vector2(4, 0);
+            lr.offsetMax = new Vector2(-4, -2);
             var lt = labelGo.AddComponent<Text>();
             lt.font = GetFont();
             lt.fontSize = FONT_MIN;
             lt.color = textColor;
-            lt.alignment = TextAnchor.MiddleLeft;
+            lt.alignment = TextAnchor.MiddleCenter;
             lt.horizontalOverflow = HorizontalWrapMode.Wrap;
             lt.verticalOverflow = VerticalWrapMode.Truncate;
             lt.text = label;
@@ -832,13 +831,13 @@ namespace Terranova.UI
                 var sr = subGo.AddComponent<RectTransform>();
                 sr.anchorMin = Vector2.zero;
                 sr.anchorMax = new Vector2(1, 0.42f);
-                sr.offsetMin = new Vector2(8, 2);
-                sr.offsetMax = new Vector2(-rightPad, 0);
+                sr.offsetMin = new Vector2(4, 2);
+                sr.offsetMax = new Vector2(-4, 0);
                 var st = subGo.AddComponent<Text>();
                 st.font = GetFont();
                 st.fontSize = FONT_MIN - 1;
-                st.color = isLocked ? new Color(0.7f, 0.5f, 0.3f) : TXT_B;
-                st.alignment = TextAnchor.MiddleLeft;
+                st.color = isLocked ? new Color(1f, 0.6f, 0.15f) : Color.white;
+                st.alignment = TextAnchor.MiddleCenter;
                 st.horizontalOverflow = HorizontalWrapMode.Wrap;
                 st.text = subtitle;
             }
