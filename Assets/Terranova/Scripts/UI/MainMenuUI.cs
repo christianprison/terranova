@@ -153,7 +153,7 @@ namespace Terranova.UI
                 new Color(0.3f, 0.3f, 0.35f, 0.7f), 24, ContinueGame);
 
             // Version
-            _versionText = CreateText("v0.4.11", 18, new Color(0.5f, 0.5f, 0.5f),
+            _versionText = CreateText("v0.4.12", 18, new Color(0.5f, 0.5f, 0.5f),
                 new Vector2(0, -300), transform);
 
             // Debug log overlay – bottom-left, captures all Debug.Log output

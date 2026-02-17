@@ -195,8 +195,7 @@ namespace Terranova.Orders
                         result.Add(obj);
                         break;
                     case OrderPredicate.Build:
-                        if (obj.Category == OrderObjectCategory.Structure ||
-                            obj.Category == OrderObjectCategory.Location)
+                        if (obj.Category == OrderObjectCategory.Structure)
                             result.Add(obj);
                         break;
                     case OrderPredicate.Hunt:

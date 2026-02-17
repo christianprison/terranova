@@ -117,8 +117,10 @@ namespace Terranova.Orders
             // Most predicates need at least one object
             switch (Predicate)
             {
-                case OrderPredicate.Gather:
                 case OrderPredicate.Build:
+                    // Build requires at least one Structure object
+                    return Objects.Exists(o => o.Category == OrderObjectCategory.Structure);
+                case OrderPredicate.Gather:
                 case OrderPredicate.Cook:
                 case OrderPredicate.Smoke:
                 case OrderPredicate.Craft:

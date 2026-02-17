@@ -275,16 +275,19 @@ namespace Terranova.Input
                 return;
             }
 
-            // Feature 7.5: Tap on empty ground opens Klappbuch with "here"
-            // Only if something was already selected (otherwise just deselect)
+            // If something was selected, deselect first (Story 6.2)
             if (_selectedObject != null)
             {
                 Deselect();
                 return;
             }
 
-            // Hit terrain or other — deselect (Story 6.2)
-            Deselect();
+            // Feature 7.5 (v0.4.12): Tap on empty ground with nothing selected
+            // opens Klappbuch with WHERE = tap position
+            EventBus.Publish(new OpenKlappbuchEvent
+            {
+                TapPosition = hit.point
+            });
         }
 
         /// <summary>
