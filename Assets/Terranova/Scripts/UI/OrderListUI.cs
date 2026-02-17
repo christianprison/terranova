@@ -134,7 +134,7 @@ namespace Terranova.UI
             var titleObj = CreateChild(card.transform, "Title",
                 new Vector2(0, PANEL_HEIGHT / 2 - 24), new Vector2(PANEL_WIDTH - 80, 40));
             var titleText = titleObj.AddComponent<Text>();
-            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             titleText.fontSize = 22;
             titleText.color = new Color(0.8f, 0.9f, 0.7f);
             titleText.alignment = TextAnchor.MiddleCenter;
@@ -149,7 +149,7 @@ namespace Terranova.UI
             closeBtn.onClick.AddListener(Close);
             var closeLabel = CreateChild(closeX.transform, "X", Vector2.zero, new Vector2(40, 36));
             var closeTxt = closeLabel.AddComponent<Text>();
-            closeTxt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            closeTxt.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             closeTxt.fontSize = 20;
             closeTxt.color = Color.white;
             closeTxt.alignment = TextAnchor.MiddleCenter;
@@ -215,7 +215,7 @@ namespace Terranova.UI
                 emptyLayout.preferredHeight = 60;
                 var emptyRect = emptyObj.AddComponent<RectTransform>();
                 var emptyText = emptyObj.AddComponent<Text>();
-                emptyText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                emptyText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 emptyText.fontSize = 18;
                 emptyText.color = new Color(0.5f, 0.5f, 0.5f);
                 emptyText.alignment = TextAnchor.MiddleCenter;
@@ -268,7 +268,7 @@ namespace Terranova.UI
             iconRect.anchoredPosition = new Vector2(8, 0);
             iconRect.sizeDelta = new Vector2(32, 0);
             var iconText = iconObj.AddComponent<Text>();
-            iconText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            iconText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             iconText.fontSize = 16;
             iconText.color = iconColor;
             iconText.alignment = TextAnchor.MiddleCenter;
@@ -284,7 +284,7 @@ namespace Terranova.UI
             sentenceRect.offsetMin = new Vector2(44, 2);
             sentenceRect.offsetMax = new Vector2(-100, -2);
             var sentenceText = sentenceObj.AddComponent<Text>();
-            sentenceText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            sentenceText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             sentenceText.fontSize = 16;
             sentenceText.color = order.Negated ? NEGATED_TEXT : Color.white;
             sentenceText.alignment = TextAnchor.MiddleLeft;
@@ -319,7 +319,7 @@ namespace Terranova.UI
             plRect.anchorMax = Vector2.one;
             plRect.sizeDelta = Vector2.zero;
             var plText = pauseLabel.AddComponent<Text>();
-            plText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            plText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             plText.fontSize = 14;
             plText.color = Color.white;
             plText.alignment = TextAnchor.MiddleCenter;
@@ -350,7 +350,7 @@ namespace Terranova.UI
             clRect.anchorMax = Vector2.one;
             clRect.sizeDelta = Vector2.zero;
             var clText = cancelLabel.AddComponent<Text>();
-            clText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            clText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             clText.fontSize = 14;
             clText.color = Color.white;
             clText.alignment = TextAnchor.MiddleCenter;
