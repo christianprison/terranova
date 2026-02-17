@@ -98,7 +98,7 @@ namespace Terranova.UI
 
             // --- Camera ---
             _sb.AppendLine("--- Camera ---");
-            var cam = Camera.main;
+            var cam = UnityEngine.Camera.main;
             if (cam != null)
             {
                 Vector3 pos = cam.transform.position;
