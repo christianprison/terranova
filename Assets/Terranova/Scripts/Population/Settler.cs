@@ -140,7 +140,11 @@ namespace Terranova.Population
 
             // Autonomous food seeking (MS4 Feature 4.2)
             SeekingFood,
-            GatheringFood
+            GatheringFood,
+
+            // Night shelter (v0.4.10)
+            WalkingToCampfire,
+            RestingAtCampfire
         }
 
         private SettlerState _state = SettlerState.IdlePausing;
@@ -295,11 +299,18 @@ namespace Terranova.Population
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // ─── Shelter System (MS4 Feature 4.5 placeholder) ────────────
+        // ─── Shelter & Cold System (v0.4.10) ─────────────────────────
         // ═══════════════════════════════════════════════════════════════
+
+        private const float CAMPFIRE_SHELTER_RADIUS = 10f;  // Blocks from campfire = sheltered
+        private const float COLD_HUNGER_DRAIN_MULT = 3f;    // Hunger drains 3x faster in cold
+        private const float COLD_THIRST_DRAIN_MULT = 1.5f;  // Thirst drains 1.5x faster in cold
+        private const float HYPOTHERMIA_TIME = 90f;          // Seconds of cold exposure before death
 
         private ShelterState _shelterState = ShelterState.Exposed;
         private float _shelterCheckTimer;
+        private float _coldExposureTimer;
+        private bool _wasNight;  // Track night transition for task interruption
 
         /// <summary>Current shelter state.</summary>
         public ShelterState CurrentShelterState => _shelterState;
@@ -504,6 +515,15 @@ namespace Terranova.Population
                 return false;
             }
 
+            // v0.4.10: Settlers at campfire at night refuse new work tasks
+            var assignCycle = DayNightCycle.Instance;
+            if (assignCycle != null && assignCycle.IsNight
+                && (_state == SettlerState.RestingAtCampfire || _state == SettlerState.WalkingToCampfire))
+            {
+                Debug.Log($"[{name}] REJECTED task {task.TaskType} - resting at campfire (night)");
+                return false;
+            }
+
             // MS4 Feature 4.1: Dehydrated settlers refuse new orders
             if (CurrentThirstState == ThirstState.Dehydrated || CurrentThirstState == ThirstState.Dying)
             {
@@ -631,6 +651,12 @@ namespace Terranova.Population
                 case SettlerState.GatheringFood:
                     UpdateGatheringFood();
                     break;
+                case SettlerState.WalkingToCampfire:
+                    UpdateWalkingToCampfire();
+                    break;
+                case SettlerState.RestingAtCampfire:
+                    UpdateRestingAtCampfire();
+                    break;
             }
         }
 
@@ -701,6 +727,22 @@ namespace Terranova.Population
             _stateTimer -= Time.deltaTime;
             if (_stateTimer > 0f)
                 return;
+
+            // v0.4.10: At night, head to campfire instead of wandering
+            var cycle = DayNightCycle.Instance;
+            if (cycle != null && cycle.IsNight)
+            {
+                float distToCampfire = Vector3.Distance(
+                    new Vector3(transform.position.x, 0f, transform.position.z),
+                    new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
+                if (distToCampfire <= CAMPFIRE_SHELTER_RADIUS)
+                {
+                    StartRestingAtCampfire();
+                    return;
+                }
+                StartWalkingToCampfire();
+                return;
+            }
 
             if (TryPickWalkTarget())
             {
@@ -891,6 +933,16 @@ namespace Terranova.Population
                           $"(totals: Wood={_totalWoodDelivered}, Stone={_totalStoneDelivered}, Food={_totalFoodDelivered})");
             }
 
+            // v0.4.10: If night, go to campfire instead of repeating work cycle
+            var deliverCycle = DayNightCycle.Instance;
+            if (deliverCycle != null && deliverCycle.IsNight)
+            {
+                Debug.Log($"[{name}] Delivery complete but night — heading to campfire");
+                ClearTask();
+                StartWalkingToCampfire();
+                return;
+            }
+
             // Re-evaluate priorities: construction sites take precedence
             if (_currentTask != null && !_currentTask.IsSpecialized
                 && _currentTask.TaskType != SettlerTaskType.Build
@@ -955,6 +1007,9 @@ namespace Terranova.Population
                 float decayMult = GameplayModifiers.FoodDecayMultiplier;
                 // Robust trait: hunger drains 25% slower
                 if (_trait == SettlerTrait.Robust) decayMult *= 0.75f;
+                // Cold exposure: hunger drains faster at night without shelter
+                if (_shelterState == ShelterState.Exposed || _shelterState == ShelterState.Hypothermic)
+                    decayMult *= COLD_HUNGER_DRAIN_MULT;
                 _hunger -= HUNGER_RATE * decayMult * Time.deltaTime;
                 if (_hunger < 0f) _hunger = 0f;
             }
@@ -1097,6 +1152,9 @@ namespace Terranova.Population
                 float thirstMult = 1f;
                 // Robust trait: thirst drains 25% slower
                 if (_trait == SettlerTrait.Robust) thirstMult = 0.75f;
+                // Cold exposure: thirst drains faster at night without shelter
+                if (_shelterState == ShelterState.Exposed || _shelterState == ShelterState.Hypothermic)
+                    thirstMult *= COLD_THIRST_DRAIN_MULT;
                 _thirst -= THIRST_RATE * thirstMult * Time.deltaTime;
                 if (_thirst < 0f) _thirst = 0f;
             }
@@ -1473,32 +1531,189 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Update shelter state based on proximity to buildings (huts).
-        /// Settlers near a SimpleHut or Campfire are considered Sheltered.
+        /// Update shelter state based on time of day and campfire proximity.
+        /// v0.4.10: The campfire IS the shelter. During the day, everyone is fine.
+        /// At night, settlers within CAMPFIRE_SHELTER_RADIUS are Sheltered;
+        /// those outside take cold damage (accelerated hunger/thirst drain,
+        /// eventual hypothermia death).
         /// </summary>
         private void UpdateShelterState()
         {
             _shelterCheckTimer -= Time.deltaTime;
             if (_shelterCheckTimer > 0f) return;
-            _shelterCheckTimer = 2f; // Check every 2 seconds
+            _shelterCheckTimer = 1f; // Check every second
 
-            // Check if near any shelter building
-            var buildings = Object.FindObjectsByType<Building>(FindObjectsSortMode.None);
-            _shelterState = ShelterState.Exposed;
-            foreach (var b in buildings)
+            var cycle = DayNightCycle.Instance;
+            bool isNight = cycle != null && cycle.IsNight;
+
+            // Detect night transition — trigger walk to campfire
+            if (isNight && !_wasNight)
             {
-                if (!b.IsConstructed) continue;
-                if (b.Definition == null) continue;
-                // Huts and campfire provide shelter
-                if (b.Definition.Type == BuildingType.SimpleHut
-                    || b.Definition.Type == BuildingType.Campfire)
+                _wasNight = true;
+                TryReturnToCampfireForNight();
+            }
+            else if (!isNight && _wasNight)
+            {
+                _wasNight = false;
+                // Dawn: if resting at campfire, resume normal behavior
+                if (_state == SettlerState.RestingAtCampfire)
                 {
-                    float dist = Vector3.Distance(transform.position, b.transform.position);
-                    if (dist < 6f)
-                    {
-                        _shelterState = ShelterState.Sheltered;
-                        break;
-                    }
+                    Debug.Log($"[{name}] Dawn — resuming normal activity");
+                    _coldExposureTimer = 0f;
+                    _shelterState = ShelterState.Sheltered;
+                    ResumeAfterNeedsFulfilled();
+                }
+            }
+
+            if (!isNight)
+            {
+                // Daytime: everyone is fine
+                _shelterState = ShelterState.Sheltered;
+                _coldExposureTimer = 0f;
+                return;
+            }
+
+            // Nighttime: check distance to campfire
+            float distToCampfire = Vector3.Distance(
+                new Vector3(transform.position.x, 0f, transform.position.z),
+                new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
+
+            if (distToCampfire <= CAMPFIRE_SHELTER_RADIUS)
+            {
+                _shelterState = ShelterState.Sheltered;
+                _coldExposureTimer = Mathf.Max(0f, _coldExposureTimer - Time.deltaTime * 2f); // Warm up
+            }
+            else
+            {
+                _shelterState = ShelterState.Exposed;
+                _coldExposureTimer += _shelterCheckTimer; // Accumulate cold
+
+                if (_coldExposureTimer >= HYPOTHERMIA_TIME)
+                {
+                    _shelterState = ShelterState.Hypothermic;
+                    Die("hypothermia");
+                    return;
+                }
+                else if (_coldExposureTimer >= HYPOTHERMIA_TIME * 0.5f)
+                {
+                    _shelterState = ShelterState.Hypothermic;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Try to send this settler back to the campfire when night falls.
+        /// Only interrupts interruptible states (idle, post-delivery).
+        /// Settlers mid-task will finish their current action first.
+        /// </summary>
+        private void TryReturnToCampfireForNight()
+        {
+            // Already heading to or at campfire
+            if (_state == SettlerState.WalkingToCampfire || _state == SettlerState.RestingAtCampfire)
+                return;
+
+            // Already near campfire — just rest
+            float dist = Vector3.Distance(
+                new Vector3(transform.position.x, 0f, transform.position.z),
+                new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
+            if (dist <= CAMPFIRE_SHELTER_RADIUS)
+            {
+                if (_state == SettlerState.IdlePausing || _state == SettlerState.IdleWalking)
+                {
+                    StartRestingAtCampfire();
+                    return;
+                }
+                // If working, let them finish — they'll be redirected after
+                return;
+            }
+
+            // Only interrupt idle/pause states immediately
+            if (_state == SettlerState.IdlePausing || _state == SettlerState.IdleWalking)
+            {
+                StartWalkingToCampfire();
+            }
+            // Active tasks: will be redirected after completion via ResumeAfterNeedsFulfilled
+        }
+
+        /// <summary>
+        /// Start walking to campfire for night shelter.
+        /// </summary>
+        private void StartWalkingToCampfire()
+        {
+            // Save current task for dawn resumption
+            if (_currentTask != null && _savedTask == null)
+            {
+                _savedTask = _currentTask;
+                _currentTask = null;
+            }
+
+            _isMoving = false;
+            _agent.ResetPath();
+            DestroyCargo();
+
+            if (SetAgentDestination(_campfirePosition))
+            {
+                _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED);
+                _state = SettlerState.WalkingToCampfire;
+                Debug.Log($"[{name}] Night falling — walking to campfire for shelter");
+            }
+            else
+            {
+                // Can't pathfind to campfire — just idle near current position
+                _state = SettlerState.IdlePausing;
+                _stateTimer = 5f;
+                Debug.Log($"[{name}] Night falling — can't reach campfire, staying put");
+            }
+        }
+
+        /// <summary>
+        /// Transition to resting at campfire (sleep/idle until dawn).
+        /// </summary>
+        private void StartRestingAtCampfire()
+        {
+            _agent.ResetPath();
+            _isMoving = false;
+            _state = SettlerState.RestingAtCampfire;
+            _stateTimer = 0f;
+            Debug.Log($"[{name}] Resting at campfire (sheltered)");
+        }
+
+        /// <summary>Walk to campfire for night shelter.</summary>
+        private void UpdateWalkingToCampfire()
+        {
+            if (HasReachedDestination())
+            {
+                StartRestingAtCampfire();
+            }
+        }
+
+        /// <summary>
+        /// Rest at campfire until dawn. Settler idles in place.
+        /// Dawn detection is handled by UpdateShelterState.
+        /// </summary>
+        private void UpdateRestingAtCampfire()
+        {
+            // Check if dawn has arrived (UpdateShelterState handles the transition)
+            var cycle = DayNightCycle.Instance;
+            if (cycle != null && !cycle.IsNight)
+            {
+                // Dawn handler in UpdateShelterState will resume
+                return;
+            }
+
+            // Stay put — gentle idle sway near campfire
+            _stateTimer -= Time.deltaTime;
+            if (_stateTimer <= 0f)
+            {
+                _stateTimer = Random.Range(3f, 6f);
+                // Slight shuffle within 2 blocks of campfire
+                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+                float radius = Random.Range(0.5f, 2f);
+                Vector3 target = _campfirePosition + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
+                if (NavMesh.SamplePosition(target, out NavMeshHit hit, NAV_SAMPLE_RADIUS, NavMesh.AllAreas))
+                {
+                    SetAgentDestination(hit.position);
+                    _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED * 0.3f); // Slow shuffle
                 }
             }
         }
@@ -1531,6 +1746,35 @@ namespace Terranova.Population
         /// </summary>
         private void ResumeAfterNeedsFulfilled()
         {
+            // v0.4.10: If it's night, go to campfire instead of resuming tasks
+            var cycle = DayNightCycle.Instance;
+            if (cycle != null && cycle.IsNight)
+            {
+                // Release saved task — it will be reassigned at dawn by the task system
+                if (_savedTask != null)
+                {
+                    if (_savedTask.TargetResource != null && _savedTask.TargetResource.IsReserved)
+                        _savedTask.TargetResource.Release();
+                    if (_savedTask.TargetBuilding != null && _savedTask.TargetBuilding.IsBeingBuilt)
+                        _savedTask.TargetBuilding.ReleaseConstruction();
+                    _savedTask = null;
+                }
+                _currentTask = null;
+
+                float distToCampfire = Vector3.Distance(
+                    new Vector3(transform.position.x, 0f, transform.position.z),
+                    new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
+                if (distToCampfire <= CAMPFIRE_SHELTER_RADIUS)
+                {
+                    StartRestingAtCampfire();
+                }
+                else
+                {
+                    StartWalkingToCampfire();
+                }
+                return;
+            }
+
             if (_savedTask != null)
             {
                 var task = _savedTask;

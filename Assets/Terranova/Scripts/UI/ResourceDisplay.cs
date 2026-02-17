@@ -763,7 +763,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.4.9";
+            versionText.text = "v0.4.10";
         }
 
         /// <summary>

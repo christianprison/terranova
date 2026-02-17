@@ -40,8 +40,6 @@ namespace Terranova.Resources
         [Header("Start Conditions")]
         [Tooltip("Max distance from center for guaranteed start resources.")]
         [SerializeField] private float _startRadius = 30f;
-        [Tooltip("Max distance from center for shelter marker.")]
-        [SerializeField] private float _shelterRadius = 40f;
 
         private bool _hasSpawned;
 
@@ -56,7 +54,6 @@ namespace Terranova.Resources
         private static Material _matResin;
         private static Material _matClay;
         private static Material _matFish;
-        private static Material _matShelter;
         private static Material _matInsects;
         private static Material _matRoots;
         private static Material _matHoney;
@@ -77,7 +74,6 @@ namespace Terranova.Resources
             _matResin = null;
             _matClay = null;
             _matFish = null;
-            _matShelter = null;
             _matInsects = null;
             _matRoots = null;
             _matHoney = null;
@@ -128,7 +124,7 @@ namespace Terranova.Resources
                     new SpawnEntry { MaterialId = "roots",          Weight = 5f,  NearWater = true },
                     new SpawnEntry { MaterialId = "grasses_reeds",  Weight = 5f,  NearWater = true },
                     new SpawnEntry { MaterialId = "flint",          Weight = 3f },
-                    new SpawnEntry { MaterialId = "shelter_marker", Weight = 4f },
+
                 },
 
                 BiomeType.Mountains => new List<SpawnEntry>
@@ -146,7 +142,7 @@ namespace Terranova.Resources
                     new SpawnEntry { MaterialId = "resin",          Weight = 4f },
                     new SpawnEntry { MaterialId = "honey",          Weight = 2f },
                     new SpawnEntry { MaterialId = "grasses_reeds",  Weight = 4f,  NearWater = true },
-                    new SpawnEntry { MaterialId = "shelter_marker", Weight = 5f },
+
                 },
 
                 BiomeType.Coast => new List<SpawnEntry>
@@ -164,7 +160,7 @@ namespace Terranova.Resources
                     new SpawnEntry { MaterialId = "sandstone",      Weight = 5f },
                     new SpawnEntry { MaterialId = "flint",          Weight = 3f,  NearWater = true },
                     new SpawnEntry { MaterialId = "honey",          Weight = 3f },
-                    new SpawnEntry { MaterialId = "shelter_marker", Weight = 4f },
+
                 },
 
                 _ => new List<SpawnEntry>
@@ -320,11 +316,6 @@ namespace Terranova.Resources
             // Plant fibers near center
             spawned += SpawnGuaranteedNode(world, rng, parent, "plant_fibers", centerX, centerZ, _startRadius, respawnMult, false);
 
-            // Shelter markers near center (cave/overhang/undergrowth) — spawn 3 for visibility
-            spawned += SpawnGuaranteedNode(world, rng, parent, "shelter_marker", centerX, centerZ, _startRadius, respawnMult, false);
-            spawned += SpawnGuaranteedNode(world, rng, parent, "shelter_marker", centerX, centerZ, _shelterRadius, respawnMult, false);
-            spawned += SpawnGuaranteedNode(world, rng, parent, "shelter_marker", centerX, centerZ, _shelterRadius, respawnMult, false);
-
             return spawned;
         }
 
@@ -363,9 +354,7 @@ namespace Terranova.Resources
                 if (go == null) continue;
 
                 var node = go.AddComponent<ResourceNode>();
-                // Shelter markers use deadwood MaterialId (large structure, not a real material)
-                string nodeMatId = materialId == "shelter_marker" ? "deadwood" : materialId;
-                node.Initialize(nodeMatId);
+                node.Initialize(materialId);
                 node.RespawnMultiplier = respawnMult;
                 return 1;
             }
@@ -446,9 +435,6 @@ namespace Terranova.Resources
 
                 case "fish":
                     return CreateFishProp(position, sizeVariation, parent);
-
-                case "shelter_marker":
-                    return CreateShelterProp(position, sizeVariation, yRotation, parent);
 
                 case "insects":
                     return CreateInsectsProp(position, sizeVariation, parent);
@@ -691,146 +677,6 @@ namespace Terranova.Resources
             return go;
         }
 
-        /// <summary>
-        /// Shelter: large, visible natural shelter (rock overhang, cave, or undergrowth).
-        /// Multi-component prop with distinct silhouette so players can spot them.
-        /// Biome-specific appearance: rock overhang (Mountains), dense undergrowth (Forest),
-        /// driftwood lean-to (Coast).
-        /// </summary>
-        private GameObject CreateShelterProp(Vector3 pos, float scale, float yRot, Transform parent)
-        {
-            var biome = GameState.SelectedBiome;
-            var go = new GameObject("NaturalShelter");
-            go.transform.SetParent(parent);
-            go.transform.position = pos;
-            go.transform.rotation = Quaternion.Euler(0f, yRot, 0f);
-
-            // Shared darker material for shelter stone
-            Material shelterStoneMat = _matShelter;
-            // Greenish material for undergrowth
-            Shader shader = FindShader();
-            Material undergrowthMat = null;
-            if (shader != null)
-            {
-                undergrowthMat = new Material(shader);
-                undergrowthMat.SetColor("_BaseColor", new Color(0.15f, 0.35f, 0.10f));
-            }
-
-            if (biome == BiomeType.Mountains)
-            {
-                // Rock overhang: large tilted slab over a gap
-                // Base rock (wide, low)
-                var baseRock = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                baseRock.name = "BaseRock";
-                baseRock.transform.SetParent(go.transform, false);
-                float bw = 2.0f * scale;
-                float bh = 0.6f * scale;
-                baseRock.transform.localScale = new Vector3(bw, bh, bw * 0.8f);
-                baseRock.transform.localPosition = new Vector3(0f, bh * 0.5f, 0f);
-                if (shelterStoneMat != null) baseRock.GetComponent<MeshRenderer>().sharedMaterial = shelterStoneMat;
-                var bc = baseRock.GetComponent<Collider>(); if (bc != null) bc.isTrigger = true;
-
-                // Overhang slab (tilted, extending outward)
-                var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                slab.name = "Overhang";
-                slab.transform.SetParent(go.transform, false);
-                float sw = 2.5f * scale;
-                float sh = 0.25f * scale;
-                slab.transform.localScale = new Vector3(sw, sh, sw * 0.7f);
-                slab.transform.localPosition = new Vector3(0.3f * scale, bh + sh * 0.5f + 0.8f * scale, 0f);
-                slab.transform.localRotation = Quaternion.Euler(0f, 0f, -12f);
-                if (_matGranite != null) slab.GetComponent<MeshRenderer>().sharedMaterial = _matGranite;
-                var sc = slab.GetComponent<Collider>(); if (sc != null) sc.isTrigger = true;
-
-                // Support pillar
-                var pillar = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                pillar.name = "Pillar";
-                pillar.transform.SetParent(go.transform, false);
-                float pw = 0.4f * scale;
-                float ph = 1.2f * scale;
-                pillar.transform.localScale = new Vector3(pw, ph, pw);
-                pillar.transform.localPosition = new Vector3(-0.7f * scale, ph * 0.5f, 0f);
-                if (shelterStoneMat != null) pillar.GetComponent<MeshRenderer>().sharedMaterial = shelterStoneMat;
-                var pc = pillar.GetComponent<Collider>(); if (pc != null) pc.isTrigger = true;
-            }
-            else if (biome == BiomeType.Coast)
-            {
-                // Driftwood lean-to: angled logs forming a shelter
-                Material dw = _matDriftwood ?? _matWood;
-
-                // Main beam (angled)
-                var beam = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                beam.name = "MainBeam";
-                beam.transform.SetParent(go.transform, false);
-                float bl = 2.5f * scale;
-                float bth = 0.15f * scale;
-                beam.transform.localScale = new Vector3(bl, bth, bth);
-                beam.transform.localPosition = new Vector3(0f, 0.7f * scale, 0f);
-                beam.transform.localRotation = Quaternion.Euler(0f, 0f, 35f);
-                if (dw != null) beam.GetComponent<MeshRenderer>().sharedMaterial = dw;
-                var bmc = beam.GetComponent<Collider>(); if (bmc != null) bmc.isTrigger = true;
-
-                // Side logs
-                for (int i = 0; i < 3; i++)
-                {
-                    var log = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                    log.name = $"SideLog_{i}";
-                    log.transform.SetParent(go.transform, false);
-                    float ll = 2.0f * scale;
-                    float lt = 0.1f * scale;
-                    log.transform.localScale = new Vector3(ll, lt, lt);
-                    float zOff = (i - 1) * 0.3f * scale;
-                    log.transform.localPosition = new Vector3(0f, 0.6f * scale, zOff);
-                    log.transform.localRotation = Quaternion.Euler(0f, 5f * (i - 1), 35f);
-                    if (dw != null) log.GetComponent<MeshRenderer>().sharedMaterial = dw;
-                    var lc = log.GetComponent<Collider>(); if (lc != null) lc.isTrigger = true;
-                }
-
-                // Ground cover (flat cube)
-                var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                ground.name = "GroundCover";
-                ground.transform.SetParent(go.transform, false);
-                ground.transform.localScale = new Vector3(1.5f * scale, 0.05f, 1.2f * scale);
-                ground.transform.localPosition = new Vector3(-0.3f * scale, 0.03f, 0f);
-                if (_matReeds != null) ground.GetComponent<MeshRenderer>().sharedMaterial = _matReeds;
-                var gc = ground.GetComponent<Collider>(); if (gc != null) gc.isTrigger = true;
-            }
-            else
-            {
-                // Forest: Dense undergrowth / thicket shelter
-                // Large bush base (flattened sphere)
-                var bush = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                bush.name = "ThicketBase";
-                bush.transform.SetParent(go.transform, false);
-                float br = 1.5f * scale;
-                bush.transform.localScale = new Vector3(br * 2f, br * 0.9f, br * 1.8f);
-                bush.transform.localPosition = new Vector3(0f, br * 0.4f, 0f);
-                if (undergrowthMat != null) bush.GetComponent<MeshRenderer>().sharedMaterial = undergrowthMat;
-                var buc = bush.GetComponent<Collider>(); if (buc != null) buc.isTrigger = true;
-
-                // Canopy top (second sphere, slightly offset)
-                var canopy = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-                canopy.name = "Canopy";
-                canopy.transform.SetParent(go.transform, false);
-                float cr = 1.2f * scale;
-                canopy.transform.localScale = new Vector3(cr * 2f, cr * 0.7f, cr * 1.6f);
-                canopy.transform.localPosition = new Vector3(0.2f * scale, br * 0.8f, 0f);
-                if (undergrowthMat != null) canopy.GetComponent<MeshRenderer>().sharedMaterial = undergrowthMat;
-                var cc = canopy.GetComponent<Collider>(); if (cc != null) cc.isTrigger = true;
-
-                // Root structure (dark cube underneath)
-                var roots = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                roots.name = "Roots";
-                roots.transform.SetParent(go.transform, false);
-                roots.transform.localScale = new Vector3(1.0f * scale, 0.6f * scale, 0.8f * scale);
-                roots.transform.localPosition = new Vector3(0f, 0.3f * scale, 0f);
-                if (shelterStoneMat != null) roots.GetComponent<MeshRenderer>().sharedMaterial = shelterStoneMat;
-                var rc = roots.GetComponent<Collider>(); if (rc != null) rc.isTrigger = true;
-            }
-
-            return go;
-        }
-
         /// <summary>Insects: tiny brown sphere.</summary>
         private GameObject CreateInsectsProp(Vector3 pos, float scale, Transform parent)
         {
@@ -983,9 +829,6 @@ namespace Terranova.Resources
 
             // Fish spot: blue shimmer
             _matFish = MakeMat("Fish_Material (Auto)", new Color(0.20f, 0.50f, 0.80f));
-
-            // Shelter marker: large dark brown
-            _matShelter = MakeMat("Shelter_Material (Auto)", new Color(0.25f, 0.18f, 0.10f));
 
             // Insects: tiny brown
             _matInsects = MakeMat("Insects_Material (Auto)", new Color(0.40f, 0.30f, 0.15f));

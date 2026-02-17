@@ -8,7 +8,7 @@ namespace Terranova.Population
     /// <summary>
     /// Spawns the initial settlers around the campfire at game start.
     ///
-    /// v0.4.9 flow:
+    /// v0.4.10 flow:
     ///   1. WorldManager.PrepareSettlementArea() flattens campfire zone
     ///      during terrain generation (before mesh building + NavMesh bake).
     ///   2. This spawner waits for NavMesh to be ready.
