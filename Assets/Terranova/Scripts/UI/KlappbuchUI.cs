@@ -56,6 +56,7 @@ namespace Terranova.UI
         private float _savedTimeScale;
         private bool _isNegated;
         private Vector3? _tapPosition;
+        private float _canvasW, _canvasH;
 
         // Computed layout
         private float _panelW, _panelH, _whoColW, _doesColW, _whatColW, _colH;
@@ -161,8 +162,9 @@ namespace Terranova.UI
             if (_isOpen) Close();
 
             // Pause game and disable camera
+            // Use tiny timeScale (not 0) so ScrollRect inertia/snap works
             _savedTimeScale = Time.timeScale;
-            Time.timeScale = 0f;
+            Time.timeScale = 0.0001f;
             Terranova.Camera.RTSCameraController.InputDisabled = true;
 
             // Reset state
@@ -197,21 +199,28 @@ namespace Terranova.UI
 
         private void BuildPanel(OpenKlappbuchEvent context)
         {
-            // Compute layout: 80 % screen width, capped height
-            _panelW = Screen.width * 0.8f;
-            _panelH = Mathf.Min(Screen.height * 0.85f, 600f);
+            // Get canvas-space dimensions (NOT Screen pixels — CanvasScaler changes the coordinate space)
+            var canvasRT = transform as RectTransform;
+            _canvasW = canvasRT != null ? canvasRT.rect.width : Screen.width;
+            _canvasH = canvasRT != null ? canvasRT.rect.height : Screen.height;
+
+            // Compute layout: exactly 80 % of canvas width, centered
+            _panelW = _canvasW * 0.8f;
+            _panelH = Mathf.Min(_canvasH * 0.85f, 600f);
             float usableW = _panelW - COL_PAD * 4f;
             _whoColW = usableW * 0.25f;
             _doesColW = usableW * 0.35f;
             _whatColW = usableW * 0.40f;
             _colH = _panelH - TITLE_H - RESULT_H - BTN_H - 24f;
 
-            // Full-screen overlay
+            Debug.Log($"[Klappbuch] Canvas={_canvasW}x{_canvasH} Panel={_panelW}x{_panelH} (80% of {_canvasW})");
+
+            // Full-screen overlay (transparent — only catches taps to close; terrain visible on sides)
             _panel = new GameObject("KlappbuchPanel");
             _panel.transform.SetParent(transform, false);
             _panel.transform.SetAsLastSibling();
             var overlay = _panel.AddComponent<Image>();
-            overlay.color = new Color(0f, 0f, 0f, 0.6f);
+            overlay.color = new Color(0f, 0f, 0f, 0.01f);
             var overlayRect = _panel.GetComponent<RectTransform>();
             overlayRect.anchorMin = Vector2.zero;
             overlayRect.anchorMax = Vector2.one;
@@ -756,10 +765,37 @@ namespace Terranova.UI
 
         // ─── Order Construction ─────────────────────────────────
 
+        /// <summary>
+        /// Read the center item index from a column's scroll position.
+        /// </summary>
+        private int GetCenterIndex(RectTransform content, int itemCount, float rowH)
+        {
+            if (content == null || itemCount == 0) return 0;
+            float step = rowH + SPACING;
+            float y = content.anchoredPosition.y;
+            return Mathf.Clamp(Mathf.RoundToInt(y / step), 0, itemCount - 1);
+        }
+
         private OrderDefinition BuildCurrentOrder()
         {
-            if (_doesIdx < 0 || _doesIdx >= _doesItems.Count) return null;
-            var doesItem = _doesItems[_doesIdx];
+            // Read center item from each column's ACTUAL scroll position
+            int whoIdx = GetCenterIndex(_whoContentRect, _whoItems.Count, ROW_HEIGHT);
+            int doesIdx = GetCenterIndex(_doesContentRect, _doesItems.Count, ROW_HEIGHT);
+            int whatIdx = GetCenterIndex(_whatContentRect, _whatItems.Count, ROW_HEIGHT);
+
+            // Skip locked DOES items
+            if (doesIdx >= 0 && doesIdx < _doesItems.Count && _doesItems[doesIdx].IsLocked)
+            {
+                // Find nearest unlocked
+                for (int d = 1; d < _doesItems.Count; d++)
+                {
+                    if (doesIdx - d >= 0 && !_doesItems[doesIdx - d].IsLocked) { doesIdx -= d; break; }
+                    if (doesIdx + d < _doesItems.Count && !_doesItems[doesIdx + d].IsLocked) { doesIdx += d; break; }
+                }
+            }
+
+            if (doesIdx < 0 || doesIdx >= _doesItems.Count) return null;
+            var doesItem = _doesItems[doesIdx];
             if (doesItem.IsLocked) return null;
 
             var order = new OrderDefinition
@@ -769,17 +805,17 @@ namespace Terranova.UI
             };
 
             // WHO
-            if (_whoIdx >= 0 && _whoIdx < _whoItems.Count)
+            if (whoIdx >= 0 && whoIdx < _whoItems.Count)
             {
-                var who = _whoItems[_whoIdx];
+                var who = _whoItems[whoIdx];
                 order.Subject = who.Subject;
                 order.SettlerName = who.SettlerName;
             }
 
             // WHAT (single selection from picker)
-            if (_whatIdx >= 0 && _whatIdx < _whatItems.Count)
+            if (whatIdx >= 0 && whatIdx < _whatItems.Count)
             {
-                var whatObj = _whatItems[_whatIdx].Object;
+                var whatObj = _whatItems[whatIdx].Object;
                 order.Objects.Add(whatObj);
 
                 // "Here" stores the tap world position so settlers pathfind there
@@ -796,6 +832,7 @@ namespace Terranova.UI
             if (order == null || !order.IsValid()) return;
 
             string sentence = order.BuildSentence();
+            Debug.Log($"[Klappbuch] ORDER: {sentence} | WHO={order.Subject} DOES={order.Predicate} WHAT={string.Join(",", order.Objects.ConvertAll(o => o.DisplayName))} NEG={order.Negated} pos={order.TargetPosition}");
             OrderManager.Instance?.CreateOrder(order);
 
             // Brief green flash on confirm button
@@ -817,7 +854,8 @@ namespace Terranova.UI
             rt.anchorMax = new Vector2(0.5f, 0f);
             rt.pivot = new Vector2(0.5f, 0f);
             rt.anchoredPosition = new Vector2(0, 60);
-            rt.sizeDelta = new Vector2(Screen.width * 0.7f, 48);
+            float notifW = _canvasW > 0 ? _canvasW * 0.7f : 500f;
+            rt.sizeDelta = new Vector2(notifW, 48);
 
             var bg = go.AddComponent<Image>();
             bg.color = new Color(0.12f, 0.35f, 0.18f, 0.92f);
