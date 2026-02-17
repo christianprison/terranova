@@ -1003,7 +1003,7 @@ namespace Terranova.UI
             nlRect.anchorMax = Vector2.one;
             nlRect.sizeDelta = Vector2.zero;
             var nlText = newOrderLabel.AddComponent<Text>();
-            nlText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            nlText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             nlText.fontSize = 16;
             nlText.color = Color.white;
             nlText.alignment = TextAnchor.MiddleCenter;
@@ -1037,7 +1037,7 @@ namespace Terranova.UI
             olRect.anchorMax = Vector2.one;
             olRect.sizeDelta = Vector2.zero;
             var olText = ordersLabel.AddComponent<Text>();
-            olText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            olText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             olText.fontSize = 16;
             olText.color = Color.white;
             olText.alignment = TextAnchor.MiddleCenter;
