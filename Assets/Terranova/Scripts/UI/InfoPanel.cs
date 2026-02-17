@@ -81,6 +81,10 @@ namespace Terranova.UI
         private Text _durabilityLabel;
         private Text _toolCapabilitiesText;
 
+        // Give Order button (v0.4.12)
+        private GameObject _giveOrderBtnRoot;
+        private string _currentSettlerName;
+
         // ─── Lifecycle ─────────────────────────────────────────
 
         private void Start()
@@ -157,6 +161,10 @@ namespace Terranova.UI
             // Show needs panel, hide legacy hunger bar for settlers
             _hungerBarRoot.SetActive(false);
             _needsRoot.SetActive(true);
+
+            // Show Give Order button and track settler name (v0.4.12)
+            _currentSettlerName = settler.name;
+            if (_giveOrderBtnRoot != null) _giveOrderBtnRoot.SetActive(true);
 
             // ─── Needs: Thirst bar (blue) ──────────────────────
             // ThirstPercent: 1.0 = hydrated (full bar), 0.0 = dying (empty bar)
@@ -496,11 +504,12 @@ namespace Terranova.UI
             string displayName = building.Definition != null
                 ? building.Definition.DisplayName : building.name;
 
-            // Hide needs, tool, and trait panels for buildings
+            // Hide needs, tool, trait, and order button for buildings
             _hungerBarRoot.SetActive(false);
             _needsRoot.SetActive(false);
             _toolRoot.SetActive(false);
             if (_traitText != null) _traitText.text = "";
+            if (_giveOrderBtnRoot != null) _giveOrderBtnRoot.SetActive(false);
 
             // Basic status
             string statusLine;
@@ -646,6 +655,9 @@ namespace Terranova.UI
 
             // Info text
             _infoText = CreateLabel("Info", FONT_SIZE_SMALL, new Color(0.85f, 0.85f, 0.85f));
+
+            // Give Order button (v0.4.12)
+            CreateGiveOrderButton();
         }
 
         /// <summary>
@@ -866,6 +878,52 @@ namespace Terranova.UI
             _toolCapabilitiesText = CreateLabel("ToolCapabilities", FONT_SIZE_TINY, new Color(0.7f, 0.7f, 0.7f));
             _toolCapabilitiesText.transform.SetParent(_toolRoot.transform, false);
             _toolCapabilitiesText.text = "";
+        }
+
+        /// <summary>
+        /// v0.4.12: "Give Order" button at bottom of settler info panel.
+        /// Opens Klappbuch with WHO pre-filled to this settler.
+        /// </summary>
+        private void CreateGiveOrderButton()
+        {
+            _giveOrderBtnRoot = new GameObject("GiveOrderBtn");
+            _giveOrderBtnRoot.transform.SetParent(_panelRoot.transform, false);
+            _giveOrderBtnRoot.AddComponent<RectTransform>();
+
+            var btnLayout = _giveOrderBtnRoot.AddComponent<LayoutElement>();
+            btnLayout.preferredHeight = 36f;
+
+            var btnImg = _giveOrderBtnRoot.AddComponent<Image>();
+            btnImg.color = new Color(0.2f, 0.45f, 0.25f, 0.9f);
+
+            var btn = _giveOrderBtnRoot.AddComponent<Button>();
+            btn.targetGraphic = btnImg;
+            btn.onClick.AddListener(OnGiveOrderClicked);
+
+            var labelObj = new GameObject("Label");
+            labelObj.transform.SetParent(_giveOrderBtnRoot.transform, false);
+            var labelRect = labelObj.AddComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.sizeDelta = Vector2.zero;
+            var labelText = labelObj.AddComponent<Text>();
+            labelText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            labelText.fontSize = 16;
+            labelText.color = Color.white;
+            labelText.alignment = TextAnchor.MiddleCenter;
+            labelText.fontStyle = FontStyle.Bold;
+            labelText.text = "Give Order";
+
+            _giveOrderBtnRoot.SetActive(false);
+        }
+
+        private void OnGiveOrderClicked()
+        {
+            if (string.IsNullOrEmpty(_currentSettlerName)) return;
+            EventBus.Publish(new OpenKlappbuchEvent
+            {
+                SettlerName = _currentSettlerName
+            });
         }
 
         /// <summary>

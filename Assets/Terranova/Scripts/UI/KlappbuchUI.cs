@@ -25,11 +25,12 @@ namespace Terranova.UI
 
         // ─── Layout Constants ────────────────────────────────
 
-        private const float PANEL_WIDTH = 900f;
-        private const float PANEL_HEIGHT = 520f;
-        private const float COLUMN_WIDTH = 280f;
-        private const float COLUMN_HEIGHT = 340f;
+        private const float PANEL_WIDTH = 1040f;
+        private const float PANEL_HEIGHT = 560f;
+        private const float COLUMN_WIDTH = 320f;
+        private const float COLUMN_HEIGHT = 370f;
         private const float ROW_HEIGHT = 52f;
+        private const float ROW_HEIGHT_LOCKED = 64f;
         private const float HEADER_HEIGHT = 36f;
         private const float RESULT_HEIGHT = 80f;
         private const float BUTTON_HEIGHT = 50f;
@@ -144,7 +145,7 @@ namespace Terranova.UI
                 _selectedPredicate = context.PredicateHint.Value;
             }
 
-            if (context.TapPosition.HasValue)
+            if (context.TapPosition.HasValue && PredicateUsesLocations(_selectedPredicate))
             {
                 var hereObj = new OrderObject("here", "Here", OrderObjectCategory.Location)
                     { Position = context.TapPosition };
@@ -403,10 +404,24 @@ namespace Terranova.UI
 
             foreach (var entry in entries)
             {
-                // Add divider between start vocab and unlocked vocab
+                // Add divider between start vocab and discovery-locked vocab
                 if (!pastDivider && entry.RequiredDiscovery != null)
                 {
                     pastDivider = true;
+
+                    // Divider label
+                    var divLabel = new GameObject("DividerLabel");
+                    divLabel.transform.SetParent(content, false);
+                    var dlLayout = divLabel.AddComponent<LayoutElement>();
+                    dlLayout.preferredHeight = 20;
+                    var dlText = divLabel.AddComponent<Text>();
+                    dlText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                    dlText.fontSize = 11;
+                    dlText.color = new Color(0.5f, 0.5f, 0.5f, 0.7f);
+                    dlText.alignment = TextAnchor.MiddleCenter;
+                    dlText.text = "-- locked --";
+
+                    // Divider line
                     var divider = new GameObject("Divider");
                     divider.transform.SetParent(content, false);
                     var divRect = divider.AddComponent<RectTransform>();
@@ -457,8 +472,8 @@ namespace Terranova.UI
             // Clear objects when predicate changes (context changes)
             _selectedObjects.Clear();
 
-            // Re-apply tap position "here" if it was set
-            if (_tapPosition.HasValue)
+            // Re-apply tap position "here" only for predicates that use locations
+            if (_tapPosition.HasValue && PredicateUsesLocations(predicate))
             {
                 _selectedObjects.Add(new OrderObject("here", "Here", OrderObjectCategory.Location)
                     { Position = _tapPosition });
@@ -663,12 +678,15 @@ namespace Terranova.UI
         private GameObject CreateRow(Transform parent, string label, string subtitle,
             bool isLocked, bool isBusy, Color bgColor, Color textColor)
         {
+            bool hasSubtitle = !string.IsNullOrEmpty(subtitle);
+            float rowH = (isLocked && hasSubtitle) ? ROW_HEIGHT_LOCKED : ROW_HEIGHT;
+
             var row = new GameObject($"Row_{label}");
             row.transform.SetParent(parent, false);
 
             var rowLayout = row.AddComponent<LayoutElement>();
-            rowLayout.preferredHeight = ROW_HEIGHT;
-            rowLayout.minHeight = ROW_HEIGHT;
+            rowLayout.preferredHeight = rowH;
+            rowLayout.minHeight = rowH;
 
             var rowImg = row.AddComponent<Image>();
             rowImg.color = bgColor;
@@ -676,20 +694,24 @@ namespace Terranova.UI
             var rowBtn = row.AddComponent<Button>();
             rowBtn.targetGraphic = rowImg;
 
+            float rightPad = isLocked ? 36 : 8;
+
             // Main label
             var labelObj = new GameObject("Label");
             labelObj.transform.SetParent(row.transform, false);
             var labelRect = labelObj.AddComponent<RectTransform>();
-            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMin = new Vector2(0, hasSubtitle ? 0.42f : 0);
             labelRect.anchorMax = Vector2.one;
-            labelRect.offsetMin = new Vector2(12, string.IsNullOrEmpty(subtitle) ? 0 : 12);
-            labelRect.offsetMax = new Vector2(-12, 0);
+            labelRect.offsetMin = new Vector2(10, 0);
+            labelRect.offsetMax = new Vector2(-rightPad, -2);
             var labelText = labelObj.AddComponent<Text>();
             labelText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            labelText.fontSize = 18;
+            labelText.fontSize = 17;
             labelText.color = textColor;
             labelText.alignment = TextAnchor.MiddleLeft;
-            labelText.text = (isLocked ? "  " : "") + label;
+            labelText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            labelText.verticalOverflow = VerticalWrapMode.Truncate;
+            labelText.text = label;
 
             // Lock icon for locked predicates
             if (isLocked)
@@ -700,31 +722,48 @@ namespace Terranova.UI
                 lockRect.anchorMin = new Vector2(1, 0.5f);
                 lockRect.anchorMax = new Vector2(1, 0.5f);
                 lockRect.pivot = new Vector2(1, 0.5f);
-                lockRect.anchoredPosition = new Vector2(-8, 0);
-                lockRect.sizeDelta = new Vector2(24, 24);
+                lockRect.anchoredPosition = new Vector2(-6, 0);
+                lockRect.sizeDelta = new Vector2(22, 22);
                 var lockImg = lockObj.AddComponent<Image>();
                 lockImg.color = new Color(0.6f, 0.4f, 0.2f, 0.8f);
             }
 
             // Subtitle (trait, busy state, requirement)
-            if (!string.IsNullOrEmpty(subtitle))
+            if (hasSubtitle)
             {
                 var subObj = new GameObject("Subtitle");
                 subObj.transform.SetParent(row.transform, false);
                 var subRect = subObj.AddComponent<RectTransform>();
                 subRect.anchorMin = Vector2.zero;
-                subRect.anchorMax = new Vector2(1, 0.4f);
-                subRect.offsetMin = new Vector2(12, 2);
-                subRect.offsetMax = new Vector2(-12, 0);
+                subRect.anchorMax = new Vector2(1, 0.42f);
+                subRect.offsetMin = new Vector2(10, 2);
+                subRect.offsetMax = new Vector2(-rightPad, 0);
                 var subText = subObj.AddComponent<Text>();
                 subText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                subText.fontSize = 12;
+                subText.fontSize = 13;
                 subText.color = isLocked ? new Color(0.7f, 0.5f, 0.3f) : TEXT_BUSY;
                 subText.alignment = TextAnchor.MiddleLeft;
+                subText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 subText.text = subtitle;
             }
 
             return row;
+        }
+
+        /// <summary>Check if a predicate shows Location objects in its WHAT column.</summary>
+        private static bool PredicateUsesLocations(OrderPredicate predicate)
+        {
+            return predicate switch
+            {
+                OrderPredicate.Gather => true,
+                OrderPredicate.Explore => true,
+                OrderPredicate.Avoid => true,
+                OrderPredicate.Hunt => true,
+                OrderPredicate.Fell => true,
+                OrderPredicate.Dig => true,
+                // Build, Cook, Smoke, Craft use structures/resources, not locations
+                _ => false
+            };
         }
 
         private GameObject CreateChild(Transform parent, string name, Vector2 pos, Vector2 size)
