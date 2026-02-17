@@ -8,13 +8,15 @@ namespace Terranova.Population
     /// <summary>
     /// Spawns the initial settlers around the campfire at game start.
     ///
-    /// v0.4.7 flow:
-    ///   1. WorldManager.PrepareSettlementArea() flattens campfire zone + carves pond
+    /// v0.4.8 flow:
+    ///   1. WorldManager.PrepareSettlementArea() flattens campfire zone
     ///      during terrain generation (before mesh building + NavMesh bake).
     ///   2. This spawner waits for NavMesh to be ready.
-    ///   3. Places campfire visual at the pre-determined position (NO FlattenTerrain).
-    ///   4. Spawns settlers around the campfire.
-    ///   5. Publishes progress 1.0 so the loading screen hides.
+    ///   3. Places campfire visual at the pre-determined position.
+    ///   4. Brute-force spawns a freshwater pond (blue cylinder) 15-20 blocks
+    ///      from campfire. NOT tied to terrain generation.
+    ///   5. Spawns settlers around the campfire.
+    ///   6. Publishes progress 1.0 so the loading screen hides.
     ///
     /// The settlers are placed at ~3 block radius from the campfire,
     /// evenly spaced in a circle. Each gets a unique color.
@@ -56,7 +58,7 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Place the campfire visual and spawn settlers around it.
+        /// Place the campfire visual, spawn freshwater pond, then settlers.
         /// Terrain is already flattened by WorldManager.PrepareSettlementArea().
         /// Publishes progress 1.0 to dismiss the loading screen.
         /// </summary>
@@ -64,6 +66,16 @@ namespace Terranova.Population
         {
             // Place campfire at the pre-determined position (terrain already flat)
             Vector3 campfirePos = PlaceCampfire(world);
+
+            // Brute-force freshwater pond — NOT tied to terrain generation
+            SpawnFreshwaterPond(world, campfirePos);
+
+            // Progress: tribe arriving
+            EventBus.Publish(new WorldGenerationProgressEvent
+            {
+                Progress = 0.99f,
+                Status = "Your tribe arrives..."
+            });
 
             // Spawn settlers in a circle around the campfire
             SpawnSettlers(world, campfirePos);
@@ -75,7 +87,7 @@ namespace Terranova.Population
                 Status = "Ready!"
             });
 
-            Debug.Log($"SettlerSpawner: Placed campfire and {_initialSettlerCount} settlers " +
+            Debug.Log($"SettlerSpawner: Placed campfire, water pond, and {_initialSettlerCount} settlers " +
                       $"at ({campfirePos.x:F0}, {campfirePos.z:F0}).");
         }
 
@@ -216,6 +228,71 @@ namespace Terranova.Population
             {
                 CurrentPopulation = count
             });
+        }
+
+        /// <summary>
+        /// Brute-force spawn a freshwater pond 15-20 blocks from campfire.
+        /// Creates a blue cylinder primitive tagged "Water". Not tied to terrain
+        /// generation — works regardless of biome, seed, or terrain shape.
+        /// Coast biome gets the same freshwater pond (ocean is not drinkable).
+        /// </summary>
+        private void SpawnFreshwaterPond(WorldManager world, Vector3 campfirePos)
+        {
+            var rng = new System.Random(GameState.Seed + 7);
+            float angle = (float)(rng.NextDouble() * 2.0 * Mathf.PI);
+            int distance = 15 + rng.Next(6); // 15 to 20 blocks
+
+            float pondX = campfirePos.x + Mathf.Cos(angle) * distance;
+            float pondZ = campfirePos.z + Mathf.Sin(angle) * distance;
+
+            // Clamp to world bounds (leave 4-block margin)
+            pondX = Mathf.Clamp(pondX, 4f, world.WorldBlocksX - 5f);
+            pondZ = Mathf.Clamp(pondZ, 4f, world.WorldBlocksZ - 5f);
+
+            // Snap to terrain surface
+            float pondY = world.GetSmoothedHeightAtWorldPos(pondX, pondZ);
+            Vector3 pondPos = new Vector3(pondX, pondY, pondZ);
+
+            // Create blue cylinder primitive
+            var pond = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pond.name = "FreshwaterPond";
+            pond.tag = "Water";
+            pond.transform.position = pondPos;
+            // Flat disc: wide radius (2.5 blocks each side = 5 block diameter), shallow depth
+            pond.transform.localScale = new Vector3(5f, 0.15f, 5f);
+
+            // Blue water material
+            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
+                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader != null)
+            {
+                var waterMat = new Material(shader);
+                waterMat.name = "FreshwaterPond_Material (Auto)";
+                waterMat.SetColor("_BaseColor", new Color(0.2f, 0.5f, 0.85f, 0.75f));
+
+                // Enable transparency if supported
+                if (waterMat.HasProperty("_Surface"))
+                {
+                    waterMat.SetFloat("_Surface", 1f);
+                    waterMat.renderQueue = 3000;
+                }
+
+                pond.GetComponent<MeshRenderer>().sharedMaterial = waterMat;
+            }
+
+            // Register freshwater center so settlers can find drinkable water
+            world.FreshwaterCenter = pondPos;
+
+            // Verify distance
+            float dist = Vector3.Distance(
+                new Vector3(campfirePos.x, 0, campfirePos.z),
+                new Vector3(pondX, 0, pondZ));
+
+            Debug.Log($"[Water] Freshwater pond at ({pondX:F1},{pondZ:F1}), " +
+                      $"distance from campfire: {dist:F1} blocks");
+
+            if (dist >= 30f)
+                Debug.LogError($"BLOCKER: Freshwater pond too far! distance={dist:F1} blocks (max 30)");
         }
 
         /// <summary>

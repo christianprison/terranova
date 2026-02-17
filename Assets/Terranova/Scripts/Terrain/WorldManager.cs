@@ -68,10 +68,11 @@ namespace Terranova.Terrain
         public int WorldBlocksZ => _worldSizeZ * ChunkData.DEPTH;
 
         /// <summary>
-        /// Center of the freshwater pond carved near spawn.
+        /// Center of the freshwater pond near spawn.
         /// Settlers use this to find drinkable water (avoids ocean on Coast biome).
+        /// Set by SettlerSpawner after placing the water primitive.
         /// </summary>
-        public Vector3 FreshwaterCenter { get; private set; }
+        public Vector3 FreshwaterCenter { get; set; }
 
         /// <summary>
         /// Block coordinates of campfire location, determined during terrain generation.
@@ -127,8 +128,8 @@ namespace Terranova.Terrain
         /// Generate the entire world as a coroutine, publishing progress events
         /// so a loading screen can display a progress bar.
         ///
-        /// v0.4.7 flow: campfire flattening + pond carving happen BEFORE mesh building,
-        /// so meshes and NavMesh include all modifications. Only ONE NavMesh bake.
+        /// v0.4.8 flow: campfire flattening happens BEFORE mesh building.
+        /// Water pond is spawned as a visual primitive by SettlerSpawner (post-NavMesh).
         /// Loading screen stays until SettlerSpawner publishes progress 1.0.
         /// </summary>
         private IEnumerator GenerateWorldAsync()
@@ -161,18 +162,18 @@ namespace Terranova.Terrain
                 yield return null;
             }
 
-            // Phase 1.5: Prepare settlement area — flatten campfire zone + carve pond.
+            // Phase 1.5: Prepare settlement area — flatten campfire zone.
             // All block modifications happen BEFORE mesh building so meshes are correct.
             EventBus.Publish(new WorldGenerationProgressEvent
             {
                 Progress = 0.50f,
-                Status = "Preparing settlement..."
+                Status = "Placing resources..."
             });
             yield return null;
 
             PrepareSettlementArea();
 
-            // Phase 2: Build meshes (includes flattened campfire area + carved pond)
+            // Phase 2: Build meshes (includes flattened campfire area)
             processed = 0;
             foreach (var chunk in _chunks.Values)
             {
@@ -181,7 +182,7 @@ namespace Terranova.Terrain
                 EventBus.Publish(new WorldGenerationProgressEvent
                 {
                     Progress = 0.52f + (float)processed / (totalChunks * 2.2f),
-                    Status = $"Building meshes... {processed}/{totalChunks}"
+                    Status = "Placing resources..."
                 });
                 yield return null;
             }
@@ -189,12 +190,12 @@ namespace Terranova.Terrain
             Debug.Log($"World generated: {_worldSizeX}×{_worldSizeZ} chunks " +
                       $"({WorldBlocksX}×{WorldBlocksZ} blocks), seed={GameState.Seed}");
 
-            // Phase 3: NavMesh — ONE bake that includes flattened camp + pond.
+            // Phase 3: NavMesh — ONE bake that includes flattened camp area.
             // No second bake needed because terrain modifications are already in the meshes.
             EventBus.Publish(new WorldGenerationProgressEvent
             {
                 Progress = 0.95f,
-                Status = "Baking navigation..."
+                Status = "Placing resources..."
             });
             yield return null;
 
@@ -205,22 +206,14 @@ namespace Terranova.Terrain
             EventBus.Publish(new WorldGenerationProgressEvent
             {
                 Progress = 0.98f,
-                Status = "Spawning settlers..."
+                Status = "Your tribe arrives..."
             });
         }
 
         /// <summary>
         /// Prepare the settlement area during terrain generation (Phase 1.5).
-        /// Deterministic: campfire position → pond exactly 15-20 blocks away.
-        ///
-        /// Steps:
-        ///   1. Find solid ground near world center for campfire
-        ///   2. Flatten terrain at campfire location (block data only, no mesh rebuild)
-        ///   3. Pick random direction, walk 15-20 blocks, flatten + fill with water
-        ///   4. Assert distance < 30 blocks
-        ///
-        /// All block modifications happen BEFORE Phase 2 mesh building so meshes
-        /// and NavMesh include these changes. No second NavMesh bake needed.
+        /// Finds solid ground near world center and flattens it for the campfire.
+        /// Water pond is spawned separately by SettlerSpawner as a visual primitive.
         /// </summary>
         private void PrepareSettlementArea()
         {
@@ -235,79 +228,7 @@ namespace Terranova.Terrain
             // Step 2: Flatten terrain for campfire + settler spawn area (radius 4)
             FlattenBlockData(campX, campZ, 4);
 
-            // Step 3: Place freshwater pond 15-20 blocks from campfire
-            var rng = new System.Random(GameState.Seed);
-            float angle = (float)(rng.NextDouble() * 2.0 * Mathf.PI);
-            int distance = 15 + rng.Next(6); // 15 to 20
-            int pondX = campX + Mathf.RoundToInt(Mathf.Cos(angle) * distance);
-            int pondZ = campZ + Mathf.RoundToInt(Mathf.Sin(angle) * distance);
-
-            // Clamp to world bounds (leave 4-block margin)
-            pondX = Mathf.Clamp(pondX, 4, WorldBlocksX - 5);
-            pondZ = Mathf.Clamp(pondZ, 4, WorldBlocksZ - 5);
-
-            // Flatten pond area (5x5 = radius 2 from center)
-            FlattenBlockData(pondX, pondZ, 3);
-
-            // Get reference height at pond center after flattening
-            int pondHeight = GetSolidHeightAtWorldPos(pondX, pondZ);
-            if (pondHeight < 2)
-            {
-                pondHeight = GetSolidHeightAtWorldPos(campX, campZ);
-                if (pondHeight < 2) pondHeight = TerrainGenerator.SEA_LEVEL + 4;
-            }
-
-            // Fill 5x5 area with water (2 blocks deep, flat surface)
-            var affectedChunks = new HashSet<Vector2Int>();
-            int pondHalf = 2; // -2 to +2 = 5x5
-            int waterPlaced = 0;
-            for (int wx = pondX - pondHalf; wx <= pondX + pondHalf; wx++)
-            {
-                for (int wz = pondZ - pondHalf; wz <= pondZ + pondHalf; wz++)
-                {
-                    // Water fills from (pondHeight-1) to pondHeight — flat surface
-                    for (int y = pondHeight - 1; y <= pondHeight; y++)
-                    {
-                        if (y < 1) continue;
-                        SetBlockInternal(wx, y, wz, VoxelType.Water, affectedChunks);
-                        waterPlaced++;
-                    }
-
-                    // Sand bottom
-                    if (pondHeight - 2 >= 0)
-                        SetBlockInternal(wx, pondHeight - 2, wz, VoxelType.Sand, affectedChunks);
-
-                    // Clear air above water so pond is visible
-                    for (int y = pondHeight + 1; y <= pondHeight + 4; y++)
-                    {
-                        if (GetBlockAtWorldPos(wx, y, wz) != VoxelType.Air)
-                            SetBlockInternal(wx, y, wz, VoxelType.Air, affectedChunks);
-                    }
-                }
-            }
-
-            // Store freshwater center for settler water search
-            FreshwaterCenter = new Vector3(pondX + 0.5f, pondHeight, pondZ + 0.5f);
-
-            // Step 4: Verify distance
-            float dist = Mathf.Sqrt(
-                (pondX - campX) * (pondX - campX) +
-                (pondZ - campZ) * (pondZ - campZ));
-
-            if (dist >= 30f)
-                Debug.LogError($"BLOCKER: Water pond too far from campfire! distance={dist:F1} blocks");
-
-            // Verify water was placed
-            int verifyCount = 0;
-            for (int wy = pondHeight - 1; wy <= pondHeight; wy++)
-            {
-                if (GetBlockAtWorldPos(pondX, wy, pondZ) == VoxelType.Water)
-                    verifyCount++;
-            }
-
-            Debug.Log($"[Settlement] Campfire at ({campX},{campZ}), " +
-                      $"Pond at ({pondX},{pondZ}), distance: {dist:F1} blocks, " +
-                      $"water blocks placed: {waterPlaced}, verified at center: {verifyCount}");
+            Debug.Log($"[Settlement] Campfire area prepared at ({campX},{campZ}).");
         }
 
         /// <summary>
