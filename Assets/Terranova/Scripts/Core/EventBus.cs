@@ -240,6 +240,43 @@ namespace Terranova.Core
         public bool IsDetailView;
     }
 
+    // ─── Order Events (Feature 7) ────────────────────────────
+
+    /// <summary>
+    /// Fired to request the Klappbuch UI to open with optional pre-filled context.
+    /// Feature 7.5: Contextual Opening.
+    /// </summary>
+    public struct OpenKlappbuchEvent
+    {
+        /// <summary>Pre-fill WHO column with this settler name (null = no pre-fill).</summary>
+        public string SettlerName;
+        /// <summary>Pre-fill WHAT column with this resource/object ID (null = no pre-fill).</summary>
+        public string ObjectId;
+        /// <summary>Pre-fill with "here" at this world position (null = no pre-fill).</summary>
+        public UnityEngine.Vector3? TapPosition;
+        /// <summary>Pre-fill DOES column (null = no pre-fill).</summary>
+        public OrderPredicate? PredicateHint;
+    }
+
+    /// <summary>
+    /// Fired when a new order is created by the player.
+    /// Feature 7.1: Order created.
+    /// </summary>
+    public struct OrderCreatedEvent
+    {
+        public int OrderId;
+    }
+
+    /// <summary>
+    /// Fired when an order's status changes.
+    /// Feature 7.6: Order status tracking.
+    /// </summary>
+    public struct OrderStatusChangedEvent
+    {
+        public int OrderId;
+        public OrderStatus NewStatus;
+    }
+
     // ─── Shared Enums ────────────────────────────────────────
     // Placed in Core to avoid circular dependencies between assemblies.
 
@@ -322,5 +359,101 @@ namespace Terranova.Core
         Spoiled, // >8h: causes sickness
         Dried,   // indefinite, -20% nutrition
         Smoked   // indefinite, full nutrition
+    }
+
+    // ─── Order Enums (Feature 7) ─────────────────────────────
+
+    /// <summary>
+    /// WHO column: subject of the order.
+    /// Feature 7.1: Order Data Model.
+    /// </summary>
+    public enum OrderSubject
+    {
+        All,       // All settlers follow this order
+        NextFree,  // Next idle settler picks this up
+        Named      // Specific settler by name
+    }
+
+    /// <summary>
+    /// DOES column: predicate (verb) of the order.
+    /// Feature 7.2: Start vocabulary + discovery unlocks.
+    /// </summary>
+    public enum OrderPredicate
+    {
+        // Start vocabulary
+        Gather,   // Collect resources
+        Explore,  // Scout a direction
+        Avoid,    // Negatable: do NOT do this
+
+        // Unlocked by discoveries
+        Hunt,     // Requires "Clubs for Defense"
+        Build,    // Requires "Wickerwork"
+        Cook,     // Requires "Fire"
+        Smoke,    // Requires "Fire"
+        Fell,     // Requires "Composite Tool"
+        Dig,      // Requires "Composite Tool"
+        Craft     // Requires "Composite Tool"
+    }
+
+    /// <summary>
+    /// Order execution status.
+    /// Feature 7.1: Order lifecycle.
+    /// </summary>
+    public enum OrderStatus
+    {
+        Active,    // Currently being executed
+        Paused,    // Player paused this order
+        Complete,  // Successfully finished
+        Failed     // Could not complete
+    }
+
+    /// <summary>
+    /// Extension methods for OrderPredicate.
+    /// </summary>
+    public static class OrderPredicateExtensions
+    {
+        /// <summary>
+        /// Get the verb form for sentence building.
+        /// Feature 7.4: Result Line.
+        /// </summary>
+        public static string ToVerb(this OrderPredicate predicate, bool negated = false)
+        {
+            if (negated) return predicate.ToString().ToLower();
+
+            return predicate switch
+            {
+                OrderPredicate.Gather => "gathers",
+                OrderPredicate.Explore => "explores",
+                OrderPredicate.Avoid => "avoids",
+                OrderPredicate.Hunt => "hunts",
+                OrderPredicate.Build => "builds",
+                OrderPredicate.Cook => "cooks",
+                OrderPredicate.Smoke => "smokes",
+                OrderPredicate.Fell => "fells",
+                OrderPredicate.Dig => "digs",
+                OrderPredicate.Craft => "crafts",
+                _ => predicate.ToString().ToLower()
+            };
+        }
+
+        /// <summary>
+        /// Get the discovery name required to unlock this predicate.
+        /// Returns null if available from start.
+        /// Feature 7.2: Start Vocabulary.
+        /// </summary>
+        public static string RequiredDiscovery(this OrderPredicate predicate)
+        {
+            return predicate switch
+            {
+                OrderPredicate.Hunt => "Clubs for Defense",
+                OrderPredicate.Build => "Wickerwork",
+                OrderPredicate.Cook => "Fire",
+                OrderPredicate.Smoke => "Fire",
+                OrderPredicate.Fell => "Composite Tool",
+                OrderPredicate.Dig => "Composite Tool",
+                OrderPredicate.Craft => "Composite Tool",
+                _ => null // Gather, Explore, Avoid are always available
+            };
+        }
     }
 }

@@ -5,6 +5,7 @@ using UnityEngine.InputSystem.EnhancedTouch;
 using Terranova.Core;
 using Terranova.Population;
 using Terranova.Buildings;
+using Terranova.Resources;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Input
@@ -211,6 +212,7 @@ namespace Terranova.Input
         /// <summary>
         /// Raycast from screen position and select settler/building if hit.
         /// Story 6.1: Tap selection. Story 6.3: Long press detail view.
+        /// Feature 7.5: Contextual opening of Klappbuch.
         /// </summary>
         private void TrySelect(Vector2 screenPos, bool isDetailView)
         {
@@ -228,6 +230,16 @@ namespace Terranova.Input
             var settler = hit.collider.GetComponentInParent<Settler>();
             if (settler != null)
             {
+                // Feature 7.5: Tap on already-selected settler opens Klappbuch
+                if (settler.gameObject == _selectedObject && !isDetailView)
+                {
+                    EventBus.Publish(new OpenKlappbuchEvent
+                    {
+                        SettlerName = settler.name
+                    });
+                    return;
+                }
+
                 Select(settler.gameObject, isDetailView);
                 return;
             }
@@ -236,6 +248,38 @@ namespace Terranova.Input
             if (building != null)
             {
                 Select(building.gameObject, isDetailView);
+                return;
+            }
+
+            // Feature 7.5: Check for resource node tap
+            var resource = hit.collider.GetComponentInParent<ResourceNode>();
+            if (resource != null)
+            {
+                string objectId = resource.MaterialId ?? resource.Type.ToString().ToLower();
+                EventBus.Publish(new OpenKlappbuchEvent
+                {
+                    ObjectId = objectId,
+                    TapPosition = hit.point
+                });
+                return;
+            }
+
+            // Feature 7.5: Long press on ground opens Klappbuch with Build + here
+            if (isDetailView)
+            {
+                EventBus.Publish(new OpenKlappbuchEvent
+                {
+                    TapPosition = hit.point,
+                    PredicateHint = OrderPredicate.Build
+                });
+                return;
+            }
+
+            // Feature 7.5: Tap on empty ground opens Klappbuch with "here"
+            // Only if something was already selected (otherwise just deselect)
+            if (_selectedObject != null)
+            {
+                Deselect();
                 return;
             }
 

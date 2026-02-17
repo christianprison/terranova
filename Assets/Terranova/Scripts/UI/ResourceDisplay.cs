@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.SceneManagement;
 using Terranova.Core;
+using Terranova.Orders;
 using Terranova.Terrain;
 
 namespace Terranova.UI
@@ -740,6 +741,9 @@ namespace Terranova.UI
             // Menu button (top-right, below speed widget)
             CreateMenuButton();
 
+            // Feature 7: Orders + Klappbuch buttons (bottom-left)
+            CreateOrderButtons();
+
             // Version label (bottom-right) with dark background
             var versionGo = new GameObject("VersionLabel");
             versionGo.transform.SetParent(transform, false);
@@ -763,7 +767,7 @@ namespace Terranova.UI
             versionText.fontSize = 18;
             versionText.fontStyle = FontStyle.Bold;
             versionText.color = Color.white;
-            versionText.text = "v0.4.10";
+            versionText.text = "v0.4.11";
         }
 
         /// <summary>
@@ -957,6 +961,88 @@ namespace Terranova.UI
             label.alignment = TextAnchor.MiddleCenter;
             label.fontStyle = FontStyle.Bold;
             label.text = "Menu";
+        }
+
+        // ─── Order Buttons (Feature 7) ─────────────────────────
+
+        /// <summary>
+        /// Create "New Order" and "Orders" buttons (bottom-left).
+        /// "New Order" opens the Klappbuch from menu context (all empty).
+        /// "Orders" opens the order list.
+        /// </summary>
+        private void CreateOrderButtons()
+        {
+            float btnW = 110f;
+            float btnH = _minTouchTarget;
+            float spacing = 8f;
+
+            // "New Order" button
+            var newOrderObj = new GameObject("NewOrderButton");
+            newOrderObj.transform.SetParent(transform, false);
+            var newOrderRect = newOrderObj.AddComponent<RectTransform>();
+            newOrderRect.anchorMin = new Vector2(0, 0);
+            newOrderRect.anchorMax = new Vector2(0, 0);
+            newOrderRect.pivot = new Vector2(0, 0);
+            newOrderRect.anchoredPosition = new Vector2(20, 20);
+            newOrderRect.sizeDelta = new Vector2(btnW, btnH);
+
+            var newOrderImg = newOrderObj.AddComponent<Image>();
+            newOrderImg.color = new Color(0.2f, 0.45f, 0.25f, 0.9f);
+            var newOrderBtn = newOrderObj.AddComponent<Button>();
+            newOrderBtn.targetGraphic = newOrderImg;
+            newOrderBtn.onClick.AddListener(() =>
+            {
+                // Feature 7.5: Open from menu — all empty
+                EventBus.Publish(new OpenKlappbuchEvent());
+            });
+
+            var newOrderLabel = new GameObject("Label");
+            newOrderLabel.transform.SetParent(newOrderObj.transform, false);
+            var nlRect = newOrderLabel.AddComponent<RectTransform>();
+            nlRect.anchorMin = Vector2.zero;
+            nlRect.anchorMax = Vector2.one;
+            nlRect.sizeDelta = Vector2.zero;
+            var nlText = newOrderLabel.AddComponent<Text>();
+            nlText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            nlText.fontSize = 16;
+            nlText.color = Color.white;
+            nlText.alignment = TextAnchor.MiddleCenter;
+            nlText.fontStyle = FontStyle.Bold;
+            nlText.text = "New Order";
+
+            // "Orders" button (shows order list)
+            var ordersObj = new GameObject("OrdersListButton");
+            ordersObj.transform.SetParent(transform, false);
+            var ordersRect = ordersObj.AddComponent<RectTransform>();
+            ordersRect.anchorMin = new Vector2(0, 0);
+            ordersRect.anchorMax = new Vector2(0, 0);
+            ordersRect.pivot = new Vector2(0, 0);
+            ordersRect.anchoredPosition = new Vector2(20 + btnW + spacing, 20);
+            ordersRect.sizeDelta = new Vector2(btnW, btnH);
+
+            var ordersImg = ordersObj.AddComponent<Image>();
+            ordersImg.color = new Color(0.25f, 0.30f, 0.45f, 0.9f);
+            var ordersBtn = ordersObj.AddComponent<Button>();
+            ordersBtn.targetGraphic = ordersImg;
+            ordersBtn.onClick.AddListener(() =>
+            {
+                var listUI = OrderListUI.Instance;
+                if (listUI != null) listUI.Toggle();
+            });
+
+            var ordersLabel = new GameObject("Label");
+            ordersLabel.transform.SetParent(ordersObj.transform, false);
+            var olRect = ordersLabel.AddComponent<RectTransform>();
+            olRect.anchorMin = Vector2.zero;
+            olRect.anchorMax = Vector2.one;
+            olRect.sizeDelta = Vector2.zero;
+            var olText = ordersLabel.AddComponent<Text>();
+            olText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            olText.fontSize = 16;
+            olText.color = Color.white;
+            olText.alignment = TextAnchor.MiddleCenter;
+            olText.fontStyle = FontStyle.Bold;
+            olText.text = "Orders";
         }
 
         private void SetSpeed(int speedIndex)

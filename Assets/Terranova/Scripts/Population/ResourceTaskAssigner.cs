@@ -1,6 +1,7 @@
 using UnityEngine;
 using Terranova.Core;
 using Terranova.Buildings;
+using Terranova.Orders;
 using Terranova.Resources;
 
 namespace Terranova.Population
@@ -49,9 +50,16 @@ namespace Terranova.Population
                 return;
 
             var settlers = FindObjectsByType<Settler>(FindObjectsSortMode.None);
+            var orderMgr = OrderManager.Instance;
             foreach (var settler in settlers)
             {
                 if (settler.HasTask) continue;
+
+                // Feature 7.7: Player orders take priority over auto-assignment.
+                // If the settler has an active player order, let OrderManager handle it.
+                if (orderMgr != null && orderMgr.HasOrderForSettler(settler.name))
+                    continue;
+
                 TryAssignResource(settler, basePos);
             }
         }
@@ -73,6 +81,7 @@ namespace Terranova.Population
         private void TryAssignResource(Settler settler, Vector3 basePos)
         {
             var nodes = FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+            var orderMgr = OrderManager.Instance;
 
             // Pick a random resource type, then try others if none available
             int startIndex = Random.Range(0, RESOURCE_TYPES.Length);
@@ -80,6 +89,18 @@ namespace Terranova.Population
             for (int i = 0; i < RESOURCE_TYPES.Length; i++)
             {
                 var targetType = RESOURCE_TYPES[(startIndex + i) % RESOURCE_TYPES.Length];
+
+                // Feature 7.7: Check negated orders ("All do NOT gather stone" etc.)
+                var taskType = targetType switch
+                {
+                    ResourceType.Wood => SettlerTaskType.GatherWood,
+                    ResourceType.Stone => SettlerTaskType.GatherStone,
+                    ResourceType.Food => SettlerTaskType.Hunt,
+                    _ => SettlerTaskType.GatherMaterial
+                };
+                if (orderMgr != null && orderMgr.IsTaskForbidden(settler.name, taskType))
+                    continue;
+
                 ResourceNode nearest = FindNearest(nodes, settler.transform.position, targetType);
 
                 if (nearest == null) continue;

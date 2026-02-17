@@ -10,6 +10,7 @@ using Terranova.Population;
 using Terranova.Resources;
 using Terranova.Input;
 using Terranova.Discovery;
+using Terranova.Orders;
 
 namespace Terranova.Core
 {
@@ -82,6 +83,7 @@ namespace Terranova.Core
             EnsureSelectionManager();
             EnsureDiscoverySystem();
             EnsureDayNightCycle(); // MS4: Day-night cycle
+            EnsureOrderSystem(); // Feature 7: Order grammar & Klappbuch
 
             Debug.Log("GameBootstrapper: All systems ready.");
         }
@@ -186,7 +188,10 @@ namespace Terranova.Core
             go.AddComponent<RenderDebugOverlay>();
             // Game-state debug overlay (F3 toggle)
             go.AddComponent<DebugOverlay>();
-            Debug.Log("GameBootstrapper: Created HUD with ResourceDisplay, BuildMenu, InfoPanel, LoadingScreen, RenderDebugOverlay, and DebugOverlay.");
+            // Feature 7: Klappbuch and Order List UI (on same Canvas)
+            go.AddComponent<KlappbuchUI>();
+            go.AddComponent<OrderListUI>();
+            Debug.Log("GameBootstrapper: Created HUD with ResourceDisplay, BuildMenu, InfoPanel, LoadingScreen, RenderDebugOverlay, DebugOverlay, KlappbuchUI, and OrderListUI.");
         }
 
         private static void EnsureEventSystem()
@@ -333,6 +338,21 @@ namespace Terranova.Core
             var go = new GameObject("DayNightCycle");
             go.AddComponent<DayNightCycle>();
             Debug.Log("GameBootstrapper: Created DayNightCycle.");
+        }
+
+        /// <summary>
+        /// Feature 7: Order Grammar & Klappbuch.
+        /// OrderManager handles order lifecycle, OrderVocabulary tracks unlocked words.
+        /// </summary>
+        private static void EnsureOrderSystem()
+        {
+            if (OrderManager.Instance != null)
+                return;
+
+            var go = new GameObject("OrderSystem");
+            go.AddComponent<OrderManager>();
+            go.AddComponent<OrderVocabulary>();
+            Debug.Log("GameBootstrapper: Created OrderSystem (OrderManager, OrderVocabulary).");
         }
 
         /// <summary>
