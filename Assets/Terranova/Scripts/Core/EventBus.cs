@@ -456,4 +456,26 @@ namespace Terranova.Core
             };
         }
     }
+
+    /// <summary>
+    /// Bridge for cross-assembly order queries.
+    /// Lives in Core so Population can query order state without referencing
+    /// the Orders assembly (which would create a circular dependency).
+    /// OrderManager registers its callbacks on Awake.
+    /// </summary>
+    public static class OrderQueryBridge
+    {
+        /// <summary>Check if a settler has an active player order.</summary>
+        public static System.Func<string, bool> HasOrderForSettler;
+
+        /// <summary>Check if a negated order forbids a task type for a settler.</summary>
+        public static System.Func<string, SettlerTaskType, bool> IsTaskForbidden;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            HasOrderForSettler = null;
+            IsTaskForbidden = null;
+        }
+    }
 }

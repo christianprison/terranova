@@ -1,18 +1,11 @@
 {
-    "name": "Terranova.Bootstrap",
-    "rootNamespace": "Terranova.Core",
+    "name": "Terranova.Orders",
+    "rootNamespace": "Terranova.Orders",
     "references": [
         "Terranova.Core",
-        "Terranova.Terrain",
-        "Terranova.Buildings",
-        "Terranova.Camera",
-        "Terranova.UI",
-        "Terranova.Input",
-        "Terranova.Orders",
         "Terranova.Population",
         "Terranova.Resources",
-        "Terranova.Discovery",
-        "Unity.InputSystem"
+        "Terranova.Discovery"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

@@ -5,6 +5,7 @@
         "Terranova.Core",
         "Terranova.Buildings",
         "Terranova.Discovery",
+        "Terranova.Orders",
         "Terranova.Population",
         "Terranova.Resources",
         "Terranova.Terrain",

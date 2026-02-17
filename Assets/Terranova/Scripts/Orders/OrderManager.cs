@@ -49,11 +49,21 @@ namespace Terranova.Orders
         {
             if (Instance != null && Instance != this) { Destroy(gameObject); return; }
             Instance = this;
+
+            // Register bridge callbacks so Population assembly can query orders
+            // without a direct reference to Orders (avoids circular dependency).
+            OrderQueryBridge.HasOrderForSettler = HasOrderForSettler;
+            OrderQueryBridge.IsTaskForbidden = IsTaskForbidden;
         }
 
         private void OnDestroy()
         {
-            if (Instance == this) Instance = null;
+            if (Instance == this)
+            {
+                Instance = null;
+                OrderQueryBridge.HasOrderForSettler = null;
+                OrderQueryBridge.IsTaskForbidden = null;
+            }
         }
 
         private void Update()
