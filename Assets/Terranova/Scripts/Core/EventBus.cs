@@ -471,11 +471,15 @@ namespace Terranova.Core
         /// <summary>Check if a negated order forbids a task type for a settler.</summary>
         public static System.Func<string, SettlerTaskType, bool> IsTaskForbidden;
 
+        /// <summary>Get the display sentence for a settler's active order, or null if none.</summary>
+        public static System.Func<string, string> GetActiveOrderSentence;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
         private static void ResetStatics()
         {
             HasOrderForSettler = null;
             IsTaskForbidden = null;
+            GetActiveOrderSentence = null;
         }
     }
 }

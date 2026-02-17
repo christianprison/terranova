@@ -50,6 +50,9 @@ namespace Terranova.Orders
         /// <summary>Which settlers are currently executing this order.</summary>
         public HashSet<string> AssignedSettlers { get; } = new();
 
+        /// <summary>World-space marker object for "Here" orders (visible flag). Null if none.</summary>
+        public GameObject MarkerObject { get; set; }
+
         public OrderDefinition()
         {
             Id = _nextId++;

@@ -300,34 +300,35 @@ namespace Terranova.UI
             plText.fontStyle = FontStyle.Bold;
             plText.text = order.Status == OrderStatus.Paused ? ">" : "||";
 
-            // Delete button — 44 × 44 (red, removes order entirely)
-            var delObj = new GameObject("DeleteBtn");
-            delObj.transform.SetParent(row.transform, false);
-            var delRect = delObj.AddComponent<RectTransform>();
-            delRect.anchorMin = new Vector2(1, 0.5f);
-            delRect.anchorMax = new Vector2(1, 0.5f);
-            delRect.pivot = new Vector2(1, 0.5f);
-            delRect.anchoredPosition = new Vector2(-2, 0);
-            delRect.sizeDelta = new Vector2(TOUCH_SIZE, TOUCH_SIZE);
-            delObj.AddComponent<Image>().color = new Color(0.55f, 0.15f, 0.15f, 0.9f);
-            delObj.AddComponent<Button>().onClick.AddListener(() =>
+            // Cancel button — 44 × 44 (red X, cancels order, removes marker, frees settlers)
+            var cancelObj = new GameObject("CancelBtn");
+            cancelObj.transform.SetParent(row.transform, false);
+            var cancelRect = cancelObj.AddComponent<RectTransform>();
+            cancelRect.anchorMin = new Vector2(1, 0.5f);
+            cancelRect.anchorMax = new Vector2(1, 0.5f);
+            cancelRect.pivot = new Vector2(1, 0.5f);
+            cancelRect.anchoredPosition = new Vector2(-2, 0);
+            cancelRect.sizeDelta = new Vector2(TOUCH_SIZE, TOUCH_SIZE);
+            var cancelImg = cancelObj.AddComponent<Image>();
+            cancelImg.color = new Color(0.7f, 0.1f, 0.1f, 0.95f);
+            cancelObj.AddComponent<Button>().onClick.AddListener(() =>
             {
-                OrderManager.Instance?.DeleteOrder(orderId);
+                OrderManager.Instance?.CancelOrder(orderId);
                 _dirty = true;
             });
-            var delLabel = new GameObject("DL");
-            delLabel.transform.SetParent(delObj.transform, false);
-            var dlRect = delLabel.AddComponent<RectTransform>();
-            dlRect.anchorMin = Vector2.zero;
-            dlRect.anchorMax = Vector2.one;
-            dlRect.sizeDelta = Vector2.zero;
-            var dlText = delLabel.AddComponent<Text>();
-            dlText.font = GetFont();
-            dlText.fontSize = 18;
-            dlText.color = Color.white;
-            dlText.alignment = TextAnchor.MiddleCenter;
-            dlText.fontStyle = FontStyle.Bold;
-            dlText.text = "X";
+            var cancelLabel = new GameObject("CL");
+            cancelLabel.transform.SetParent(cancelObj.transform, false);
+            var clRect = cancelLabel.AddComponent<RectTransform>();
+            clRect.anchorMin = Vector2.zero;
+            clRect.anchorMax = Vector2.one;
+            clRect.sizeDelta = Vector2.zero;
+            var clText = cancelLabel.AddComponent<Text>();
+            clText.font = GetFont();
+            clText.fontSize = 20;
+            clText.color = Color.white;
+            clText.alignment = TextAnchor.MiddleCenter;
+            clText.fontStyle = FontStyle.Bold;
+            clText.text = "X";
         }
 
         // ─── Helpers ─────────────────────────────────────────

@@ -44,6 +44,12 @@ namespace Terranova.Population
         public Building TargetBuilding { get; set; }
 
         /// <summary>
+        /// Order ID that created this task, or -1 if auto-assigned.
+        /// Used to link tasks back to orders for cancellation and UI display.
+        /// </summary>
+        public int OrderId { get; set; } = -1;
+
+        /// <summary>
         /// Walk speed multiplier. Specialized workers (building-assigned) move faster.
         /// Default 1.0, building workers get 2.0.
         /// </summary>

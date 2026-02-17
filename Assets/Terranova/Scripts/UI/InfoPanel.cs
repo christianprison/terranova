@@ -203,9 +203,18 @@ namespace Terranova.UI
             RefreshTraitInfo(settler);
 
             // ─── Task & State Info ─────────────────────────────
-            string task = settler.HasTask
-                ? settler.CurrentTask?.TaskType.ToString() ?? "Eating"
-                : "Idle";
+            // v0.4.16: Show order sentence if settler has an active order
+            string orderSentence = null;
+            if (OrderQueryBridge.GetActiveOrderSentence != null)
+                orderSentence = OrderQueryBridge.GetActiveOrderSentence(settler.name);
+
+            string task;
+            if (!string.IsNullOrEmpty(orderSentence))
+                task = $"Order: {orderSentence}";
+            else if (settler.HasTask)
+                task = settler.CurrentTask?.TaskType.ToString() ?? "Eating";
+            else
+                task = "Free";
             string state = settler.StateName;
 
             if (_isDetailView)
@@ -240,7 +249,7 @@ namespace Terranova.UI
             else
             {
                 _titleText.text = settler.name;
-                _infoText.text = $"Task: {task}\nState: {state}";
+                _infoText.text = $"Task: {task}";
             }
         }
 

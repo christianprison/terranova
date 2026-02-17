@@ -188,6 +188,19 @@ namespace Terranova.Population
         /// <summary>Current state name (for UI/debug display).</summary>
         public string StateName => _state.ToString();
 
+        /// <summary>
+        /// Whether the settler can be interrupted by a player order.
+        /// Returns false during critical need states (eating, drinking, night rest).
+        /// </summary>
+        public bool CanBeInterrupted =>
+            _state != SettlerState.WalkingToEat && _state != SettlerState.Eating
+            && _state != SettlerState.WalkingToDrink && _state != SettlerState.Drinking
+            && _state != SettlerState.SeekingFood && _state != SettlerState.GatheringFood
+            && _state != SettlerState.WalkingToCampfire && _state != SettlerState.RestingAtCampfire;
+
+        /// <summary>The order ID of the current task, or -1 if auto-assigned / no task.</summary>
+        public int ActiveOrderId => _currentTask?.OrderId ?? _savedTask?.OrderId ?? -1;
+
         // ═══════════════════════════════════════════════════════════════
         // ─── Hunger System (MS4 Feature 4.2: Extended Hunger) ─────────
         // ═══════════════════════════════════════════════════════════════

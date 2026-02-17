@@ -13,18 +13,24 @@ namespace Terranova.Orders
     /// - Stores all active/paused orders
     /// - Assigns orders to idle settlers based on priority
     /// - Tracks order completion and failure
+    /// - Creates location markers for "Here" orders
     ///
     /// Settler AI priority (Feature 7.7):
     ///   1. Automatic needs: thirst, hunger, danger (not overridable)
-    ///   2. Specific order for this settler (Named)
+    ///   2. Specific order for this settler (Named) — preempts auto-tasks
     ///   3. Group order ("All" / "Next Free")
     ///   4. Free decision (auto-assign from ResourceTaskAssigner)
+    ///
+    /// v0.4.16: Named orders preempt auto-tasks, All orders persist until
+    /// cancelled, location markers for "Here" orders, cancel cleanup.
     /// </summary>
     public class OrderManager : MonoBehaviour
     {
         public static OrderManager Instance { get; private set; }
 
         private const float ASSIGN_CHECK_INTERVAL = 0.5f;
+        private const float MARKER_HEIGHT = 3f;
+        private const float MARKER_RADIUS = 0.3f;
 
         private readonly List<OrderDefinition> _orders = new();
         private float _assignTimer;
@@ -54,6 +60,7 @@ namespace Terranova.Orders
             // without a direct reference to Orders (avoids circular dependency).
             OrderQueryBridge.HasOrderForSettler = HasOrderForSettler;
             OrderQueryBridge.IsTaskForbidden = IsTaskForbidden;
+            OrderQueryBridge.GetActiveOrderSentence = GetActiveOrderSentence;
         }
 
         private void OnDestroy()
@@ -63,6 +70,7 @@ namespace Terranova.Orders
                 Instance = null;
                 OrderQueryBridge.HasOrderForSettler = null;
                 OrderQueryBridge.IsTaskForbidden = null;
+                OrderQueryBridge.GetActiveOrderSentence = null;
             }
         }
 
@@ -85,8 +93,12 @@ namespace Terranova.Orders
             order.Priority = _orders.Count;
             _orders.Add(order);
 
+            // Create location marker for "Here" orders
+            if (order.TargetPosition.HasValue)
+                CreateLocationMarker(order);
+
             EventBus.Publish(new OrderCreatedEvent { OrderId = order.Id });
-            Debug.Log($"[Order] Created: {order.BuildSentence()} (id={order.Id})");
+            Debug.Log($"[Order] Created: {order.BuildSentence()} (id={order.Id}, subject={order.Subject}, settlerName='{order.SettlerName}', pos={order.TargetPosition})");
 
             // Immediately try to assign
             _assignTimer = 0f;
@@ -115,7 +127,7 @@ namespace Terranova.Orders
         }
 
         /// <summary>
-        /// Cancel an order and release all assigned settlers.
+        /// Cancel an order: release settlers, destroy marker, clear tasks.
         /// </summary>
         public void CancelOrder(int orderId)
         {
@@ -123,6 +135,8 @@ namespace Terranova.Orders
             if (order == null) return;
 
             order.Status = OrderStatus.Failed;
+            ReleaseSettlersFromOrder(order);
+            DestroyLocationMarker(order);
             order.AssignedSettlers.Clear();
 
             EventBus.Publish(new OrderStatusChangedEvent
@@ -142,6 +156,8 @@ namespace Terranova.Orders
             var order = FindOrder(orderId);
             if (order == null) return;
 
+            ReleaseSettlersFromOrder(order);
+            DestroyLocationMarker(order);
             order.AssignedSettlers.Clear();
             _orders.Remove(order);
 
@@ -151,13 +167,21 @@ namespace Terranova.Orders
                 NewStatus = OrderStatus.Failed
             });
 
-            Debug.Log($"[Order] Deleted: id={orderId}");
+            Debug.Log($"[Order] Deleted: {order.BuildSentence()} (id={orderId})");
         }
 
         /// <summary>Remove completed/failed orders from the list.</summary>
         public void CleanupFinished()
         {
-            _orders.RemoveAll(o => o.Status == OrderStatus.Complete || o.Status == OrderStatus.Failed);
+            for (int i = _orders.Count - 1; i >= 0; i--)
+            {
+                var o = _orders[i];
+                if (o.Status == OrderStatus.Complete || o.Status == OrderStatus.Failed)
+                {
+                    DestroyLocationMarker(o);
+                    _orders.RemoveAt(i);
+                }
+            }
         }
 
         // ─── Order Assignment ────────────────────────────────
@@ -209,6 +233,26 @@ namespace Terranova.Orders
             return false;
         }
 
+        /// <summary>
+        /// Get the display sentence for a settler's active order, or null.
+        /// Used by InfoPanel via OrderQueryBridge.
+        /// </summary>
+        public string GetActiveOrderSentence(string settlerName)
+        {
+            foreach (var order in _orders)
+            {
+                if (order.Status != OrderStatus.Active) continue;
+                if (order.Negated) continue;
+
+                if (order.Subject == OrderSubject.Named && order.SettlerName == settlerName)
+                    return order.BuildSentence();
+
+                if (order.Subject == OrderSubject.All)
+                    return order.BuildSentence();
+            }
+            return null;
+        }
+
         private void TryAssignOrders()
         {
             var settlers = Object.FindObjectsByType<Settler>(FindObjectsSortMode.None);
@@ -230,13 +274,40 @@ namespace Terranova.Orders
             switch (order.Subject)
             {
                 case OrderSubject.Named:
-                    // Find the specific settler and assign
+                    // Find the specific settler and assign.
+                    // v0.4.16: Named orders preempt auto-tasks (settler interrupts
+                    // current resource gathering to follow the player's explicit order).
+                    bool foundSettler = false;
                     foreach (var settler in settlers)
                     {
-                        if (settler.name == order.SettlerName && !settler.HasTask)
+                        if (settler.name != order.SettlerName) continue;
+                        foundSettler = true;
+
+                        if (!settler.HasTask)
                         {
+                            Debug.Log($"[Order] Named: {settler.name} is idle, assigning '{order.BuildSentence()}'");
                             TryExecuteOrder(order, settler, basePos);
                         }
+                        else if (settler.ActiveOrderId == order.Id)
+                        {
+                            // Already executing this order — nothing to do
+                        }
+                        else if (settler.CanBeInterrupted)
+                        {
+                            // Preempt auto-task for explicit player order
+                            Debug.Log($"[Order] Named: preempting {settler.name}'s current task ({settler.StateName}) for '{order.BuildSentence()}'");
+                            settler.CancelTask();
+                            TryExecuteOrder(order, settler, basePos);
+                        }
+                        else
+                        {
+                            Debug.Log($"[Order] Named: {settler.name} is in critical state ({settler.StateName}), waiting");
+                        }
+                        break; // Only one settler matches a Named order
+                    }
+                    if (!foundSettler)
+                    {
+                        Debug.LogWarning($"[Order] Named: settler '{order.SettlerName}' not found! Available: [{GetSettlerNames(settlers)}]");
                     }
                     break;
 
@@ -254,10 +325,11 @@ namespace Terranova.Orders
                     break;
 
                 case OrderSubject.All:
-                    // Assign to all idle settlers
+                    // v0.4.16: Assign to ALL idle settlers, every cycle.
+                    // Orders persist until cancelled — no AssignedSettlers gate.
                     foreach (var settler in settlers)
                     {
-                        if (!settler.HasTask && !order.AssignedSettlers.Contains(settler.name))
+                        if (!settler.HasTask)
                         {
                             TryExecuteOrder(order, settler, basePos);
                         }
@@ -281,7 +353,6 @@ namespace Terranova.Orders
             if (order.TargetPosition.HasValue)
             {
                 targetPos = order.TargetPosition.Value;
-                Debug.Log($"[Order] Using tap position {targetPos} for '{order.BuildSentence()}'");
 
                 // For gather-type tasks, find nearest resource near the tap position
                 if (taskType == SettlerTaskType.GatherMaterial || taskType == SettlerTaskType.GatherWood
@@ -292,11 +363,10 @@ namespace Terranova.Orders
                     {
                         targetResource = nearRes;
                         targetPos = nearRes.transform.position;
-                        Debug.Log($"[Order] Found resource {nearRes.name} near tap at {targetPos}");
                     }
                     else
                     {
-                        Debug.Log($"[Order] No resource found near tap position {order.TargetPosition.Value}");
+                        Debug.Log($"[Order] No resource found near tap position {order.TargetPosition.Value} for {settler.name}");
                     }
                 }
             }
@@ -322,6 +392,7 @@ namespace Terranova.Orders
             float duration = SettlerTask.GetDefaultDuration(taskType);
             var task = new SettlerTask(taskType, targetPos, basePos, duration);
             task.TargetResource = targetResource;
+            task.OrderId = order.Id;
 
             if (settler.AssignTask(task))
             {
@@ -331,7 +402,7 @@ namespace Terranova.Orders
                 if (order.Subject == OrderSubject.NextFree)
                     order.Status = OrderStatus.Complete;
 
-                Debug.Log($"[Order] Assigned order '{order.BuildSentence()}' to {settler.name}");
+                Debug.Log($"[Order] ASSIGNED '{order.BuildSentence()}' to {settler.name} (orderId={order.Id}, taskType={taskType})");
                 return true;
             }
 
@@ -339,8 +410,111 @@ namespace Terranova.Orders
             if (targetResource != null && targetResource.IsReserved)
                 targetResource.Release();
 
+            Debug.Log($"[Order] {settler.name} REJECTED order '{order.BuildSentence()}' (state={settler.StateName})");
             return false;
         }
+
+        // ─── Settler Release ──────────────────────────────────
+
+        /// <summary>
+        /// Find all settlers executing tasks for this order and cancel those tasks.
+        /// </summary>
+        private void ReleaseSettlersFromOrder(OrderDefinition order)
+        {
+            var settlers = Object.FindObjectsByType<Settler>(FindObjectsSortMode.None);
+            foreach (var settler in settlers)
+            {
+                if (settler.ActiveOrderId == order.Id)
+                {
+                    Debug.Log($"[Order] Releasing {settler.name} from cancelled order '{order.BuildSentence()}'");
+                    settler.CancelTask();
+                }
+            }
+        }
+
+        // ─── Location Markers ─────────────────────────────────
+
+        /// <summary>
+        /// Create a visible flag/marker at the order's target position.
+        /// v0.4.16: Players can see WHERE a "Here" order points to.
+        /// </summary>
+        private void CreateLocationMarker(OrderDefinition order)
+        {
+            if (!order.TargetPosition.HasValue) return;
+
+            var pos = order.TargetPosition.Value;
+
+            // Root object
+            var marker = new GameObject($"OrderMarker_{order.Id}");
+            marker.transform.position = pos;
+
+            // Pole (thin cylinder)
+            var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            pole.name = "Pole";
+            pole.transform.SetParent(marker.transform, false);
+            pole.transform.localPosition = new Vector3(0, MARKER_HEIGHT / 2f, 0);
+            pole.transform.localScale = new Vector3(0.06f, MARKER_HEIGHT / 2f, 0.06f);
+            var poleCol = pole.GetComponent<Collider>();
+            if (poleCol != null) Object.Destroy(poleCol);
+            var poleRend = pole.GetComponent<MeshRenderer>();
+            if (poleRend != null)
+            {
+                poleRend.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                poleRend.material.color = new Color(0.6f, 0.4f, 0.2f);
+            }
+
+            // Flag (small quad at top of pole)
+            var flag = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flag.name = "Flag";
+            flag.transform.SetParent(marker.transform, false);
+            flag.transform.localPosition = new Vector3(0.3f, MARKER_HEIGHT - 0.25f, 0);
+            flag.transform.localScale = new Vector3(0.5f, 0.4f, 1f);
+            var flagCol = flag.GetComponent<Collider>();
+            if (flagCol != null) Object.Destroy(flagCol);
+            var flagRend = flag.GetComponent<MeshRenderer>();
+            if (flagRend != null)
+            {
+                flagRend.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                flagRend.material.SetColor("_BaseColor", new Color(0.3f, 0.9f, 0.4f, 0.9f));
+                flagRend.material.SetColor("_EmissionColor", new Color(0.15f, 0.5f, 0.2f) * 2f);
+                flagRend.material.EnableKeyword("_EMISSION");
+            }
+
+            // Ground glow (flat cylinder at ground level)
+            var glow = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            glow.name = "Glow";
+            glow.transform.SetParent(marker.transform, false);
+            glow.transform.localPosition = new Vector3(0, 0.02f, 0);
+            glow.transform.localScale = new Vector3(MARKER_RADIUS * 2f, 0.01f, MARKER_RADIUS * 2f);
+            var glowCol = glow.GetComponent<Collider>();
+            if (glowCol != null) Object.Destroy(glowCol);
+            var glowRend = glow.GetComponent<MeshRenderer>();
+            if (glowRend != null)
+            {
+                glowRend.material = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+                glowRend.material.SetColor("_BaseColor", new Color(0.3f, 0.9f, 0.4f, 0.5f));
+                glowRend.material.SetColor("_EmissionColor", new Color(0.2f, 0.6f, 0.3f) * 1.5f);
+                glowRend.material.EnableKeyword("_EMISSION");
+            }
+
+            order.MarkerObject = marker;
+            Debug.Log($"[Order] Created location marker at {pos} for order {order.Id}");
+        }
+
+        /// <summary>
+        /// Remove a location marker when an order is cancelled/deleted/completed.
+        /// </summary>
+        private void DestroyLocationMarker(OrderDefinition order)
+        {
+            if (order.MarkerObject != null)
+            {
+                Object.Destroy(order.MarkerObject);
+                order.MarkerObject = null;
+                Debug.Log($"[Order] Removed location marker for order {order.Id}");
+            }
+        }
+
+        // ─── Resource Matching ────────────────────────────────
 
         private (Vector3 position, ResourceNode node)? FindResourceForOrder(
             OrderDefinition order, Vector3 settlerPos)
@@ -424,11 +598,24 @@ namespace Terranova.Orders
             return null;
         }
 
+        // ─── Helpers ──────────────────────────────────────────
+
         private OrderDefinition FindOrder(int orderId)
         {
             foreach (var o in _orders)
                 if (o.Id == orderId) return o;
             return null;
+        }
+
+        private static string GetSettlerNames(Settler[] settlers)
+        {
+            var names = new System.Text.StringBuilder();
+            for (int i = 0; i < settlers.Length; i++)
+            {
+                if (i > 0) names.Append(", ");
+                names.Append(settlers[i].name);
+            }
+            return names.ToString();
         }
     }
 }
