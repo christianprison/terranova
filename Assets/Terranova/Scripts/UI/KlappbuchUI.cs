@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,7 +9,7 @@ using Terranova.Population;
 namespace Terranova.UI
 {
     /// <summary>
-    /// Feature 7.3 (v0.4.14): Klappbuch UI — iOS-style scroll-picker.
+    /// Feature 7.3 (v0.4.15): Klappbuch UI — iOS-style scroll-picker.
     ///
     /// Three columns (WHO / DOES / WHAT-WHERE) where the user scrolls each
     /// column and the center item is the current selection (like UIPickerView).
@@ -77,6 +78,7 @@ namespace Terranova.UI
         private Image _confirmBg;
         private Button _confirmBtn;
         private Image _negateImg;
+        private Text _activeOrdersText;
 
         // ─── Data structs ───────────────────────────────────────
         private struct WhoItem
@@ -264,12 +266,12 @@ namespace Terranova.UI
                 if (OrderListUI.Instance != null) OrderListUI.Instance.Toggle();
             });
             var listTxt = MakeRect(listBtnGo.transform, "T", Vector2.zero, new Vector2(120, 32));
-            var lt = listTxt.AddComponent<Text>();
-            lt.font = GetFont();
-            lt.fontSize = FONT_MIN;
-            lt.color = Color.white;
-            lt.alignment = TextAnchor.MiddleCenter;
-            lt.text = "Active Orders";
+            _activeOrdersText = listTxt.AddComponent<Text>();
+            _activeOrdersText.font = GetFont();
+            _activeOrdersText.fontSize = FONT_MIN;
+            _activeOrdersText.color = Color.white;
+            _activeOrdersText.alignment = TextAnchor.MiddleCenter;
+            UpdateActiveOrdersLabel();
 
             // ── Three picker columns ──
             float columnsY = (_panelH / 2 - TITLE_H) - _colH / 2 - 4;
@@ -739,6 +741,17 @@ namespace Terranova.UI
 
             _confirmBg.color = valid ? CONFIRM_ON : CONFIRM_OFF;
             _confirmBtn.interactable = valid;
+
+            UpdateActiveOrdersLabel();
+        }
+
+        private void UpdateActiveOrdersLabel()
+        {
+            if (_activeOrdersText == null) return;
+            int count = OrderManager.Instance != null
+                ? OrderManager.Instance.ActiveOrders.Count : 0;
+            _activeOrdersText.text = count > 0
+                ? $"Active Orders ({count})" : "Active Orders";
         }
 
         // ─── Order Construction ─────────────────────────────────
@@ -752,8 +765,7 @@ namespace Terranova.UI
             var order = new OrderDefinition
             {
                 Predicate = doesItem.Predicate,
-                Negated = _isNegated,
-                TargetPosition = _tapPosition
+                Negated = _isNegated
             };
 
             // WHO
@@ -766,7 +778,14 @@ namespace Terranova.UI
 
             // WHAT (single selection from picker)
             if (_whatIdx >= 0 && _whatIdx < _whatItems.Count)
-                order.Objects.Add(_whatItems[_whatIdx].Object);
+            {
+                var whatObj = _whatItems[_whatIdx].Object;
+                order.Objects.Add(whatObj);
+
+                // "Here" stores the tap world position so settlers pathfind there
+                if (whatObj.Id == "here" && _tapPosition.HasValue)
+                    order.TargetPosition = _tapPosition;
+            }
 
             return order;
         }
@@ -776,8 +795,64 @@ namespace Terranova.UI
             var order = BuildCurrentOrder();
             if (order == null || !order.IsValid()) return;
 
+            string sentence = order.BuildSentence();
             OrderManager.Instance?.CreateOrder(order);
+
+            // Brief green flash on confirm button
+            if (_confirmBg != null)
+                _confirmBg.color = new Color(0.2f, 0.8f, 0.3f, 1f);
+
             Close();
+
+            // Show floating notification for 2 seconds
+            StartCoroutine(ShowOrderNotification(sentence));
+        }
+
+        private IEnumerator ShowOrderNotification(string sentence)
+        {
+            var go = new GameObject("OrderNotification");
+            go.transform.SetParent(transform, false);
+            var rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.5f, 0f);
+            rt.anchorMax = new Vector2(0.5f, 0f);
+            rt.pivot = new Vector2(0.5f, 0f);
+            rt.anchoredPosition = new Vector2(0, 60);
+            rt.sizeDelta = new Vector2(Screen.width * 0.7f, 48);
+
+            var bg = go.AddComponent<Image>();
+            bg.color = new Color(0.12f, 0.35f, 0.18f, 0.92f);
+
+            var txtGo = new GameObject("Text");
+            txtGo.transform.SetParent(go.transform, false);
+            var tr = txtGo.AddComponent<RectTransform>();
+            tr.anchorMin = Vector2.zero;
+            tr.anchorMax = Vector2.one;
+            tr.offsetMin = new Vector2(8, 0);
+            tr.offsetMax = new Vector2(-8, 0);
+            var txt = txtGo.AddComponent<Text>();
+            txt.font = GetFont();
+            txt.fontSize = 16;
+            txt.color = VALID_C;
+            txt.alignment = TextAnchor.MiddleCenter;
+            txt.text = $"\u2713  Order given: {sentence}";
+
+            yield return new WaitForSeconds(2f);
+
+            // Fade out over 0.3s
+            float fade = 0.3f;
+            float t = 0f;
+            Color bgC = bg.color;
+            Color txtC = txt.color;
+            while (t < fade)
+            {
+                t += Time.deltaTime;
+                float a = 1f - (t / fade);
+                bg.color = new Color(bgC.r, bgC.g, bgC.b, bgC.a * a);
+                txt.color = new Color(txtC.r, txtC.g, txtC.b, txtC.a * a);
+                yield return null;
+            }
+
+            Destroy(go);
         }
 
         // ─── Row Builder ────────────────────────────────────────

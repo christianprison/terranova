@@ -1688,7 +1688,7 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Rest at campfire until dawn. Settler idles in place.
+        /// Rest at campfire until dawn. Settler stops moving (sleep state).
         /// Dawn detection is handled by UpdateShelterState.
         /// </summary>
         private void UpdateRestingAtCampfire()
@@ -1701,21 +1701,10 @@ namespace Terranova.Population
                 return;
             }
 
-            // Stay put — gentle idle sway near campfire
-            _stateTimer -= Time.deltaTime;
-            if (_stateTimer <= 0f)
-            {
-                _stateTimer = Random.Range(3f, 6f);
-                // Slight shuffle within 2 blocks of campfire
-                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
-                float radius = Random.Range(0.5f, 2f);
-                Vector3 target = _campfirePosition + new Vector3(Mathf.Cos(angle) * radius, 0f, Mathf.Sin(angle) * radius);
-                if (NavMesh.SamplePosition(target, out NavMeshHit hit, NAV_SAMPLE_RADIUS, NavMesh.AllAreas))
-                {
-                    SetAgentDestination(hit.position);
-                    _agent.speed = GetEffectiveSpeed(BASE_WALK_SPEED * 0.3f); // Slow shuffle
-                }
-            }
+            // Sleep: stay completely still until dawn
+            if (_agent.hasPath)
+                _agent.ResetPath();
+            _isMoving = false;
         }
 
         /// <summary>

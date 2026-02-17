@@ -281,6 +281,24 @@ namespace Terranova.Orders
             if (order.TargetPosition.HasValue)
             {
                 targetPos = order.TargetPosition.Value;
+                Debug.Log($"[Order] Using tap position {targetPos} for '{order.BuildSentence()}'");
+
+                // For gather-type tasks, find nearest resource near the tap position
+                if (taskType == SettlerTaskType.GatherMaterial || taskType == SettlerTaskType.GatherWood
+                    || taskType == SettlerTaskType.GatherStone || taskType == SettlerTaskType.Hunt)
+                {
+                    var nearRes = FindNearestResourceNear(targetPos, 15f);
+                    if (nearRes != null)
+                    {
+                        targetResource = nearRes;
+                        targetPos = nearRes.transform.position;
+                        Debug.Log($"[Order] Found resource {nearRes.name} near tap at {targetPos}");
+                    }
+                    else
+                    {
+                        Debug.Log($"[Order] No resource found near tap position {order.TargetPosition.Value}");
+                    }
+                }
             }
             else if (order.Objects.Count > 0)
             {
@@ -377,6 +395,33 @@ namespace Terranova.Orders
                 return true;
 
             return false;
+        }
+
+        /// <summary>
+        /// Find nearest available resource within radius of a world position.
+        /// Used for "Here" orders where the player tapped the ground.
+        /// </summary>
+        private ResourceNode FindNearestResourceNear(Vector3 position, float radius)
+        {
+            var nodes = Object.FindObjectsByType<ResourceNode>(FindObjectsSortMode.None);
+            ResourceNode best = null;
+            float bestDist = radius;
+
+            foreach (var node in nodes)
+            {
+                if (!node.IsAvailable) continue;
+                float dist = Vector3.Distance(position, node.transform.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = node;
+                }
+            }
+
+            if (best != null && best.TryReserve())
+                return best;
+
+            return null;
         }
 
         private OrderDefinition FindOrder(int orderId)
