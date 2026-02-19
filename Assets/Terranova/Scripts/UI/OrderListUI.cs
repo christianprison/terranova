@@ -162,6 +162,7 @@ namespace Terranova.UI
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
             scrollRect.scrollSensitivity = 30f;
 
+            // Content — NO layout groups. Manual positioning for full control.
             var content = new GameObject("Content");
             content.transform.SetParent(scrollBg.transform, false);
             var contentRect = content.AddComponent<RectTransform>();
@@ -169,18 +170,7 @@ namespace Terranova.UI
             contentRect.anchorMax = new Vector2(1, 1);
             contentRect.pivot = new Vector2(0.5f, 1);
             contentRect.anchoredPosition = Vector2.zero;
-
-            var layout = content.AddComponent<VerticalLayoutGroup>();
-            layout.spacing = 4;
-            layout.padding = new RectOffset(8, 8, 8, 8);
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlWidth = true;
-            layout.childControlHeight = false;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-
-            content.AddComponent<ContentSizeFitter>().verticalFit =
-                ContentSizeFitter.FitMode.PreferredSize;
+            contentRect.sizeDelta = new Vector2(0, 0);
 
             scrollRect.content = contentRect;
             _listContent = content.transform;
@@ -199,6 +189,9 @@ namespace Terranova.UI
             if (manager == null) return;
 
             var orders = manager.AllOrders;
+            const float pad = 8f;
+            const float spacing = 4f;
+            float y = -pad;
             bool hasVisibleOrders = false;
 
             foreach (var order in orders)
@@ -206,15 +199,20 @@ namespace Terranova.UI
                 if (order.Status == OrderStatus.Complete || order.Status == OrderStatus.Failed)
                     continue;
                 hasVisibleOrders = true;
-                CreateOrderRow(order);
+                CreateOrderRow(order, y);
+                y -= (ROW_HEIGHT + spacing);
             }
 
             if (!hasVisibleOrders)
             {
                 var emptyObj = new GameObject("Empty");
                 emptyObj.transform.SetParent(_listContent, false);
-                emptyObj.AddComponent<LayoutElement>().preferredHeight = 60;
-                emptyObj.AddComponent<RectTransform>();
+                var emptyRect = emptyObj.AddComponent<RectTransform>();
+                emptyRect.anchorMin = new Vector2(0, 1);
+                emptyRect.anchorMax = new Vector2(1, 1);
+                emptyRect.pivot = new Vector2(0.5f, 1);
+                emptyRect.anchoredPosition = new Vector2(0, y);
+                emptyRect.sizeDelta = new Vector2(-pad * 2, 60);
                 var emptyText = emptyObj.AddComponent<Text>();
                 emptyText.font = GetFont();
                 emptyText.fontSize = 16;
@@ -222,28 +220,46 @@ namespace Terranova.UI
                 emptyText.alignment = TextAnchor.MiddleCenter;
                 emptyText.text = "No active orders.";
                 emptyText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                y -= (60 + spacing);
             }
+
+            y -= pad;
+
+            // Set content height for scrolling
+            var contentRect = _listContent.GetComponent<RectTransform>();
+            contentRect.sizeDelta = new Vector2(0, Mathf.Abs(y));
         }
 
-        private void CreateOrderRow(OrderDefinition order)
+        /// <summary>
+        /// Create one order row at absolute y position within the scroll content.
+        /// No layout groups — all children use explicit anchor-based positioning
+        /// so button sizes are guaranteed.
+        ///
+        /// Row layout: [4px][30px icon][4px][...sentence...][4px][44px pause][4px][44px cancel][4px]
+        /// </summary>
+        private void CreateOrderRow(OrderDefinition order, float yPos)
         {
             var row = new GameObject($"Order_{order.Id}");
             row.transform.SetParent(_listContent, false);
-            row.AddComponent<RectTransform>();
-            row.AddComponent<LayoutElement>().preferredHeight = ROW_HEIGHT;
+            var rowRect = row.AddComponent<RectTransform>();
+            // Stretch horizontally within content, positioned at yPos from top
+            rowRect.anchorMin = new Vector2(0, 1);
+            rowRect.anchorMax = new Vector2(1, 1);
+            rowRect.pivot = new Vector2(0.5f, 1);
+            rowRect.anchoredPosition = new Vector2(0, yPos);
+            rowRect.sizeDelta = new Vector2(-16, ROW_HEIGHT); // -16 = 8px margin each side
             row.AddComponent<Image>().color = ROW_BG;
 
-            // Anchor-based layout (no HorizontalLayoutGroup — avoids nested layout group sizing bugs).
-            // Row inner area: [4px][30px icon][4px][...sentence...][4px][44px pause][4px][44px cancel][4px]
-            const float pad = 4f;
+            // All children use pixel offsets from the row edges.
+            // Row width ≈ 484px (500 scroll - 16 margin).
+            // Right section: 4 + 44 + 4 + 44 + 4 = 100px from right edge.
+            const float p = 4f;
             const float iconW = 30f;
             float btnW = TOUCH_SIZE; // 44
-            float leftEdge = pad + iconW + pad;                  // 38
-            float rightEdge = pad + btnW + pad + btnW + pad;     // 100
 
             int orderId = order.Id;
 
-            // Status icon — anchored to left edge, fixed 30px wide, full height
+            // ── Status icon: left-aligned, 30px wide ──
             string icon = order.Status == OrderStatus.Active ? ">>" : "||";
             Color iconColor = order.Status == OrderStatus.Active ? STATUS_ACTIVE : STATUS_PAUSED;
             var iconObj = new GameObject("StatusIcon");
@@ -252,8 +268,8 @@ namespace Terranova.UI
             iconRect.anchorMin = new Vector2(0, 0);
             iconRect.anchorMax = new Vector2(0, 1);
             iconRect.pivot = new Vector2(0, 0.5f);
-            iconRect.anchoredPosition = new Vector2(pad, 0);
-            iconRect.sizeDelta = new Vector2(iconW, -pad * 2);
+            iconRect.anchoredPosition = new Vector2(p, 0);
+            iconRect.sizeDelta = new Vector2(iconW, 0);
             var iconText = iconObj.AddComponent<Text>();
             iconText.font = GetFont();
             iconText.fontSize = 14;
@@ -262,14 +278,16 @@ namespace Terranova.UI
             iconText.fontStyle = FontStyle.Bold;
             iconText.text = icon;
 
-            // Sentence text — stretches between icon and buttons
+            // ── Sentence: stretches between icon and buttons ──
+            float sentenceLeft = p + iconW + p;             // 38px from left
+            float sentenceRight = p + btnW + p + btnW + p;  // 100px from right
             var sentenceObj = new GameObject("Sentence");
             sentenceObj.transform.SetParent(row.transform, false);
             var sentenceRect = sentenceObj.AddComponent<RectTransform>();
             sentenceRect.anchorMin = new Vector2(0, 0);
             sentenceRect.anchorMax = new Vector2(1, 1);
-            sentenceRect.offsetMin = new Vector2(leftEdge, pad);
-            sentenceRect.offsetMax = new Vector2(-rightEdge, -pad);
+            sentenceRect.offsetMin = new Vector2(sentenceLeft, p);
+            sentenceRect.offsetMax = new Vector2(-sentenceRight, -p);
             var sentenceText = sentenceObj.AddComponent<Text>();
             sentenceText.font = GetFont();
             sentenceText.fontSize = 14;
@@ -278,14 +296,15 @@ namespace Terranova.UI
             sentenceText.horizontalOverflow = HorizontalWrapMode.Wrap;
             sentenceText.text = order.BuildSentence();
 
-            // Pause button — anchored to right edge, 44x44
+            // ── Pause button: 44×44, right-aligned (second from right) ──
+            // Right edge of pause = p + btnW + p = 52px from row's right edge
             var pauseObj = new GameObject("PauseBtn");
             pauseObj.transform.SetParent(row.transform, false);
             var pauseRect = pauseObj.AddComponent<RectTransform>();
             pauseRect.anchorMin = new Vector2(1, 0.5f);
             pauseRect.anchorMax = new Vector2(1, 0.5f);
             pauseRect.pivot = new Vector2(1, 0.5f);
-            pauseRect.anchoredPosition = new Vector2(-(pad + btnW + pad), 0);
+            pauseRect.anchoredPosition = new Vector2(-(p + btnW + p), 0);
             pauseRect.sizeDelta = new Vector2(btnW, btnW);
             var pauseImg = pauseObj.AddComponent<Image>();
             pauseImg.color = new Color(0.3f, 0.3f, 0.5f, 0.8f);
@@ -311,14 +330,15 @@ namespace Terranova.UI
             plText.fontStyle = FontStyle.Bold;
             plText.text = order.Status == OrderStatus.Paused ? ">" : "||";
 
-            // ══ CANCEL BUTTON ══ — anchored to right edge, 44x44, bright red, white X
+            // ══ CANCEL BUTTON: 44×44, bright red with white X, rightmost ══
+            // Right edge of cancel = p = 4px from row's right edge
             var cancelObj = new GameObject("CancelBtn");
             cancelObj.transform.SetParent(row.transform, false);
             var cancelRect = cancelObj.AddComponent<RectTransform>();
             cancelRect.anchorMin = new Vector2(1, 0.5f);
             cancelRect.anchorMax = new Vector2(1, 0.5f);
             cancelRect.pivot = new Vector2(1, 0.5f);
-            cancelRect.anchoredPosition = new Vector2(-pad, 0);
+            cancelRect.anchoredPosition = new Vector2(-p, 0);
             cancelRect.sizeDelta = new Vector2(btnW, btnW);
             var cancelImg = cancelObj.AddComponent<Image>();
             cancelImg.color = new Color(0.85f, 0.08f, 0.08f, 1f);
@@ -330,7 +350,6 @@ namespace Terranova.UI
                 OrderManager.Instance?.CancelOrder(orderId);
                 _dirty = true;
             });
-            // White "X" label
             var cancelLabel = new GameObject("CL");
             cancelLabel.transform.SetParent(cancelObj.transform, false);
             var clRect = cancelLabel.AddComponent<RectTransform>();
@@ -349,7 +368,7 @@ namespace Terranova.UI
             clOutline.effectColor = new Color(0, 0, 0, 0.8f);
             clOutline.effectDistance = new Vector2(1, -1);
 
-            Debug.Log($"[OrderListUI] Created row for order {orderId}: '{order.BuildSentence()}' with pause + cancel buttons");
+            Debug.Log($"[OrderListUI] Created row for order {orderId}: '{order.BuildSentence()}' with pause({btnW}x{btnW}) + cancel({btnW}x{btnW}) buttons");
         }
 
         // ─── Helpers ─────────────────────────────────────────
