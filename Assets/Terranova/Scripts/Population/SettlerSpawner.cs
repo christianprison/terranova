@@ -168,6 +168,17 @@ namespace Terranova.Population
             var glowMR = glow.AddComponent<MeshRenderer>();
             if (glowMat != null) glowMR.sharedMaterial = glowMat;
 
+            // v0.5.0: Orange point light for campfire glow (visible at night)
+            var lightObj = new GameObject("CampfireLight");
+            lightObj.transform.SetParent(campfire.transform, false);
+            lightObj.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            var pointLight = lightObj.AddComponent<Light>();
+            pointLight.type = LightType.Point;
+            pointLight.color = new Color(1f, 0.6f, 0.2f);
+            pointLight.intensity = 2.5f;
+            pointLight.range = 15f;
+            pointLight.shadows = LightShadows.Soft;
+
             // Box collider on root for selection
             var rootCol = campfire.AddComponent<BoxCollider>();
             rootCol.center = new Vector3(0f, 0.3f, 0f);
@@ -289,41 +300,62 @@ namespace Terranova.Population
                 Debug.LogWarning("[Water] Used fallback pond position — NavMesh check failed for all attempts");
             }
 
-            // Create blue cylinder primitive
-            var pond = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            pond.name = "FreshwaterPond";
+            // v0.5.0: Flat water plane (replaces blue cylinder)
+            var pond = new GameObject("FreshwaterPond");
             pond.tag = "Water";
+
+            // Main water surface — flat quad sitting slightly below terrain
+            var waterQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            waterQuad.name = "WaterSurface";
+            waterQuad.transform.SetParent(pond.transform, false);
+            waterQuad.transform.localPosition = new Vector3(0f, -0.08f, 0f);
+            waterQuad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            waterQuad.transform.localScale = new Vector3(5.5f, 5.5f, 1f);
+            Destroy(waterQuad.GetComponent<Collider>());
+
+            // Pond basin — subtle darker ring under water for depth illusion
+            var basin = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            basin.name = "Basin";
+            basin.transform.SetParent(pond.transform, false);
+            basin.transform.localPosition = new Vector3(0f, -0.15f, 0f);
+            basin.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            basin.transform.localScale = new Vector3(6f, 6f, 1f);
+            Destroy(basin.GetComponent<Collider>());
+
             pond.transform.position = pondPos;
-            // Flat disc: wide radius (2.5 blocks each side = 5 block diameter), shallow depth
-            pond.transform.localScale = new Vector3(5f, 0.15f, 5f);
 
-            // Remove the default CapsuleCollider (cylinder collider) — it blocks NavMesh
-            var defaultCollider = pond.GetComponent<Collider>();
-            if (defaultCollider != null) Destroy(defaultCollider);
-
-            // Add a trigger collider instead (doesn't block pathfinding)
+            // Trigger collider for selection (doesn't block pathfinding)
             var triggerCol = pond.AddComponent<BoxCollider>();
             triggerCol.isTrigger = true;
             triggerCol.center = Vector3.zero;
-            triggerCol.size = new Vector3(1f, 0.5f, 1f);
+            triggerCol.size = new Vector3(5f, 0.5f, 5f);
 
-            // Blue water material
+            // Water materials
             Shader shader = Shader.Find("Universal Render Pipeline/Lit")
                          ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
             if (shader != null)
             {
+                // Transparent blue-green water surface
                 var waterMat = new Material(shader);
                 waterMat.name = "FreshwaterPond_Material (Auto)";
-                waterMat.SetColor("_BaseColor", new Color(0.2f, 0.5f, 0.85f, 0.75f));
-
-                // Enable transparency if supported
+                waterMat.SetColor("_BaseColor", new Color(0.15f, 0.45f, 0.60f, 0.55f));
                 if (waterMat.HasProperty("_Surface"))
                 {
                     waterMat.SetFloat("_Surface", 1f);
                     waterMat.renderQueue = 3000;
                 }
+                waterQuad.GetComponent<MeshRenderer>().sharedMaterial = waterMat;
 
-                pond.GetComponent<MeshRenderer>().sharedMaterial = waterMat;
+                // Dark basin underneath
+                var basinMat = new Material(shader);
+                basinMat.name = "PondBasin_Material (Auto)";
+                basinMat.SetColor("_BaseColor", new Color(0.08f, 0.20f, 0.30f, 0.7f));
+                if (basinMat.HasProperty("_Surface"))
+                {
+                    basinMat.SetFloat("_Surface", 1f);
+                    basinMat.renderQueue = 2999;
+                }
+                basin.GetComponent<MeshRenderer>().sharedMaterial = basinMat;
             }
 
             // Register freshwater center so settlers can find drinkable water

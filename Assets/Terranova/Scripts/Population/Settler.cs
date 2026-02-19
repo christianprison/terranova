@@ -325,6 +325,10 @@ namespace Terranova.Population
         private float _coldExposureTimer;
         private bool _wasNight;  // Track night transition for task interruption
 
+        // v0.5.0: Natural shelter support — settlers can seek nearby shelters instead of campfire
+        private Vector3 _nightShelterTarget;
+        private NaturalShelter _claimedShelter;
+
         /// <summary>Current shelter state.</summary>
         public ShelterState CurrentShelterState => _shelterState;
 
@@ -1568,6 +1572,10 @@ namespace Terranova.Population
             else if (!isNight && _wasNight)
             {
                 _wasNight = false;
+                // v0.5.0: Release any natural shelter claim at dawn
+                ReleaseShelterClaim();
+                _nightShelterTarget = Vector3.zero;
+
                 // Dawn: if resting at campfire, resume normal behavior
                 if (_state == SettlerState.RestingAtCampfire)
                 {
@@ -1611,12 +1619,22 @@ namespace Terranova.Population
                 return;
             }
 
-            // Nighttime: check distance to campfire
+            // Nighttime: check distance to campfire or natural shelter
             float distToCampfire = Vector3.Distance(
                 new Vector3(transform.position.x, 0f, transform.position.z),
                 new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
 
-            if (distToCampfire <= CAMPFIRE_SHELTER_RADIUS)
+            // v0.5.0: Also check if near a natural shelter
+            bool nearShelter = distToCampfire <= CAMPFIRE_SHELTER_RADIUS;
+            if (!nearShelter && _claimedShelter != null)
+            {
+                float distToShelter = Vector3.Distance(
+                    new Vector3(transform.position.x, 0f, transform.position.z),
+                    new Vector3(_claimedShelter.Position.x, 0f, _claimedShelter.Position.z));
+                nearShelter = distToShelter <= CAMPFIRE_SHELTER_RADIUS;
+            }
+
+            if (nearShelter)
             {
                 _shelterState = ShelterState.Sheltered;
                 _coldExposureTimer = Mathf.Max(0f, _coldExposureTimer - Time.deltaTime * 2f); // Warm up
@@ -1640,28 +1658,49 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// Try to send this settler back to the campfire when night falls.
+        /// Try to send this settler to the nearest shelter when night falls.
+        /// v0.5.0: Checks natural shelters (rock overhangs, caves, thickets)
+        /// in addition to the campfire. Goes to whichever is closer and has space.
         /// Only interrupts interruptible states (idle, post-delivery).
-        /// Settlers mid-task will finish their current action first.
         /// </summary>
         private void TryReturnToCampfireForNight()
         {
-            // Already heading to or at campfire
+            // Already heading to or at campfire/shelter
             if (_state == SettlerState.WalkingToCampfire || _state == SettlerState.RestingAtCampfire)
                 return;
 
-            // Already near campfire — just rest
-            float dist = Vector3.Distance(
+            // Determine best shelter target (campfire or natural shelter)
+            _nightShelterTarget = _campfirePosition;
+            float distToCampfire = Vector3.Distance(
                 new Vector3(transform.position.x, 0f, transform.position.z),
                 new Vector3(_campfirePosition.x, 0f, _campfirePosition.z));
-            if (dist <= CAMPFIRE_SHELTER_RADIUS)
+
+            // v0.5.0: Check if a natural shelter is closer than campfire
+            var nearestShelter = NaturalShelter.FindNearest(transform.position);
+            if (nearestShelter != null)
+            {
+                float distToShelter = Vector3.Distance(
+                    new Vector3(transform.position.x, 0f, transform.position.z),
+                    new Vector3(nearestShelter.Position.x, 0f, nearestShelter.Position.z));
+                if (distToShelter < distToCampfire && nearestShelter.TryClaim())
+                {
+                    _nightShelterTarget = nearestShelter.Position;
+                    _claimedShelter = nearestShelter;
+                    Debug.Log($"[{name}] Night — heading to {nearestShelter.ShelterName} (dist={distToShelter:F1}) instead of campfire (dist={distToCampfire:F1})");
+                }
+            }
+
+            // Already near target — just rest
+            float distToTarget = Vector3.Distance(
+                new Vector3(transform.position.x, 0f, transform.position.z),
+                new Vector3(_nightShelterTarget.x, 0f, _nightShelterTarget.z));
+            if (distToTarget <= CAMPFIRE_SHELTER_RADIUS)
             {
                 if (_state == SettlerState.IdlePausing || _state == SettlerState.IdleWalking)
                 {
                     StartRestingAtCampfire();
                     return;
                 }
-                // If working, let them finish — they'll be redirected after
                 return;
             }
 
@@ -1670,11 +1709,11 @@ namespace Terranova.Population
             {
                 StartWalkingToCampfire();
             }
-            // Active tasks: will be redirected after completion via ResumeAfterNeedsFulfilled
         }
 
         /// <summary>
-        /// Start walking to campfire for night shelter.
+        /// Start walking to shelter (campfire or natural shelter) for night.
+        /// v0.5.0: Uses _nightShelterTarget which may be a natural shelter.
         /// </summary>
         private void StartWalkingToCampfire()
         {
@@ -1689,18 +1728,41 @@ namespace Terranova.Population
             _agent.ResetPath();
             DestroyCargo();
 
-            if (SetAgentDestination(_campfirePosition))
+            Vector3 target = _nightShelterTarget != Vector3.zero ? _nightShelterTarget : _campfirePosition;
+
+            if (SetAgentDestination(target))
             {
                 _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED);
                 _state = SettlerState.WalkingToCampfire;
-                Debug.Log($"[{name}] Night falling — walking to campfire for shelter");
+                Debug.Log($"[{name}] Night falling — walking to shelter at ({target.x:F0},{target.z:F0})");
             }
             else
             {
-                // Can't pathfind to campfire — just idle near current position
-                _state = SettlerState.IdlePausing;
-                _stateTimer = 5f;
-                Debug.Log($"[{name}] Night falling — can't reach campfire, staying put");
+                // Can't pathfind to shelter — try campfire as fallback
+                ReleaseShelterClaim();
+                if (target != _campfirePosition && SetAgentDestination(_campfirePosition))
+                {
+                    _agent.speed = GetEffectiveSpeed(TASK_WALK_SPEED);
+                    _state = SettlerState.WalkingToCampfire;
+                    _nightShelterTarget = _campfirePosition;
+                    Debug.Log($"[{name}] Night falling — can't reach shelter, walking to campfire instead");
+                }
+                else
+                {
+                    _state = SettlerState.IdlePausing;
+                    _stateTimer = 5f;
+                    Debug.Log($"[{name}] Night falling — can't reach any shelter, staying put");
+                }
+            }
+        }
+
+        /// <summary>Release any claimed natural shelter spot.</summary>
+        private void ReleaseShelterClaim()
+        {
+            if (_claimedShelter != null)
+            {
+                _claimedShelter.Release();
+                _claimedShelter = null;
             }
         }
 

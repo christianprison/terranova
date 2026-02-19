@@ -3,6 +3,7 @@ using UnityEngine.UI;
 using Terranova.Core;
 using Terranova.Population;
 using Terranova.Buildings;
+using Terranova.Terrain;
 
 namespace Terranova.UI
 {
@@ -146,6 +147,13 @@ namespace Terranova.UI
             if (building != null)
             {
                 RefreshBuildingInfo(building);
+                return;
+            }
+
+            var shelter = _selectedObject.GetComponent<NaturalShelter>();
+            if (shelter != null)
+            {
+                RefreshShelterInfo(shelter);
                 return;
             }
         }
@@ -591,6 +599,42 @@ namespace Terranova.UI
                 _titleText.text = displayName;
                 _infoText.text = statusLine;
             }
+        }
+
+        // ─── Shelter Info ─────────────────────────────────────────
+
+        /// <summary>
+        /// v0.5.0: Show natural shelter info when tapped.
+        /// Displays name, type, capacity (occupants/max), and protection value.
+        /// </summary>
+        private void RefreshShelterInfo(NaturalShelter shelter)
+        {
+            // Hide settler-specific panels
+            _hungerBarRoot.SetActive(false);
+            _needsRoot.SetActive(false);
+            _toolRoot.SetActive(false);
+            if (_traitText != null) _traitText.text = "";
+            if (_giveOrderBtnRoot != null) _giveOrderBtnRoot.SetActive(false);
+
+            _titleText.text = shelter.ShelterName;
+
+            string info = $"Type: {shelter.ShelterType}";
+            info += $"\nCapacity: {shelter.Occupants}/{shelter.Capacity}";
+            info += $"\nProtection: {shelter.ProtectionValue * 100f:F0}%";
+
+            if (shelter.HasSpace)
+                info += "\nStatus: Available";
+            else
+                info += "\nStatus: Full";
+
+            if (_isDetailView)
+            {
+                _titleText.text = $"-- {shelter.ShelterName} --";
+                var pos = shelter.transform.position;
+                info += $"\n\nPosition: ({pos.x:F0}, {pos.z:F0})";
+            }
+
+            _infoText.text = info;
         }
 
         // ─── Panel Visibility ───────────────────────────────────

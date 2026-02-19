@@ -80,6 +80,7 @@ namespace Terranova.Core
             EnsureConstructionTaskAssigner();
             EnsureBuildingFunctionManager();
             EnsureDebugTerrainModifier();
+            EnsureTerrainDecorator(); // v0.5.0: Trees, rocks, bushes, shelters
             EnsureSelectionManager();
             EnsureDiscoverySystem();
             EnsureDayNightCycle(); // MS4: Day-night cycle
@@ -280,6 +281,19 @@ namespace Terranova.Core
             var go = new GameObject("BuildingFunctionManager");
             go.AddComponent<BuildingFunctionManager>();
             Debug.Log("GameBootstrapper: Created BuildingFunctionManager.");
+        }
+
+        /// <summary>
+        /// v0.5.0: Terrain decoration (trees, rocks, bushes, ground variation, natural shelters).
+        /// </summary>
+        private static void EnsureTerrainDecorator()
+        {
+            if (Object.FindFirstObjectByType<TerrainDecorator>() != null)
+                return;
+
+            var go = new GameObject("TerrainDecorator");
+            go.AddComponent<TerrainDecorator>();
+            Debug.Log("GameBootstrapper: Created TerrainDecorator.");
         }
 
         /// <summary>
