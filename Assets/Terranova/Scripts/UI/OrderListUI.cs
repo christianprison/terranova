@@ -229,29 +229,31 @@ namespace Terranova.UI
         {
             var row = new GameObject($"Order_{order.Id}");
             row.transform.SetParent(_listContent, false);
-            var rowRect = row.AddComponent<RectTransform>();
+            row.AddComponent<RectTransform>();
             row.AddComponent<LayoutElement>().preferredHeight = ROW_HEIGHT;
             row.AddComponent<Image>().color = ROW_BG;
 
-            // Use HorizontalLayoutGroup so all children are laid out reliably
-            var rowLayout = row.AddComponent<HorizontalLayoutGroup>();
-            rowLayout.spacing = 4;
-            rowLayout.padding = new RectOffset(4, 4, 4, 4);
-            rowLayout.childAlignment = TextAnchor.MiddleCenter;
-            rowLayout.childControlWidth = true;
-            rowLayout.childControlHeight = true;
-            rowLayout.childForceExpandWidth = false;
-            rowLayout.childForceExpandHeight = true;
+            // Anchor-based layout (no HorizontalLayoutGroup — avoids nested layout group sizing bugs).
+            // Row inner area: [4px][30px icon][4px][...sentence...][4px][44px pause][4px][44px cancel][4px]
+            const float pad = 4f;
+            const float iconW = 30f;
+            float btnW = TOUCH_SIZE; // 44
+            float leftEdge = pad + iconW + pad;                  // 38
+            float rightEdge = pad + btnW + pad + btnW + pad;     // 100
 
-            // Status icon — fixed 30px width
+            int orderId = order.Id;
+
+            // Status icon — anchored to left edge, fixed 30px wide, full height
             string icon = order.Status == OrderStatus.Active ? ">>" : "||";
             Color iconColor = order.Status == OrderStatus.Active ? STATUS_ACTIVE : STATUS_PAUSED;
             var iconObj = new GameObject("StatusIcon");
             iconObj.transform.SetParent(row.transform, false);
-            iconObj.AddComponent<RectTransform>();
-            var iconLE = iconObj.AddComponent<LayoutElement>();
-            iconLE.preferredWidth = 30;
-            iconLE.minWidth = 30;
+            var iconRect = iconObj.AddComponent<RectTransform>();
+            iconRect.anchorMin = new Vector2(0, 0);
+            iconRect.anchorMax = new Vector2(0, 1);
+            iconRect.pivot = new Vector2(0, 0.5f);
+            iconRect.anchoredPosition = new Vector2(pad, 0);
+            iconRect.sizeDelta = new Vector2(iconW, -pad * 2);
             var iconText = iconObj.AddComponent<Text>();
             iconText.font = GetFont();
             iconText.fontSize = 14;
@@ -260,12 +262,14 @@ namespace Terranova.UI
             iconText.fontStyle = FontStyle.Bold;
             iconText.text = icon;
 
-            // Sentence text — fills remaining space
+            // Sentence text — stretches between icon and buttons
             var sentenceObj = new GameObject("Sentence");
             sentenceObj.transform.SetParent(row.transform, false);
-            sentenceObj.AddComponent<RectTransform>();
-            var sentenceLE = sentenceObj.AddComponent<LayoutElement>();
-            sentenceLE.flexibleWidth = 1f;
+            var sentenceRect = sentenceObj.AddComponent<RectTransform>();
+            sentenceRect.anchorMin = new Vector2(0, 0);
+            sentenceRect.anchorMax = new Vector2(1, 1);
+            sentenceRect.offsetMin = new Vector2(leftEdge, pad);
+            sentenceRect.offsetMax = new Vector2(-rightEdge, -pad);
             var sentenceText = sentenceObj.AddComponent<Text>();
             sentenceText.font = GetFont();
             sentenceText.fontSize = 14;
@@ -274,17 +278,15 @@ namespace Terranova.UI
             sentenceText.horizontalOverflow = HorizontalWrapMode.Wrap;
             sentenceText.text = order.BuildSentence();
 
-            int orderId = order.Id;
-
-            // Pause button — fixed 44x44
+            // Pause button — anchored to right edge, 44x44
             var pauseObj = new GameObject("PauseBtn");
             pauseObj.transform.SetParent(row.transform, false);
-            pauseObj.AddComponent<RectTransform>();
-            var pauseLE = pauseObj.AddComponent<LayoutElement>();
-            pauseLE.preferredWidth = TOUCH_SIZE;
-            pauseLE.minWidth = TOUCH_SIZE;
-            pauseLE.preferredHeight = TOUCH_SIZE;
-            pauseLE.minHeight = TOUCH_SIZE;
+            var pauseRect = pauseObj.AddComponent<RectTransform>();
+            pauseRect.anchorMin = new Vector2(1, 0.5f);
+            pauseRect.anchorMax = new Vector2(1, 0.5f);
+            pauseRect.pivot = new Vector2(1, 0.5f);
+            pauseRect.anchoredPosition = new Vector2(-(pad + btnW + pad), 0);
+            pauseRect.sizeDelta = new Vector2(btnW, btnW);
             var pauseImg = pauseObj.AddComponent<Image>();
             pauseImg.color = new Color(0.3f, 0.3f, 0.5f, 0.8f);
             var pauseBtn = pauseObj.AddComponent<Button>();
@@ -309,15 +311,15 @@ namespace Terranova.UI
             plText.fontStyle = FontStyle.Bold;
             plText.text = order.Status == OrderStatus.Paused ? ">" : "||";
 
-            // ══ CANCEL BUTTON ══ — fixed 44x44, bright red, white X
+            // ══ CANCEL BUTTON ══ — anchored to right edge, 44x44, bright red, white X
             var cancelObj = new GameObject("CancelBtn");
             cancelObj.transform.SetParent(row.transform, false);
-            cancelObj.AddComponent<RectTransform>();
-            var cancelLE = cancelObj.AddComponent<LayoutElement>();
-            cancelLE.preferredWidth = TOUCH_SIZE;
-            cancelLE.minWidth = TOUCH_SIZE;
-            cancelLE.preferredHeight = TOUCH_SIZE;
-            cancelLE.minHeight = TOUCH_SIZE;
+            var cancelRect = cancelObj.AddComponent<RectTransform>();
+            cancelRect.anchorMin = new Vector2(1, 0.5f);
+            cancelRect.anchorMax = new Vector2(1, 0.5f);
+            cancelRect.pivot = new Vector2(1, 0.5f);
+            cancelRect.anchoredPosition = new Vector2(-pad, 0);
+            cancelRect.sizeDelta = new Vector2(btnW, btnW);
             var cancelImg = cancelObj.AddComponent<Image>();
             cancelImg.color = new Color(0.85f, 0.08f, 0.08f, 1f);
             var cancelBtn = cancelObj.AddComponent<Button>();
