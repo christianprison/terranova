@@ -546,7 +546,8 @@ namespace Terranova.Orders
             var poleRend = pole.GetComponent<MeshRenderer>();
             if (poleRend != null)
             {
-                poleRend.material = TerrainShaderLibrary.CreatePropMaterial(new Color(0.6f, 0.4f, 0.2f));
+                poleRend.material = TerrainShaderLibrary.CreatePropMaterial(
+                    "MarkerPole_Mat", new Color(0.6f, 0.4f, 0.2f));
             }
 
             // Flag (small quad at top of pole)
@@ -561,7 +562,8 @@ namespace Terranova.Orders
             if (flagRend != null)
             {
                 flagRend.material = TerrainShaderLibrary.CreateEmissivePropMaterial(
-                    new Color(0.3f, 0.9f, 0.4f, 0.9f), new Color(0.15f, 0.5f, 0.2f) * 2f);
+                    "MarkerFlag_Mat", new Color(0.3f, 0.9f, 0.4f, 0.9f),
+                    new Color(0.15f, 0.5f, 0.2f) * 2f);
             }
 
             // Ground glow (flat cylinder at ground level)
@@ -576,7 +578,8 @@ namespace Terranova.Orders
             if (glowRend != null)
             {
                 glowRend.material = TerrainShaderLibrary.CreateEmissivePropMaterial(
-                    new Color(0.3f, 0.9f, 0.4f, 0.5f), new Color(0.2f, 0.6f, 0.3f) * 1.5f);
+                    "MarkerGlow_Mat", new Color(0.3f, 0.9f, 0.4f, 0.5f),
+                    new Color(0.2f, 0.6f, 0.3f) * 1.5f);
             }
 
             order.MarkerObject = marker;

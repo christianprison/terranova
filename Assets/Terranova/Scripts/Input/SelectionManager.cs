@@ -360,7 +360,8 @@ namespace Terranova.Input
             lineRenderer.receiveShadows = false;
 
             // Use emissive material for consistent visibility
-            var mat = TerrainShaderLibrary.CreateEmissivePropMaterial(HIGHLIGHT_COLOR, HIGHLIGHT_COLOR);
+            var mat = TerrainShaderLibrary.CreateEmissivePropMaterial(
+                "SelectionHighlight_Mat", HIGHLIGHT_COLOR, HIGHLIGHT_COLOR);
             lineRenderer.material = mat;
 
             lineRenderer.startColor = HIGHLIGHT_COLOR;
