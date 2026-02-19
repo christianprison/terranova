@@ -97,6 +97,7 @@ namespace Terranova.Buildings
             {
                 _buildingMaterial = new Material(litShader);
                 _buildingMaterial.name = "Building_Shared (Auto)";
+                _buildingMaterial.enableInstancing = true;
             }
 
             // Use VertexColorTransparent for preview – supports alpha blending
@@ -107,7 +108,7 @@ namespace Terranova.Buildings
                 _previewMaterial = new Material(previewShader);
                 _previewMaterial.name = "BuildingPreview (Auto)";
                 _previewMaterial.renderQueue = 3000;
-                _previewMaterial.color = _validColor;
+                _previewMaterial.SetColor("_BaseColor", _validColor);
             }
 
             Debug.Log("BuildingPlacer: Materials created successfully.");
@@ -290,7 +291,7 @@ namespace Terranova.Buildings
 
                 // Color indicates valid/invalid
                 if (_previewMaterial != null)
-                    _previewMaterial.color = _isValidPosition ? _validColor : _invalidColor;
+                    _previewMaterial.SetColor("_BaseColor", _isValidPosition ? _validColor : _invalidColor);
             }
             else
             {
@@ -576,7 +577,7 @@ namespace Terranova.Buildings
         {
             if (_previewMaterial != null)
             {
-                _previewMaterial.color = _invalidColor;
+                _previewMaterial.SetColor("_BaseColor", _invalidColor);
                 _feedbackTimer = FEEDBACK_DURATION;
             }
         }
@@ -607,7 +608,7 @@ namespace Terranova.Buildings
 
             // Apply the transparent preview material
             _previewRenderer = _preview.GetComponent<MeshRenderer>();
-            _previewMaterial.color = _validColor;
+            _previewMaterial.SetColor("_BaseColor", _validColor);
             _previewRenderer.material = _previewMaterial;
         }
 
@@ -619,7 +620,7 @@ namespace Terranova.Buildings
             if (_feedbackTimer <= 0f) return;
             _feedbackTimer -= Time.deltaTime;
             if (_feedbackTimer <= 0f && _previewMaterial != null)
-                _previewMaterial.color = _isValidPosition ? _validColor : _invalidColor;
+                _previewMaterial.SetColor("_BaseColor", _isValidPosition ? _validColor : _invalidColor);
         }
 
         private void OnDestroy()

@@ -2415,6 +2415,7 @@ namespace Terranova.Population
 
             _sharedMaterial = new Material(shader);
             _sharedMaterial.name = "Settler_Shared (Auto)";
+            _sharedMaterial.enableInstancing = true;
         }
 
         // ═══════════════════════════════════════════════════════════════

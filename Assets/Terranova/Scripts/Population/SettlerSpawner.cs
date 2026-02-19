@@ -261,8 +261,11 @@ namespace Terranova.Population
                 new[] { new GradientColorKey(new Color(1f, 0.8f, 0.3f), 0f), new GradientColorKey(new Color(1f, 0.2f, 0f), 1f) },
                 new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
             flameColorOverLife.color = flameGrad;
+            var particleMat = TerrainShaderLibrary.CreateParticleMaterial();
+
             var flameRenderer = flameObj.GetComponent<ParticleSystemRenderer>();
             flameRenderer.renderMode = ParticleSystemRenderMode.Billboard;
+            flameRenderer.sharedMaterial = particleMat;
 
             // ── Ember particles ──
             var emberObj = new GameObject("EmberParticles");
@@ -282,6 +285,8 @@ namespace Terranova.Population
             var emberShape = emberParts.shape;
             emberShape.shapeType = ParticleSystemShapeType.Sphere;
             emberShape.radius = 0.15f;
+            var emberRenderer = emberObj.GetComponent<ParticleSystemRenderer>();
+            emberRenderer.sharedMaterial = particleMat;
 
             // ── Smoke particles ──
             var smokeObj = new GameObject("SmokeParticles");
@@ -314,6 +319,8 @@ namespace Terranova.Population
                 new[] { new GradientColorKey(new Color(0.4f, 0.4f, 0.4f), 0f), new GradientColorKey(new Color(0.6f, 0.6f, 0.6f), 1f) },
                 new[] { new GradientAlphaKey(0.15f, 0f), new GradientAlphaKey(0f, 1f) });
             smokeColorOverLife.color = smokeGrad;
+            var smokeRenderer = smokeObj.GetComponent<ParticleSystemRenderer>();
+            smokeRenderer.sharedMaterial = particleMat;
         }
 
         /// <summary>

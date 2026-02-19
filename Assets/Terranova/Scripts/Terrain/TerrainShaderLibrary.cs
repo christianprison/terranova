@@ -230,6 +230,23 @@ namespace Terranova.Terrain
             return CreateWoodMaterial("Stump_Mat", new Color(0.40f, 0.28f, 0.15f));
         }
 
+        /// <summary>Particle material for campfire effects (flame, ember, smoke).
+        /// Uses VertexColorTransparent so ParticleSystem per-particle colors work.
+        /// Prevents pink when URP built-in particle shaders are stripped.</summary>
+        public static Material CreateParticleMaterial()
+        {
+            var shader = Shader.Find("Terranova/VertexColorTransparent");
+            if (shader == null)
+            {
+                Debug.LogWarning("[TerrainShaderLibrary] VertexColorTransparent not found for particles.");
+                shader = Shader.Find("Sprites/Default");
+            }
+            var mat = new Material(shader);
+            mat.name = "Particle_Mat";
+            mat.SetColor("_BaseColor", Color.white);
+            return mat;
+        }
+
         /// <summary>Cave interior darkening material (used for shelter depth illusion).</summary>
         public static Material CreateCaveInteriorMaterial()
         {
