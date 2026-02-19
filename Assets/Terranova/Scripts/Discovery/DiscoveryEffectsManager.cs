@@ -140,8 +140,7 @@ namespace Terranova.Discovery
 
         private GameObject CreateResourceProp(ResourceType type, Vector3 position, Transform parent, System.Random rng)
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            Shader shader = TerrainShaderLibrary.PropLit;
 
             switch (type)
             {

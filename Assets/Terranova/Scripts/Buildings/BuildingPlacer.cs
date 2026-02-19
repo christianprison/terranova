@@ -85,33 +85,27 @@ namespace Terranova.Buildings
 
             _buildingPropBlock ??= new MaterialPropertyBlock();
 
-            Shader litShader = Shader.Find("Universal Render Pipeline/Lit");
-            Shader particleShader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            Shader litShader = TerrainShaderLibrary.PropLit;
 
-            if (litShader == null && particleShader == null)
+            if (litShader == null)
             {
-                Debug.LogError("BuildingPlacer: No URP shader found.");
+                Debug.LogError("BuildingPlacer: No PropLit shader found.");
                 return false;
             }
 
             if (_buildingMaterial == null)
             {
-                _buildingMaterial = new Material(litShader != null ? litShader : particleShader);
+                _buildingMaterial = new Material(litShader);
                 _buildingMaterial.name = "Building_Shared (Auto)";
             }
 
-            // Use Particles/Unlit for preview – it handles transparency
-            // reliably without needing URP shader keywords
+            // Use VertexColorTransparent for preview – supports alpha blending
             if (_previewMaterial == null)
             {
-                Shader previewShader = particleShader != null ? particleShader : litShader;
+                Shader previewShader = Shader.Find("Terranova/VertexColorTransparent")
+                                    ?? litShader;
                 _previewMaterial = new Material(previewShader);
                 _previewMaterial.name = "BuildingPreview (Auto)";
-                _previewMaterial.SetFloat("_Surface", 1f);
-                _previewMaterial.SetFloat("_Blend", 0f);
-                _previewMaterial.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                _previewMaterial.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                _previewMaterial.SetInt("_ZWrite", 0);
                 _previewMaterial.renderQueue = 3000;
                 _previewMaterial.color = _validColor;
             }

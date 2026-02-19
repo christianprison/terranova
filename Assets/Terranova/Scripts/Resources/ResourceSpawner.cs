@@ -504,13 +504,9 @@ namespace Terranova.Resources
             body.transform.localPosition = new Vector3(0f, r * 0.6f, 0f);
 
             // Green bush material for both types (bush body is always green)
-            Shader shader = FindShader();
-            if (shader != null)
-            {
-                var bushMat = new Material(shader);
-                bushMat.SetColor("_BaseColor", new Color(0.18f, 0.50f, 0.12f));
-                body.GetComponent<MeshRenderer>().sharedMaterial = bushMat;
-            }
+            body.GetComponent<MeshRenderer>().sharedMaterial =
+                TerrainShaderLibrary.CreateFoliageMaterial("BushBody_Mat",
+                    new Color(0.18f, 0.50f, 0.12f), 0.38f, 0.07f, 1.4f);
             var bodyCol = body.GetComponent<Collider>();
             if (bodyCol != null) bodyCol.isTrigger = true;
 
@@ -771,72 +767,38 @@ namespace Terranova.Resources
             return go;
         }
 
-        // ─── Material setup ─────────────────────────────────────────
-
-        private static Shader FindShader()
-        {
-            return Shader.Find("Universal Render Pipeline/Lit")
-                ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-        }
-
-        private static Material MakeMat(string name, Color color)
-        {
-            Shader shader = FindShader();
-            if (shader == null) return null;
-            var mat = new Material(shader);
-            mat.name = name;
-            mat.SetColor("_BaseColor", color);
-            return mat;
-        }
+        // ─── Material setup (v0.5.1: uses TerrainShaderLibrary) ────
 
         private static void EnsureMaterials()
         {
             if (_matWood != null) return;
 
-            // Wood/Deadwood: brown (0.5, 0.3, 0.15)
-            _matWood = MakeMat("Wood_Material (Auto)", new Color(0.50f, 0.30f, 0.15f));
+            _matWood      = TerrainShaderLibrary.CreateWoodMaterial("Wood_Mat",      new Color(0.50f, 0.30f, 0.15f));
+            _matDriftwood = TerrainShaderLibrary.CreateWoodMaterial("Driftwood_Mat", new Color(0.55f, 0.45f, 0.35f));
 
-            // Driftwood: lighter grey-brown
-            _matDriftwood = MakeMat("Driftwood_Material (Auto)", new Color(0.55f, 0.45f, 0.35f));
+            // Berries: emissive red/purple glow so visible from distance
+            _matBerry       = TerrainShaderLibrary.CreateEmissivePropMaterial("Berry_Mat",
+                new Color(0.80f, 0.20f, 0.20f), new Color(0.25f, 0.03f, 0.03f), 0.35f);
+            _matBerryPoison = TerrainShaderLibrary.CreateEmissivePropMaterial("BerryPoison_Mat",
+                new Color(0.45f, 0.10f, 0.35f), new Color(0.12f, 0.02f, 0.08f), 0.35f);
 
-            // Berries (safe): red (0.8, 0.2, 0.2)
-            _matBerry = MakeMat("Berry_Material (Auto)", new Color(0.80f, 0.20f, 0.20f));
+            // Stones: low smoothness, varying roughness
+            _matStone     = TerrainShaderLibrary.CreateRockMaterial("Stone_Mat",     new Color(0.50f, 0.50f, 0.55f));
+            _matFlint     = TerrainShaderLibrary.CreateRockMaterial("Flint_Mat",     new Color(0.35f, 0.35f, 0.40f));
+            _matGranite   = TerrainShaderLibrary.CreateGraniteMaterial("Granite_Mat",  new Color(0.60f, 0.58f, 0.55f));
+            _matLimestone = TerrainShaderLibrary.CreateRockMaterial("Limestone_Mat", new Color(0.75f, 0.72f, 0.65f));
 
-            // Berries (poisonous): dark purple-red
-            _matBerryPoison = MakeMat("BerryPoison_Material (Auto)", new Color(0.45f, 0.10f, 0.35f));
+            // Vegetation: foliage shader with wind
+            _matReeds     = TerrainShaderLibrary.CreateFoliageMaterial("Reeds_Mat", new Color(0.30f, 0.55f, 0.20f), 0.25f, 0.15f, 2.0f);
 
-            // Stone: gray (0.5, 0.5, 0.55)
-            _matStone = MakeMat("Stone_Material (Auto)", new Color(0.50f, 0.50f, 0.55f));
-
-            // Flint: darker gray with slight blue
-            _matFlint = MakeMat("Flint_Material (Auto)", new Color(0.35f, 0.35f, 0.40f));
-
-            // Granite: speckled gray
-            _matGranite = MakeMat("Granite_Material (Auto)", new Color(0.60f, 0.58f, 0.55f));
-
-            // Limestone: light warm gray
-            _matLimestone = MakeMat("Limestone_Material (Auto)", new Color(0.75f, 0.72f, 0.65f));
-
-            // Reeds: green
-            _matReeds = MakeMat("Reeds_Material (Auto)", new Color(0.30f, 0.55f, 0.20f));
-
-            // Resin: amber (0.8, 0.6, 0.2)
-            _matResin = MakeMat("Resin_Material (Auto)", new Color(0.80f, 0.60f, 0.20f));
-
-            // Clay: flat brown
-            _matClay = MakeMat("Clay_Material (Auto)", new Color(0.55f, 0.35f, 0.20f));
-
-            // Fish spot: blue shimmer
-            _matFish = MakeMat("Fish_Material (Auto)", new Color(0.20f, 0.50f, 0.80f));
-
-            // Insects: tiny brown
-            _matInsects = MakeMat("Insects_Material (Auto)", new Color(0.40f, 0.30f, 0.15f));
-
-            // Roots: brown
-            _matRoots = MakeMat("Roots_Material (Auto)", new Color(0.45f, 0.30f, 0.18f));
-
-            // Honey: golden (0.8, 0.6, 0.2) - slightly different from resin
-            _matHoney = MakeMat("Honey_Material (Auto)", new Color(0.85f, 0.65f, 0.10f));
+            // Organic resources: standard prop lit
+            _matResin     = TerrainShaderLibrary.CreatePropMaterial("Resin_Mat",   new Color(0.80f, 0.60f, 0.20f), 0.5f);
+            _matClay      = TerrainShaderLibrary.CreatePropMaterial("Clay_Mat",    new Color(0.55f, 0.35f, 0.20f), 0.1f);
+            _matFish      = TerrainShaderLibrary.CreatePropMaterial("Fish_Mat",    new Color(0.20f, 0.50f, 0.80f), 0.6f);
+            _matInsects   = TerrainShaderLibrary.CreatePropMaterial("Insects_Mat", new Color(0.40f, 0.30f, 0.15f), 0.1f);
+            _matRoots     = TerrainShaderLibrary.CreateWoodMaterial("Roots_Mat",   new Color(0.45f, 0.30f, 0.18f));
+            _matHoney     = TerrainShaderLibrary.CreateEmissivePropMaterial("Honey_Mat",
+                new Color(0.85f, 0.65f, 0.10f), new Color(0.15f, 0.10f, 0.0f), 0.5f);
         }
     }
 }

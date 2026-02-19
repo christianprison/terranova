@@ -62,16 +62,7 @@ namespace Terranova.Terrain
         private void CreateStump(Vector3 position)
         {
             if (_stumpMat == null)
-            {
-                var shader = Shader.Find("Universal Render Pipeline/Lit")
-                          ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-                if (shader != null)
-                {
-                    _stumpMat = new Material(shader);
-                    _stumpMat.name = "Stump_Mat";
-                    _stumpMat.SetColor("_BaseColor", new Color(0.40f, 0.28f, 0.15f));
-                }
-            }
+                _stumpMat = TerrainShaderLibrary.CreateStumpMaterial();
 
             var stump = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             stump.name = "Stump";

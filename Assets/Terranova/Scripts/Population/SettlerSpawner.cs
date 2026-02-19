@@ -135,25 +135,9 @@ namespace Terranova.Population
             var campfire = new GameObject("Campfire");
             campfire.transform.position = position;
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            Material stoneMat = null;
-            Material flameMat = null;
-            Material glowMat = null;
-            if (shader != null)
-            {
-                stoneMat = new Material(shader);
-                stoneMat.name = "CampfireStone_Material (Auto)";
-                stoneMat.SetColor("_BaseColor", new Color(0.45f, 0.43f, 0.40f));
-
-                flameMat = new Material(shader);
-                flameMat.name = "CampfireFlame_Material (Auto)";
-                flameMat.SetColor("_BaseColor", new Color(1f, 0.55f, 0.1f));
-
-                glowMat = new Material(shader);
-                glowMat.name = "CampfireGlow_Material (Auto)";
-                glowMat.SetColor("_BaseColor", new Color(1f, 0.85f, 0.3f));
-            }
+            var stoneMat = TerrainShaderLibrary.CreateCampfireStoneMaterial();
+            var flameMat = TerrainShaderLibrary.CreateFlameMaterial();
+            var glowMat  = TerrainShaderLibrary.CreateGlowMaterial();
 
             // Stone ring: 6 small cubes
             for (int s = 0; s < 6; s++)
@@ -168,7 +152,7 @@ namespace Terranova.Population
                 stone.transform.localRotation = Quaternion.Euler(0f, sAngle * Mathf.Rad2Deg + 15f, 0f);
                 var sCol = stone.GetComponent<Collider>();
                 if (sCol != null) Destroy(sCol);
-                if (stoneMat != null) stone.GetComponent<MeshRenderer>().sharedMaterial = stoneMat;
+                stone.GetComponent<MeshRenderer>().sharedMaterial = stoneMat;
             }
 
             // Flame cone (center) – cache mesh for reuse
@@ -181,7 +165,7 @@ namespace Terranova.Population
             var flameMF = flame.AddComponent<MeshFilter>();
             flameMF.sharedMesh = flameConeMesh;
             var flameMR = flame.AddComponent<MeshRenderer>();
-            if (flameMat != null) flameMR.sharedMaterial = flameMat;
+            flameMR.sharedMaterial = flameMat;
 
             // Inner glow cone
             var glow = new GameObject("Glow");
@@ -191,7 +175,7 @@ namespace Terranova.Population
             var glowMF = glow.AddComponent<MeshFilter>();
             glowMF.sharedMesh = flameConeMesh;
             var glowMR = glow.AddComponent<MeshRenderer>();
-            if (glowMat != null) glowMR.sharedMaterial = glowMat;
+            glowMR.sharedMaterial = glowMat;
 
             // v0.5.0: Orange point light for campfire glow (visible at night)
             var lightObj = new GameObject("CampfireLight");
@@ -203,6 +187,21 @@ namespace Terranova.Population
             pointLight.intensity = 2.5f;
             pointLight.range = 15f;
             pointLight.shadows = LightShadows.Soft;
+
+            // v0.5.1: Campfire particle system (flame + embers + smoke)
+            CreateCampfireParticles(campfire.transform, position);
+
+            // v0.5.1: Scorch/burn texture around campfire base
+            var scorchQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            scorchQuad.name = "Scorch";
+            scorchQuad.transform.SetParent(campfire.transform, false);
+            scorchQuad.transform.localPosition = new Vector3(0f, 0.02f, 0f);
+            scorchQuad.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            scorchQuad.transform.localScale = new Vector3(3f, 3f, 1f);
+            Destroy(scorchQuad.GetComponent<Collider>());
+            var scorchMr = scorchQuad.GetComponent<MeshRenderer>();
+            scorchMr.sharedMaterial = TerrainShaderLibrary.CreateScorchMaterial();
+            scorchMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             // Box collider on root for selection
             var rootCol = campfire.AddComponent<BoxCollider>();
@@ -225,6 +224,96 @@ namespace Terranova.Population
             });
 
             return position;
+        }
+
+        /// <summary>
+        /// v0.5.1: Create particle systems for campfire flame, embers, and smoke.
+        /// </summary>
+        private void CreateCampfireParticles(Transform campfireRoot, Vector3 position)
+        {
+            // ── Flame particles ──
+            var flameObj = new GameObject("FlameParticles");
+            flameObj.transform.SetParent(campfireRoot, false);
+            flameObj.transform.localPosition = new Vector3(0f, 0.15f, 0f);
+            var flameParts = flameObj.AddComponent<ParticleSystem>();
+            var flameMain = flameParts.main;
+            flameMain.startLifetime = 0.6f;
+            flameMain.startSpeed = 0.8f;
+            flameMain.startSize = new ParticleSystem.MinMaxCurve(0.08f, 0.2f);
+            flameMain.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(1f, 0.6f, 0.1f, 1f), new Color(1f, 0.3f, 0.05f, 0.8f));
+            flameMain.maxParticles = 30;
+            flameMain.simulationSpace = ParticleSystemSimulationSpace.World;
+            var flameEmit = flameParts.emission;
+            flameEmit.rateOverTime = 20f;
+            var flameShape = flameParts.shape;
+            flameShape.shapeType = ParticleSystemShapeType.Cone;
+            flameShape.radius = 0.1f;
+            flameShape.angle = 15f;
+            var flameSizeOverLife = flameParts.sizeOverLifetime;
+            flameSizeOverLife.enabled = true;
+            flameSizeOverLife.size = new ParticleSystem.MinMaxCurve(1f,
+                new AnimationCurve(new Keyframe(0f, 1f), new Keyframe(1f, 0f)));
+            var flameColorOverLife = flameParts.colorOverLifetime;
+            flameColorOverLife.enabled = true;
+            var flameGrad = new Gradient();
+            flameGrad.SetKeys(
+                new[] { new GradientColorKey(new Color(1f, 0.8f, 0.3f), 0f), new GradientColorKey(new Color(1f, 0.2f, 0f), 1f) },
+                new[] { new GradientAlphaKey(1f, 0f), new GradientAlphaKey(0f, 1f) });
+            flameColorOverLife.color = flameGrad;
+            var flameRenderer = flameObj.GetComponent<ParticleSystemRenderer>();
+            flameRenderer.renderMode = ParticleSystemRenderMode.Billboard;
+
+            // ── Ember particles ──
+            var emberObj = new GameObject("EmberParticles");
+            emberObj.transform.SetParent(campfireRoot, false);
+            emberObj.transform.localPosition = new Vector3(0f, 0.3f, 0f);
+            var emberParts = emberObj.AddComponent<ParticleSystem>();
+            var emberMain = emberParts.main;
+            emberMain.startLifetime = new ParticleSystem.MinMaxCurve(1f, 2.5f);
+            emberMain.startSpeed = new ParticleSystem.MinMaxCurve(0.3f, 1.0f);
+            emberMain.startSize = new ParticleSystem.MinMaxCurve(0.02f, 0.05f);
+            emberMain.startColor = new Color(1f, 0.5f, 0.1f, 1f);
+            emberMain.maxParticles = 15;
+            emberMain.simulationSpace = ParticleSystemSimulationSpace.World;
+            emberMain.gravityModifier = -0.1f;
+            var emberEmit = emberParts.emission;
+            emberEmit.rateOverTime = 5f;
+            var emberShape = emberParts.shape;
+            emberShape.shapeType = ParticleSystemShapeType.Sphere;
+            emberShape.radius = 0.15f;
+
+            // ── Smoke particles ──
+            var smokeObj = new GameObject("SmokeParticles");
+            smokeObj.transform.SetParent(campfireRoot, false);
+            smokeObj.transform.localPosition = new Vector3(0f, 0.5f, 0f);
+            var smokeParts = smokeObj.AddComponent<ParticleSystem>();
+            var smokeMain = smokeParts.main;
+            smokeMain.startLifetime = new ParticleSystem.MinMaxCurve(2f, 4f);
+            smokeMain.startSpeed = new ParticleSystem.MinMaxCurve(0.2f, 0.5f);
+            smokeMain.startSize = new ParticleSystem.MinMaxCurve(0.15f, 0.4f);
+            smokeMain.startColor = new ParticleSystem.MinMaxGradient(
+                new Color(0.3f, 0.3f, 0.3f, 0.2f), new Color(0.5f, 0.5f, 0.5f, 0.1f));
+            smokeMain.maxParticles = 20;
+            smokeMain.simulationSpace = ParticleSystemSimulationSpace.World;
+            smokeMain.gravityModifier = -0.05f;
+            var smokeEmit = smokeParts.emission;
+            smokeEmit.rateOverTime = 3f;
+            var smokeShape = smokeParts.shape;
+            smokeShape.shapeType = ParticleSystemShapeType.Cone;
+            smokeShape.radius = 0.05f;
+            smokeShape.angle = 10f;
+            var smokeSizeOverLife = smokeParts.sizeOverLifetime;
+            smokeSizeOverLife.enabled = true;
+            smokeSizeOverLife.size = new ParticleSystem.MinMaxCurve(1f,
+                new AnimationCurve(new Keyframe(0f, 0.5f), new Keyframe(1f, 2f)));
+            var smokeColorOverLife = smokeParts.colorOverLifetime;
+            smokeColorOverLife.enabled = true;
+            var smokeGrad = new Gradient();
+            smokeGrad.SetKeys(
+                new[] { new GradientColorKey(new Color(0.4f, 0.4f, 0.4f), 0f), new GradientColorKey(new Color(0.6f, 0.6f, 0.6f), 1f) },
+                new[] { new GradientAlphaKey(0.15f, 0f), new GradientAlphaKey(0f, 1f) });
+            smokeColorOverLife.color = smokeGrad;
         }
 
         /// <summary>
@@ -355,33 +444,10 @@ namespace Terranova.Population
             triggerCol.center = Vector3.zero;
             triggerCol.size = new Vector3(5f, 0.5f, 5f);
 
-            // Water materials
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            if (shader != null)
-            {
-                // Transparent blue-green water surface
-                var waterMat = new Material(shader);
-                waterMat.name = "FreshwaterPond_Material (Auto)";
-                waterMat.SetColor("_BaseColor", new Color(0.15f, 0.45f, 0.60f, 0.55f));
-                if (waterMat.HasProperty("_Surface"))
-                {
-                    waterMat.SetFloat("_Surface", 1f);
-                    waterMat.renderQueue = 3000;
-                }
-                waterQuad.GetComponent<MeshRenderer>().sharedMaterial = waterMat;
-
-                // Dark basin underneath
-                var basinMat = new Material(shader);
-                basinMat.name = "PondBasin_Material (Auto)";
-                basinMat.SetColor("_BaseColor", new Color(0.08f, 0.20f, 0.30f, 0.7f));
-                if (basinMat.HasProperty("_Surface"))
-                {
-                    basinMat.SetFloat("_Surface", 1f);
-                    basinMat.renderQueue = 2999;
-                }
-                basin.GetComponent<MeshRenderer>().sharedMaterial = basinMat;
-            }
+            // Water materials: enhanced water shader with waves, ripples, fresnel
+            waterQuad.GetComponent<MeshRenderer>().sharedMaterial = TerrainShaderLibrary.CreateWaterMaterial();
+            basin.GetComponent<MeshRenderer>().sharedMaterial =
+                TerrainShaderLibrary.CreatePropMaterial("PondBasin_Mat", new Color(0.08f, 0.20f, 0.30f), 0.05f);
 
             // Register freshwater center so settlers can find drinkable water
             world.FreshwaterCenter = pondPos;

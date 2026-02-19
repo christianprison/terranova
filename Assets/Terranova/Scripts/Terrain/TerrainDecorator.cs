@@ -73,43 +73,39 @@ namespace Terranova.Terrain
 
         private void CreateMaterials()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            // Trunk: brown bark, low smoothness
+            _trunkMat       = TerrainShaderLibrary.CreateWoodMaterial("Decor_Trunk", new Color(0.40f, 0.26f, 0.13f));
 
-            _trunkMat       = MakeMat(shader, "Trunk",       new Color(0.40f, 0.26f, 0.13f));
-            _pineCanopyMat  = MakeMat(shader, "PineCanopy",  new Color(0.15f, 0.40f, 0.15f));
-            _oakCanopyMat   = MakeMat(shader, "OakCanopy",   new Color(0.25f, 0.55f, 0.20f));
-            _birchCanopyMat = MakeMat(shader, "BirchCanopy", new Color(0.40f, 0.65f, 0.30f));
-            _palmCanopyMat  = MakeMat(shader, "PalmCanopy",  new Color(0.20f, 0.50f, 0.15f));
-            _rockMat        = MakeMat(shader, "Rock",        new Color(0.50f, 0.48f, 0.45f));
-            _darkRockMat    = MakeMat(shader, "DarkRock",    new Color(0.35f, 0.33f, 0.30f));
-            _bushMat        = MakeMat(shader, "Bush",        new Color(0.22f, 0.48f, 0.18f));
-            _berryBushMat   = MakeMat(shader, "BerryBush",   new Color(0.20f, 0.42f, 0.15f));
-            _reedMat        = MakeMat(shader, "Reed",        new Color(0.55f, 0.60f, 0.30f));
-            _groundDirtMat      = MakeMat(shader, "GroundDirt",     new Color(0.45f, 0.35f, 0.22f, 0.6f));
-            _groundSandMat      = MakeMat(shader, "GroundSand",     new Color(0.75f, 0.68f, 0.50f, 0.6f));
-            _groundDarkGrassMat = MakeMat(shader, "GroundDarkGrass",new Color(0.18f, 0.38f, 0.12f, 0.6f));
-            _groundRockyMat     = MakeMat(shader, "GroundRocky",    new Color(0.42f, 0.40f, 0.38f, 0.6f));
-            _shelterRockMat   = MakeMat(shader, "ShelterRock",  new Color(0.48f, 0.44f, 0.40f));
-            _shelterThicketMat= MakeMat(shader, "ShelterThicket",new Color(0.18f, 0.40f, 0.12f));
-            _shelterCaveMat   = MakeMat(shader, "ShelterCave",  new Color(0.15f, 0.12f, 0.10f));
+            // Canopies: use WindFoliage shader for alpha cutout + wind sway
+            _pineCanopyMat  = TerrainShaderLibrary.CreateFoliageMaterial("Decor_PineCanopy",  new Color(0.15f, 0.40f, 0.15f), 0.30f, 0.06f, 1.2f);
+            _oakCanopyMat   = TerrainShaderLibrary.CreateFoliageMaterial("Decor_OakCanopy",   new Color(0.25f, 0.55f, 0.20f), 0.35f, 0.10f, 1.5f);
+            _birchCanopyMat = TerrainShaderLibrary.CreateFoliageMaterial("Decor_BirchCanopy", new Color(0.40f, 0.65f, 0.30f), 0.32f, 0.12f, 1.8f);
+            _palmCanopyMat  = TerrainShaderLibrary.CreateFoliageMaterial("Decor_PalmCanopy",  new Color(0.20f, 0.50f, 0.15f), 0.28f, 0.05f, 1.0f);
 
-            // Water material with transparency
-            _waterPlaneMat = MakeMat(shader, "WaterPlane", new Color(0.15f, 0.45f, 0.55f, 0.65f));
-            if (_waterPlaneMat != null && _waterPlaneMat.HasProperty("_Surface"))
-            {
-                _waterPlaneMat.SetFloat("_Surface", 1f);
-                _waterPlaneMat.renderQueue = 3000;
-            }
-        }
+            // Rocks: low smoothness, no metallic
+            _rockMat        = TerrainShaderLibrary.CreateRockMaterial("Decor_Rock",      new Color(0.50f, 0.48f, 0.45f));
+            _darkRockMat    = TerrainShaderLibrary.CreateRockMaterial("Decor_DarkRock",  new Color(0.35f, 0.33f, 0.30f));
 
-        private static Material MakeMat(Shader shader, string name, Color color)
-        {
-            if (shader == null) return null;
-            var mat = new Material(shader);
-            mat.name = $"Decor_{name} (Auto)";
-            mat.SetColor("_BaseColor", color);
-            return mat;
+            // Bushes: wind foliage
+            _bushMat        = TerrainShaderLibrary.CreateFoliageMaterial("Decor_Bush",      new Color(0.22f, 0.48f, 0.18f), 0.38f, 0.07f, 1.6f);
+            _berryBushMat   = TerrainShaderLibrary.CreateFoliageMaterial("Decor_BerryBush", new Color(0.20f, 0.42f, 0.15f), 0.36f, 0.07f, 1.4f);
+
+            // Reeds: wind foliage with thinner cutout
+            _reedMat        = TerrainShaderLibrary.CreateFoliageMaterial("Decor_Reed",      new Color(0.55f, 0.60f, 0.30f), 0.25f, 0.15f, 2.0f);
+
+            // Ground patches: use trampled path shader for terrain blending
+            _groundDirtMat      = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundDirt",      new Color(0.45f, 0.35f, 0.22f), 0.05f);
+            _groundSandMat      = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundSand",      new Color(0.75f, 0.68f, 0.50f), 0.05f);
+            _groundDarkGrassMat = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundDarkGrass", new Color(0.18f, 0.38f, 0.12f), 0.05f);
+            _groundRockyMat     = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundRocky",     new Color(0.42f, 0.40f, 0.38f), 0.05f);
+
+            // Shelters
+            _shelterRockMat   = TerrainShaderLibrary.CreateRockMaterial("Decor_ShelterRock",   new Color(0.48f, 0.44f, 0.40f));
+            _shelterThicketMat= TerrainShaderLibrary.CreateFoliageMaterial("Decor_ShelterThicket", new Color(0.18f, 0.40f, 0.12f), 0.40f, 0.05f, 1.2f);
+            _shelterCaveMat   = TerrainShaderLibrary.CreateCaveInteriorMaterial();
+
+            // Water: enhanced water surface shader
+            _waterPlaneMat    = TerrainShaderLibrary.CreateWaterMaterial();
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -466,9 +462,10 @@ namespace Terranova.Terrain
                     var berryMr = berry.GetComponent<MeshRenderer>();
                     if (berryMr != null)
                     {
-                        var berryMat = new Material(berryMr.sharedMaterial);
-                        berryMat.SetColor("_BaseColor", new Color(0.85f, 0.15f, 0.15f));
-                        berryMr.sharedMaterial = berryMat;
+                        // Emissive red berries — visible from distance
+                        berryMr.sharedMaterial = TerrainShaderLibrary.CreateEmissivePropMaterial(
+                            "Berry_Emissive", new Color(0.85f, 0.15f, 0.15f),
+                            new Color(0.3f, 0.02f, 0.02f), 0.4f);
                     }
                 }
             }

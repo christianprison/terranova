@@ -698,8 +698,8 @@ namespace Terranova.Terrain
                 }
                 if (shader == null)
                 {
-                    Debug.LogWarning("WorldManager: VertexColorOpaque shader not found, trying URP Particles/Unlit...");
-                    shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+                    Debug.LogWarning("WorldManager: VertexColorOpaque shader not found, trying PropLit...");
+                    shader = Shader.Find("Terranova/PropLit");
                 }
 
                 if (shader == null)
@@ -727,8 +727,8 @@ namespace Terranova.Terrain
                 Shader shader = Shader.Find("Terranova/VertexColorTransparent");
                 if (shader == null)
                 {
-                    Debug.LogWarning("WorldManager: VertexColorTransparent shader not found, trying URP Particles/Unlit...");
-                    shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+                    Debug.LogWarning("WorldManager: VertexColorTransparent shader not found, trying PropLit...");
+                    shader = Shader.Find("Terranova/PropLit");
                 }
 
                 if (shader == null)

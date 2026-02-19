@@ -6,6 +6,7 @@ using Terranova.Core;
 using Terranova.Population;
 using Terranova.Buildings;
 using Terranova.Resources;
+using Terranova.Terrain;
 using Touch = UnityEngine.InputSystem.EnhancedTouch.Touch;
 
 namespace Terranova.Input
@@ -358,16 +359,9 @@ namespace Terranova.Input
             lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             lineRenderer.receiveShadows = false;
 
-            // Use unlit material for consistent visibility
-            Shader shader = Shader.Find("Universal Render Pipeline/Particles/Unlit")
-                         ?? Shader.Find("Sprites/Default");
-            if (shader != null)
-            {
-                var mat = new Material(shader);
-                mat.SetColor("_BaseColor", HIGHLIGHT_COLOR);
-                mat.color = HIGHLIGHT_COLOR;
-                lineRenderer.material = mat;
-            }
+            // Use emissive material for consistent visibility
+            var mat = TerrainShaderLibrary.CreateEmissivePropMaterial(HIGHLIGHT_COLOR, HIGHLIGHT_COLOR);
+            lineRenderer.material = mat;
 
             lineRenderer.startColor = HIGHLIGHT_COLOR;
             lineRenderer.endColor = HIGHLIGHT_COLOR;

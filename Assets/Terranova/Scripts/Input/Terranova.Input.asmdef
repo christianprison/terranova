@@ -6,6 +6,7 @@
         "Terranova.Population",
         "Terranova.Buildings",
         "Terranova.Resources",
+        "Terranova.Terrain",
         "Unity.InputSystem"
     ],
     "includePlatforms": [],

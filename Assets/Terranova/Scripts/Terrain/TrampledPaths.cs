@@ -198,27 +198,8 @@ namespace Terranova.Terrain
 
         private void CreateMaterials()
         {
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
-            if (shader == null) return;
-
-            _lightPathMat = new Material(shader);
-            _lightPathMat.name = "LightPath_Mat";
-            _lightPathMat.SetColor("_BaseColor", new Color(0.50f, 0.40f, 0.28f, 0.45f));
-            if (_lightPathMat.HasProperty("_Surface"))
-            {
-                _lightPathMat.SetFloat("_Surface", 1f);
-                _lightPathMat.renderQueue = 2501;
-            }
-
-            _clearPathMat = new Material(shader);
-            _clearPathMat.name = "ClearPath_Mat";
-            _clearPathMat.SetColor("_BaseColor", new Color(0.55f, 0.42f, 0.25f, 0.65f));
-            if (_clearPathMat.HasProperty("_Surface"))
-            {
-                _clearPathMat.SetFloat("_Surface", 1f);
-                _clearPathMat.renderQueue = 2502;
-            }
+            _lightPathMat = TerrainShaderLibrary.CreateLightPathMaterial();
+            _clearPathMat = TerrainShaderLibrary.CreateClearPathMaterial();
         }
 
         private void RebuildVisuals()

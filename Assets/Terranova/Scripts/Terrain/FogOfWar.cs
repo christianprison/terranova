@@ -311,24 +311,8 @@ namespace Terranova.Terrain
             _meshFilter.mesh = _fogMesh;
             _meshRenderer = fogObj.AddComponent<MeshRenderer>();
 
-            // Transparent dark material
-            Shader shader = Shader.Find("Universal Render Pipeline/Unlit")
-                         ?? Shader.Find("Unlit/Color");
-            if (shader != null)
-            {
-                var mat = new Material(shader);
-                mat.name = "FogOfWar_Mat";
-                mat.SetColor("_BaseColor", Color.white); // Tint from vertex colors
-                // Enable transparency
-                mat.SetFloat("_Surface", 1f); // Transparent
-                mat.SetFloat("_Blend", 0f); // Alpha
-                mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.SrcAlpha);
-                mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
-                mat.SetInt("_ZWrite", 0);
-                mat.renderQueue = 3100; // After transparent water
-                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
-                _meshRenderer.sharedMaterial = mat;
-            }
+            // Custom fog shader with gradient edges and animated noise
+            _meshRenderer.sharedMaterial = TerrainShaderLibrary.CreateFogMaterial();
 
             // Disable shadows
             _meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;

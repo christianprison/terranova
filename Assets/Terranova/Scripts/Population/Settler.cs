@@ -2405,12 +2405,11 @@ namespace Terranova.Population
             if (_sharedMaterial != null)
                 return;
 
-            Shader shader = Shader.Find("Universal Render Pipeline/Lit")
-                         ?? Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            Shader shader = TerrainShaderLibrary.PropLit;
 
             if (shader == null)
             {
-                Debug.LogError("Settler: No URP shader found for settler material.");
+                Debug.LogError("Settler: No PropLit shader found for settler material.");
                 return;
             }
 
