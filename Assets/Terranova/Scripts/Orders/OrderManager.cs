@@ -127,17 +127,19 @@ namespace Terranova.Orders
         }
 
         /// <summary>
-        /// Cancel an order: release settlers, destroy marker, clear tasks.
+        /// Cancel an order: release settlers, destroy marker, remove from list.
+        /// v0.4.17: CancelOrder now fully removes the order (was only setting Failed).
         /// </summary>
         public void CancelOrder(int orderId)
         {
             var order = FindOrder(orderId);
             if (order == null) return;
 
-            order.Status = OrderStatus.Failed;
+            string sentence = order.BuildSentence();
             ReleaseSettlersFromOrder(order);
             DestroyLocationMarker(order);
             order.AssignedSettlers.Clear();
+            _orders.Remove(order);
 
             EventBus.Publish(new OrderStatusChangedEvent
             {
@@ -145,7 +147,7 @@ namespace Terranova.Orders
                 NewStatus = OrderStatus.Failed
             });
 
-            Debug.Log($"[Order] Cancelled: {order.BuildSentence()} (id={orderId})");
+            Debug.Log($"[Order] Cancelled + removed: {sentence} (id={orderId})");
         }
 
         /// <summary>

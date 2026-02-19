@@ -1571,10 +1571,35 @@ namespace Terranova.Population
                 // Dawn: if resting at campfire, resume normal behavior
                 if (_state == SettlerState.RestingAtCampfire)
                 {
-                    Debug.Log($"[{name}] Dawn — resuming normal activity");
                     _coldExposureTimer = 0f;
                     _shelterState = ShelterState.Sheltered;
-                    ResumeAfterNeedsFulfilled();
+
+                    // v0.4.17: If settler has an active order, discard stale saved
+                    // task and go idle. OrderManager will re-assign the correct
+                    // order fresh (matched by settler name), preventing target swaps.
+                    bool hasOrder = OrderQueryBridge.HasOrderForSettler != null
+                        && OrderQueryBridge.HasOrderForSettler(name);
+                    if (hasOrder)
+                    {
+                        if (_savedTask != null)
+                        {
+                            if (_savedTask.TargetResource != null && _savedTask.TargetResource.IsReserved)
+                                _savedTask.TargetResource.Release();
+                            if (_savedTask.TargetBuilding != null && _savedTask.TargetBuilding.IsBeingBuilt)
+                                _savedTask.TargetBuilding.ReleaseConstruction();
+                            _savedTask = null;
+                        }
+                        _currentTask = null;
+                        _state = SettlerState.IdlePausing;
+                        _stateTimer = 0.1f; // Minimal pause, OrderManager picks up fast
+                        UpdateVisualColor();
+                        Debug.Log($"[{name}] Dawn — has active order, going idle for fresh OrderManager assignment");
+                    }
+                    else
+                    {
+                        Debug.Log($"[{name}] Dawn — no order, resuming saved task or idle");
+                        ResumeAfterNeedsFulfilled();
+                    }
                 }
             }
 

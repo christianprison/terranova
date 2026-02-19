@@ -300,7 +300,7 @@ namespace Terranova.UI
             plText.fontStyle = FontStyle.Bold;
             plText.text = order.Status == OrderStatus.Paused ? ">" : "||";
 
-            // Cancel button — 44 × 44 (red X, cancels order, removes marker, frees settlers)
+            // Cancel button — 44 × 44 (bright red X, cancels order + removes marker + frees settlers)
             var cancelObj = new GameObject("CancelBtn");
             cancelObj.transform.SetParent(row.transform, false);
             var cancelRect = cancelObj.AddComponent<RectTransform>();
@@ -309,26 +309,38 @@ namespace Terranova.UI
             cancelRect.pivot = new Vector2(1, 0.5f);
             cancelRect.anchoredPosition = new Vector2(-2, 0);
             cancelRect.sizeDelta = new Vector2(TOUCH_SIZE, TOUCH_SIZE);
+
+            // Bright red background with full opacity
             var cancelImg = cancelObj.AddComponent<Image>();
-            cancelImg.color = new Color(0.7f, 0.1f, 0.1f, 0.95f);
-            cancelObj.AddComponent<Button>().onClick.AddListener(() =>
+            cancelImg.color = new Color(0.85f, 0.08f, 0.08f, 1f);
+
+            var cancelBtn = cancelObj.AddComponent<Button>();
+            cancelBtn.targetGraphic = cancelImg;
+            cancelBtn.onClick.AddListener(() =>
             {
                 OrderManager.Instance?.CancelOrder(orderId);
                 _dirty = true;
             });
+
+            // White "X" label — stretched to fill, explicit offsets
             var cancelLabel = new GameObject("CL");
             cancelLabel.transform.SetParent(cancelObj.transform, false);
             var clRect = cancelLabel.AddComponent<RectTransform>();
             clRect.anchorMin = Vector2.zero;
             clRect.anchorMax = Vector2.one;
-            clRect.sizeDelta = Vector2.zero;
+            clRect.offsetMin = Vector2.zero;
+            clRect.offsetMax = Vector2.zero;
             var clText = cancelLabel.AddComponent<Text>();
             clText.font = GetFont();
-            clText.fontSize = 20;
+            clText.fontSize = 22;
             clText.color = Color.white;
             clText.alignment = TextAnchor.MiddleCenter;
             clText.fontStyle = FontStyle.Bold;
             clText.text = "X";
+            // Outline for visibility
+            var clOutline = cancelLabel.AddComponent<Outline>();
+            clOutline.effectColor = new Color(0, 0, 0, 0.8f);
+            clOutline.effectDistance = new Vector2(1, -1);
         }
 
         // ─── Helpers ─────────────────────────────────────────
