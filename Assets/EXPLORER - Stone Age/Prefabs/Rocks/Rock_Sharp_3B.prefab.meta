@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d17039d03cc493b4fbb496528e74c72d
+timeCreated: 1563887201
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Rock_Sharp_3B.prefab
+  uploadId: 500156

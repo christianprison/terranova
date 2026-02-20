@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 32044d7a06ff5f64c818cf170942efe7
+timeCreated: 1563893122
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Stone_Step_3B.prefab
+  uploadId: 500156

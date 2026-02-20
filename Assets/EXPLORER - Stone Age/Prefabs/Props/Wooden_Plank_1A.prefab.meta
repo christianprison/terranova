@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: ec6c83ca9698b4caf889944cdc61e002
+timeCreated: 1563915167
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Wooden_Plank_1A.prefab
+  uploadId: 500156

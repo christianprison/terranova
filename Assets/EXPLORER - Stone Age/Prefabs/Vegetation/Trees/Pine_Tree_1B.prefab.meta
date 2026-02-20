@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 85b5270a0dbba044ca78a51b40830fc1
+timeCreated: 1563798854
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Trees/Pine_Tree_1B.prefab
+  uploadId: 500156

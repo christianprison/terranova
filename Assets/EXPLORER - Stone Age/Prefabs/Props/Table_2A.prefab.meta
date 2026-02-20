@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bf7446cd663224d48a66d29fbe0cf898
+timeCreated: 1563907378
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Table_2A.prefab
+  uploadId: 500156

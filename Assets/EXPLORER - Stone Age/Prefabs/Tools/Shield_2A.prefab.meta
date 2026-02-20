@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 49854bdc83e61c24091d8ec240bb2819
+timeCreated: 1563888283
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Tools/Shield_2A.prefab
+  uploadId: 500156

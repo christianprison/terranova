@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2eb7b023d0a08a54c972e0fbe1aab781
+timeCreated: 1563878077
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Obelisk_1C.prefab
+  uploadId: 500156

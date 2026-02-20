@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6e742d9b2e8748b468d53ea218904008
+timeCreated: 1563812369
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Canyon_Wall_3A.prefab
+  uploadId: 500156

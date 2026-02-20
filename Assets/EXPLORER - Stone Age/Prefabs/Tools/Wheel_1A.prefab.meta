@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 06717c0f0e4ac4474bf0c0f6da955276
+timeCreated: 1563915120
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Tools/Wheel_1A.prefab
+  uploadId: 500156

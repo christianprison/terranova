@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a248d32738b6e44db84984d83d834322
+timeCreated: 1552609067
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Models/Materials/Trees_4A_D.mat
+  uploadId: 500156

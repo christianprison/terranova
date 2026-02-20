@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 29d85c4ff76bb45cc89f58638f80a7c5
+timeCreated: 1559648987
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 9100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Animations/Controllers/Prehistoric_Male_Avatar_Pray_1.controller
+  uploadId: 500156

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b768985efdde14242968b9ea2a64a053
+timeCreated: 1541595976
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Models/Materials/Tent_1G_D.mat
+  uploadId: 500156

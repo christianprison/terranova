@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 4b0faed7c05735e47b8b207eaeef03e1
+timeCreated: 1563792833
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Buildings/Tannery_2A.prefab
+  uploadId: 500156

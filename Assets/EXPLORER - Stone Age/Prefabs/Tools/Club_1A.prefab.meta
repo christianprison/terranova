@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 03e7a0c644a92459eac87b3026c06302
+timeCreated: 1563916225
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Tools/Club_1A.prefab
+  uploadId: 500156

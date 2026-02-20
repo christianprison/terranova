@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 76004f3ec272b41478bdc99b592e566a
+timeCreated: 1542378917
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Models/Materials/Cliff_Formation_1A_D.mat
+  uploadId: 500156

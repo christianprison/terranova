@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0b1ee6388def4af45857a75c0eaf25e7
+timeCreated: 1563888146
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Rock_Wall_1C_Corner.prefab
+  uploadId: 500156

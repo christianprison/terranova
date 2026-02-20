@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 145d930278c98174d91f6f553bce3b58
+ShaderImporter:
+  externalObjects: {}
+  defaultTextures: []
+  nonModifiableTextures: []
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Shaders/Stylized_Water.shader
+  uploadId: 500156

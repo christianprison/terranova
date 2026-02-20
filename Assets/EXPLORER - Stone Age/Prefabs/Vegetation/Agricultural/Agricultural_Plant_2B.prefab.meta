@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 0524e5ad390c9e1488f79b13825f6ff8
+timeCreated: 1563806981
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Agricultural/Agricultural_Plant_2B.prefab
+  uploadId: 500156

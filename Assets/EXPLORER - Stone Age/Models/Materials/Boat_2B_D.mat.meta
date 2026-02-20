@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c1483f2cb4ed31c4ea696968e5806068
+timeCreated: 1541771406
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Models/Materials/Boat_2B_D.mat
+  uploadId: 500156

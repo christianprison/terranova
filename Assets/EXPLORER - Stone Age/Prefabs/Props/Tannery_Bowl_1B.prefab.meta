@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b26052f9699dc49bbbf3def01d5c75c9
+timeCreated: 1563907446
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Tannery_Bowl_1B.prefab
+  uploadId: 500156

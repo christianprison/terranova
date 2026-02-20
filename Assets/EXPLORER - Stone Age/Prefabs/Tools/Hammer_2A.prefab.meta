@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f4c8ec0b2c390454e95c814d6d772a11
+timeCreated: 1563916570
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Tools/Hammer_2A.prefab
+  uploadId: 500156

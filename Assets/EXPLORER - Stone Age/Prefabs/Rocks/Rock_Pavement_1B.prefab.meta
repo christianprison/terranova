@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 37cdcf7a441f5624593d8f26feed6cc7
+timeCreated: 1563886802
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Rock_Pavement_1B.prefab
+  uploadId: 500156

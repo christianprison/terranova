@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 2a4cd29f047cbb0419980009dd6603dc
+timeCreated: 1563801162
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Plants/Bush_8C.prefab
+  uploadId: 500156

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fbf3f25857c3a4d48b89e3486c49e8ea
+timeCreated: 1563806496
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Trees/Tree_Log_2B.prefab
+  uploadId: 500156

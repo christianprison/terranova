@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d7806e96b1d1b83408dbc3a6cadcb87a
+timeCreated: 1563806206
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Trees/Tree_Trunk_1A.prefab
+  uploadId: 500156

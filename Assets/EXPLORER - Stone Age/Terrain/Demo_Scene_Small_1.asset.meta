@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f0136364f59eb41ccaebc41e260760f9
+timeCreated: 1562439326
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 15600000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Terrain/Demo_Scene_Small_1.asset
+  uploadId: 500156

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fbc5a517a358674499d4c324d67d0e2f
+timeCreated: 1563888005
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Rock_Totem_1B.prefab
+  uploadId: 500156

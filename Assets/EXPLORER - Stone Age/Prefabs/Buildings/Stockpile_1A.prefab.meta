@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 5ef09b8c4c4ab7743b29b761c6c785bf
+timeCreated: 1563792281
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Buildings/Stockpile_1A.prefab
+  uploadId: 500156

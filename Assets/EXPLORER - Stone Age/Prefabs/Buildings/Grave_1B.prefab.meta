@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 70a84aa3f829e4a40871ce21dcdc0a81
+timeCreated: 1563876844
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Buildings/Grave_1B.prefab
+  uploadId: 500156

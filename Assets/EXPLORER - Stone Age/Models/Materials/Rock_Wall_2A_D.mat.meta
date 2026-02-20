@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: fcfb2bf258925e14a87c0575dfe08a6b
+timeCreated: 1542124621
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 2100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Models/Materials/Rock_Wall_2A_D.mat
+  uploadId: 500156

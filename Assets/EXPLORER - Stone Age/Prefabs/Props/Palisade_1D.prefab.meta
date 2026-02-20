@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a370eee70f6e753458ce555cb8cfd268
+timeCreated: 1563878254
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Palisade_1D.prefab
+  uploadId: 500156

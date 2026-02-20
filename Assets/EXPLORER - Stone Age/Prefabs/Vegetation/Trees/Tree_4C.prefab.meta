@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 6fcb9f684cce9044e9f8fb1f5d791c56
+timeCreated: 1563800358
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Trees/Tree_4C.prefab
+  uploadId: 500156

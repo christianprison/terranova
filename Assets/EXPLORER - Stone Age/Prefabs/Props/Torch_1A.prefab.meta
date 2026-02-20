@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 63f9b63d451854da683bc84905a49123
+timeCreated: 1563914691
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Torch_1A.prefab
+  uploadId: 500156

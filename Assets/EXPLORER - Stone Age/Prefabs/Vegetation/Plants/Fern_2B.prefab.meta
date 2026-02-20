@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c6c12001f9e08db46b40bdfb0337672f
+timeCreated: 1563801564
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Plants/Fern_2B.prefab
+  uploadId: 500156

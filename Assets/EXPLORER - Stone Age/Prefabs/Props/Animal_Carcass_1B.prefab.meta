@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: bb8330a3f0e562942a56db6eda516c1d
+timeCreated: 1563808199
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Animal_Carcass_1B.prefab
+  uploadId: 500156

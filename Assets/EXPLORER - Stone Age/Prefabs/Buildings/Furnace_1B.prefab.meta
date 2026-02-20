@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 90fffb9909148a643a6522a56c71ef5d
+timeCreated: 1563791784
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Buildings/Furnace_1B.prefab
+  uploadId: 500156

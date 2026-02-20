@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: e6d80d1c0917f438cae0523f761f2ede
+timeCreated: 1563821196
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Pottery/Clay_Dish_1D.prefab
+  uploadId: 500156

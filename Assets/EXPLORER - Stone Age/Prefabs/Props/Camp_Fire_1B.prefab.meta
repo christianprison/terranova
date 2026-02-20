@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: c76ba9811c643614f8f14150ede35029
+timeCreated: 1563811937
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Camp_Fire_1B.prefab
+  uploadId: 500156

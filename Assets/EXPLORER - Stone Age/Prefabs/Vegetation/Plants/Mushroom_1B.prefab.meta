@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: b335ec3a45450b54a908b9e6f482c1de
+timeCreated: 1563801733
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Plants/Mushroom_1B.prefab
+  uploadId: 500156

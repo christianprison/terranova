@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: d94d1a3e3e712f54eb1f91aba26e3dd8
+timeCreated: 1563809207
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Tusks_1A.prefab
+  uploadId: 500156

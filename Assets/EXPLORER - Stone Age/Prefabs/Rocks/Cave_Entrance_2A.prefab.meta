@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 744b692485909492ba484e0e6a750d38
+timeCreated: 1563820881
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Cave_Entrance_2A.prefab
+  uploadId: 500156

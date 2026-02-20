@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 3a4a531c3c867d84898453e1c8f4e538
+timeCreated: 1563873649
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Fence_3B_Part_1.prefab
+  uploadId: 500156

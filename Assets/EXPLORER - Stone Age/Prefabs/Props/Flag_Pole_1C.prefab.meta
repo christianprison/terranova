@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: f49f75e3891d8d44089177643ace8435
+timeCreated: 1563873906
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Props/Flag_Pole_1C.prefab
+  uploadId: 500156

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 886235a90d060674ea00591968053b39
+timeCreated: 1563887473
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Rocks/Rock_Shrine_1B.prefab
+  uploadId: 500156

@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 8e9d8ad1352d63a438775e4da0712432
+timeCreated: 1563799692
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Vegetation/Trees/Tree_2E.prefab
+  uploadId: 500156

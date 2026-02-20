@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: a66efa476c4c74480a4d65893827421c
+timeCreated: 1563821096
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Pottery/Clay_Cup_1B.prefab
+  uploadId: 500156

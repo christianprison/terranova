@@ -1,0 +1,16 @@
+fileFormatVersion: 2
+guid: 5da2dc692bfaffd4488559b253f616b6
+timeCreated: 1564152578
+licenseType: Store
+NativeFormatImporter:
+  mainObjectFileID: 100100000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 150867
+  packageName: EXPLORER - Stone Age
+  packageVersion: 1.2.1
+  assetPath: Assets/EXPLORER - Stone Age/Prefabs/Avatars/Prehistoric_Male_Avatar_V4.prefab
+  uploadId: 500156
