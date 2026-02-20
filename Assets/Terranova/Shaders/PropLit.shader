@@ -1,6 +1,7 @@
 // URP-compatible lit shader for terrain props (rocks, wood, berries, etc.)
 // Replaces "Universal Render Pipeline/Lit" which gets stripped from code-only builds.
 // Supports: _BaseColor, _Smoothness, _Metallic, _EmissionColor
+// GPU instancing enabled so MaterialPropertyBlock per-instance overrides work.
 Shader "Terranova/PropLit"
 {
     Properties
@@ -32,21 +33,23 @@ Shader "Terranova/PropLit"
             HLSLPROGRAM
             #pragma vertex vert
             #pragma fragment frag
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
-            CBUFFER_START(UnityPerMaterial)
-                float4 _BaseColor;
-                float  _Smoothness;
-                float  _Metallic;
-                float4 _EmissionColor;
-            CBUFFER_END
+            UNITY_INSTANCING_BUFFER_START(UnityPerMaterial)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _BaseColor)
+                UNITY_DEFINE_INSTANCED_PROP(float,  _Smoothness)
+                UNITY_DEFINE_INSTANCED_PROP(float,  _Metallic)
+                UNITY_DEFINE_INSTANCED_PROP(float4, _EmissionColor)
+            UNITY_INSTANCING_BUFFER_END(UnityPerMaterial)
 
             struct Attributes
             {
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             struct Varyings
@@ -55,11 +58,14 @@ Shader "Terranova/PropLit"
                 float3 normalWS   : TEXCOORD0;
                 float3 viewDirWS  : TEXCOORD1;
                 float3 positionWS : TEXCOORD2;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
             };
 
             Varyings vert(Attributes input)
             {
                 Varyings output;
+                UNITY_SETUP_INSTANCE_ID(input);
+                UNITY_TRANSFER_INSTANCE_ID(input, output);
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.positionWS = TransformObjectToWorld(input.positionOS.xyz);
@@ -69,32 +75,39 @@ Shader "Terranova/PropLit"
 
             half4 frag(Varyings input) : SV_Target
             {
+                UNITY_SETUP_INSTANCE_ID(input);
+
+                float4 baseColor = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _BaseColor);
+                float smoothness = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Smoothness);
+                float metallic = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _Metallic);
+                float4 emissionColor = UNITY_ACCESS_INSTANCED_PROP(UnityPerMaterial, _EmissionColor);
+
                 float3 normalWS = normalize(input.normalWS);
                 Light mainLight = GetMainLight();
 
                 // Diffuse (Lambert)
                 float NdotL = saturate(dot(normalWS, mainLight.direction));
-                float3 diffuse = _BaseColor.rgb * NdotL * mainLight.color.rgb;
+                float3 diffuse = baseColor.rgb * NdotL * mainLight.color.rgb;
 
                 // Specular (Blinn-Phong)
                 float3 halfDir = normalize(mainLight.direction + input.viewDirWS);
                 float NdotH = saturate(dot(normalWS, halfDir));
-                float specPow = exp2(10.0 * _Smoothness + 1.0);
-                float3 specular = pow(NdotH, specPow) * _Smoothness * mainLight.color.rgb;
+                float specPow = exp2(10.0 * smoothness + 1.0);
+                float3 specular = pow(NdotH, specPow) * smoothness * mainLight.color.rgb;
 
                 // Fresnel metallic tint
                 float fresnel = pow(1.0 - saturate(dot(normalWS, input.viewDirWS)), 4.0);
-                specular += fresnel * _Metallic * 0.2;
+                specular += fresnel * metallic * 0.2;
 
                 // Procedural normal variation (fakes surface roughness)
                 float noise = frac(sin(dot(input.positionWS.xz, float2(12.9898, 78.233))) * 43758.5453);
                 float microDetail = lerp(0.95, 1.05, noise);
 
                 // Ambient
-                float3 ambient = _BaseColor.rgb * 0.35;
+                float3 ambient = baseColor.rgb * 0.35;
 
                 float3 finalColor = (ambient + diffuse * 0.65 + specular) * microDetail;
-                finalColor += _EmissionColor.rgb;
+                finalColor += emissionColor.rgb;
 
                 return half4(finalColor, 1.0);
             }
@@ -114,6 +127,7 @@ Shader "Terranova/PropLit"
             HLSLPROGRAM
             #pragma vertex ShadowVert
             #pragma fragment ShadowFrag
+            #pragma multi_compile_instancing
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
@@ -121,12 +135,19 @@ Shader "Terranova/PropLit"
 
             float3 _LightDirection;
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
-            struct Varyings  { float4 positionCS : SV_POSITION; };
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS : NORMAL;
+                UNITY_VERTEX_INPUT_INSTANCE_ID
+            };
+
+            struct Varyings { float4 positionCS : SV_POSITION; };
 
             Varyings ShadowVert(Attributes input)
             {
                 Varyings output;
+                UNITY_SETUP_INSTANCE_ID(input);
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, normalWS, _LightDirection));

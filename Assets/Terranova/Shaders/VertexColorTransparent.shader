@@ -1,10 +1,11 @@
 // Minimal URP-compatible shader for transparent vertex-colored geometry.
-// Used for water surfaces. Same as VertexColorOpaque but with alpha blending.
+// Used for water surfaces and building preview ghost.
+// Supports _BaseColor tint multiplied with vertex colors.
 Shader "Terranova/VertexColorTransparent"
 {
     Properties
     {
-        // No properties – vertex colors provide everything including alpha
+        _BaseColor ("Color", Color) = (1, 1, 1, 1)
     }
 
     SubShader
@@ -21,7 +22,7 @@ Shader "Terranova/VertexColorTransparent"
             Name "ForwardLit"
             Tags { "LightMode" = "UniversalForward" }
 
-            // Alpha blending: source color × source alpha + dest color × (1 - source alpha)
+            // Alpha blending: source color x source alpha + dest color x (1 - source alpha)
             Blend SrcAlpha OneMinusSrcAlpha
 
             Cull Back
@@ -34,6 +35,10 @@ Shader "Terranova/VertexColorTransparent"
 
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
+
+            CBUFFER_START(UnityPerMaterial)
+                float4 _BaseColor;
+            CBUFFER_END
 
             struct Attributes
             {
@@ -53,7 +58,7 @@ Shader "Terranova/VertexColorTransparent"
             {
                 Varyings output;
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
-                output.color = input.color;
+                output.color = input.color * _BaseColor;
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 return output;
             }
@@ -68,7 +73,7 @@ Shader "Terranova/VertexColorTransparent"
                 float3 diffuse = NdotL * mainLight.color.rgb * 0.6;
                 float3 finalColor = input.color.rgb * (ambient + diffuse);
 
-                // Preserve vertex alpha for transparency
+                // Preserve alpha for transparency
                 return half4(finalColor, input.color.a);
             }
             ENDHLSL
