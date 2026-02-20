@@ -9,18 +9,18 @@ namespace Terranova.Population
     /// <summary>
     /// Spawns the initial settlers around the campfire at game start.
     ///
-    /// v0.4.10 flow:
+    /// Flow:
     ///   1. WorldManager.PrepareSettlementArea() flattens campfire zone
     ///      during terrain generation (before mesh building + NavMesh bake).
     ///   2. This spawner waits for NavMesh to be ready.
-    ///   3. Places campfire visual at the pre-determined position.
-    ///   4. Brute-force spawns a freshwater pond (blue cylinder) 15-20 blocks
-    ///      from campfire. NOT tied to terrain generation.
-    ///   5. Spawns settlers around the campfire.
+    ///   3. Places campfire visual (prefab + fire particle) at the pre-determined position.
+    ///   4. Brute-force spawns a freshwater pond 8-12 blocks from campfire.
+    ///      NOT tied to terrain generation.
+    ///   5. Spawns settlers (avatar prefabs) around the campfire.
     ///   6. Publishes progress 1.0 so the loading screen hides.
     ///
     /// The settlers are placed at ~3 block radius from the campfire,
-    /// evenly spaced in a circle. Each gets a unique color.
+    /// evenly spaced in a circle. Each gets a unique skin tone.
     /// </summary>
     public class SettlerSpawner : MonoBehaviour
     {
@@ -31,9 +31,7 @@ namespace Terranova.Population
         [Tooltip("Radius (in blocks) around the campfire where settlers spawn.")]
         [SerializeField] private float _spawnRadius = 3f;
 
-        // Track whether we've already spawned (to avoid double-spawning)
         private bool _hasSpawned;
-        // v0.5.2: _cachedFlameConeMesh removed (campfire now uses prefab)
 
         // We wait for WorldManager in Update because terrain generates in Start
         // and we can't guarantee execution order between different Start methods.
@@ -253,7 +251,7 @@ namespace Terranova.Population
 
         /// <summary>
         /// Brute-force spawn a freshwater pond 8-12 blocks from campfire.
-        /// Creates a blue cylinder primitive tagged "Water". Not tied to terrain
+        /// Creates a flat water plane tagged "Water". Not tied to terrain
         /// generation — works regardless of biome, seed, or terrain shape.
         /// Coast biome gets the same freshwater pond (ocean is not drinkable).
         /// Flattens terrain under the pond and places it on NavMesh-reachable ground.
@@ -359,6 +357,5 @@ namespace Terranova.Population
                 Debug.LogError($"BLOCKER: Freshwater pond too far! distance={dist:F1} blocks (max 30)");
         }
 
-        // v0.5.2: CreateConeMesh removed (campfire now uses prefab)
     }
 }

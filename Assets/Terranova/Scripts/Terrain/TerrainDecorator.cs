@@ -30,9 +30,6 @@ namespace Terranova.Terrain
         private Material _groundDarkGrassMat;
         private Material _groundRockyMat;
 
-        // Water material
-        private Material _waterPlaneMat;
-
         private void Update()
         {
             if (_decorated) return;
@@ -78,7 +75,6 @@ namespace Terranova.Terrain
             _groundSandMat      = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundSand",      new Color(0.75f, 0.68f, 0.50f), 0.05f);
             _groundDarkGrassMat = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundDarkGrass", new Color(0.18f, 0.38f, 0.12f), 0.05f);
             _groundRockyMat     = TerrainShaderLibrary.CreatePropMaterial("Decor_GroundRocky",     new Color(0.42f, 0.40f, 0.38f), 0.05f);
-            _waterPlaneMat      = TerrainShaderLibrary.CreateWaterMaterial();
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -718,8 +714,9 @@ namespace Terranova.Terrain
             ocean.transform.localScale = new Vector3(oceanWidth + 20f, oceanDepth + 10f, 1f);
             Object.Destroy(ocean.GetComponent<Collider>());
 
-            if (_waterPlaneMat != null)
-                ocean.GetComponent<MeshRenderer>().sharedMaterial = _waterPlaneMat;
+            var waterMat = TerrainShaderLibrary.CreateWaterMaterial();
+            if (waterMat != null)
+                ocean.GetComponent<MeshRenderer>().sharedMaterial = waterMat;
 
             Debug.Log("[TerrainDecorator] Placed ocean plane for coast biome");
         }
