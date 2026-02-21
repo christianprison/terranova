@@ -137,7 +137,6 @@ namespace Terranova.Population
             if (campfire == null)
             {
                 Debug.LogWarning("[SettlerSpawner] Campfire prefab FAILED to load — using empty fallback");
-                // Fallback: create minimal campfire if prefab missing
                 campfire = new GameObject("Campfire");
                 campfire.transform.position = position;
             }
@@ -145,9 +144,6 @@ namespace Terranova.Population
             {
                 Debug.Log($"[SettlerSpawner] Campfire prefab loaded OK: '{campfire.name}', " +
                           $"renderers={campfire.GetComponentsInChildren<Renderer>().Length}");
-            }
-            else
-            {
                 campfire.transform.SetParent(null);
                 campfire.transform.position = position;
             }
