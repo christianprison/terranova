@@ -13,13 +13,10 @@ namespace Terranova.UI
     public class MainMenuUI : MonoBehaviour
     {
         private InputField _seedInput;
-        private Text _seedDisplay;
         private BiomeType _selectedBiome = BiomeType.Forest;
         private Button[] _biomeButtons;
         private Text _titleText;
         private Text _versionText;
-        private Text _debugLogText;
-        private string _debugLog = "";
 
         private void Start()
         {
@@ -152,55 +149,24 @@ namespace Terranova.UI
             CreateButton("Continue", new Vector2(0, -200), new Vector2(220, 50),
                 new Color(0.3f, 0.3f, 0.35f, 0.7f), 24, ContinueGame);
 
-            // Version
-            _versionText = CreateText("v0.5.2", 18, new Color(0.5f, 0.5f, 0.5f),
-                new Vector2(0, -300), transform);
-
-            // Debug log overlay – bottom-left, captures all Debug.Log output
-            var debugGo = new GameObject("DebugLog");
-            debugGo.transform.SetParent(transform, false);
-            var debugRect = debugGo.AddComponent<RectTransform>();
-            debugRect.anchorMin = new Vector2(0, 0);
-            debugRect.anchorMax = new Vector2(1, 0);
-            debugRect.pivot = new Vector2(0, 0);
-            debugRect.anchoredPosition = new Vector2(8, 8);
-            debugRect.sizeDelta = new Vector2(-16, 180);
-            _debugLogText = debugGo.AddComponent<Text>();
-            _debugLogText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            _debugLogText.fontSize = 12;
-            _debugLogText.color = new Color(0f, 1f, 0.4f, 0.9f);
-            _debugLogText.alignment = TextAnchor.LowerLeft;
-            _debugLogText.horizontalOverflow = HorizontalWrapMode.Wrap;
-            _debugLogText.verticalOverflow = VerticalWrapMode.Truncate;
-            AppendDebug($"Menu ready. GameStarted={GameState.GameStarted}, scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
-        }
-
-        private void OnEnable()
-        {
-            Application.logMessageReceived += OnLogMessage;
-        }
-
-        private void OnDisable()
-        {
-            Application.logMessageReceived -= OnLogMessage;
-        }
-
-        private void OnLogMessage(string message, string stackTrace, LogType type)
-        {
-            string prefix = type == LogType.Error || type == LogType.Exception ? "[ERR] " :
-                            type == LogType.Warning ? "[WARN] " : "";
-            AppendDebug($"{prefix}{message}");
-        }
-
-        private void AppendDebug(string msg)
-        {
-            _debugLog += msg + "\n";
-            // Keep last 12 lines
-            var lines = _debugLog.Split('\n');
-            if (lines.Length > 13)
-                _debugLog = string.Join("\n", lines, lines.Length - 13, 13);
-            if (_debugLogText != null)
-                _debugLogText.text = _debugLog;
+            // Version — bottom-right corner
+            var verGo = new GameObject("Version");
+            verGo.transform.SetParent(transform, false);
+            var verRect = verGo.AddComponent<RectTransform>();
+            verRect.anchorMin = new Vector2(1, 0);
+            verRect.anchorMax = new Vector2(1, 0);
+            verRect.pivot = new Vector2(1, 0);
+            verRect.anchoredPosition = new Vector2(-12, 8);
+            verRect.sizeDelta = new Vector2(200, 30);
+            _versionText = verGo.AddComponent<Text>();
+            _versionText.font = UnityEngine.Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            _versionText.fontSize = 18;
+            _versionText.color = new Color(0.5f, 0.5f, 0.5f);
+            _versionText.alignment = TextAnchor.LowerRight;
+            _versionText.text = "v0.5.2";
+            var verShadow = verGo.AddComponent<Shadow>();
+            verShadow.effectColor = new Color(0, 0, 0, 0.6f);
+            verShadow.effectDistance = new Vector2(1, -1);
         }
 
         private void OnSeedChanged(string value)
