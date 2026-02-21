@@ -45,6 +45,9 @@ namespace Terranova.Terrain
             var biome = GameState.SelectedBiome;
             var rng = new System.Random(GameState.Seed + 500);
 
+            Debug.Log($"[TerrainDecorator] Starting decoration: biome={biome}, seed={GameState.Seed}, " +
+                      $"world={world.WorldBlocksX}x{world.WorldBlocksZ}, NavMeshReady={world.IsNavMeshReady}");
+
             CreateGroundMaterials();
 
             var container = new GameObject("TerrainDecorations");
@@ -62,7 +65,15 @@ namespace Terranova.Terrain
             if (biome == BiomeType.Coast)
                 SpawnOceanPlane(world, container.transform);
 
-            Debug.Log($"[TerrainDecorator] v0.5.2 prefab decoration complete for biome={biome}");
+            // Log prefab loading summary after all decoration is done
+            AssetPrefabRegistry.LogLoadSummary();
+
+            int totalChildren = container.transform.childCount;
+            int totalObjects = 0;
+            for (int i = 0; i < totalChildren; i++)
+                totalObjects += container.transform.GetChild(i).childCount;
+            Debug.Log($"[TerrainDecorator] v0.5.2 decoration complete for biome={biome}: " +
+                      $"{totalChildren} categories, {totalObjects} total objects placed");
         }
 
         // ═══════════════════════════════════════════════════════════

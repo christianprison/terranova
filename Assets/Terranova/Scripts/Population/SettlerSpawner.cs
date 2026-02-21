@@ -129,15 +129,22 @@ namespace Terranova.Population
             Vector3 position = new Vector3(centerX + 0.5f, y, centerZ + 0.5f);
 
             // v0.5.2: Use Camp_Fire prefab from Explorer Stoneage
+            Debug.Log($"[SettlerSpawner] Loading campfire prefab from pool: [{string.Join(", ", AssetPrefabRegistry.CampFires)}]");
             var campfire = AssetPrefabRegistry.InstantiateRandom(
                 AssetPrefabRegistry.CampFires, position,
                 new System.Random(GameState.Seed + 100), null, 1.0f, 1.0f);
 
             if (campfire == null)
             {
+                Debug.LogWarning("[SettlerSpawner] Campfire prefab FAILED to load — using empty fallback");
                 // Fallback: create minimal campfire if prefab missing
                 campfire = new GameObject("Campfire");
                 campfire.transform.position = position;
+            }
+            else
+            {
+                Debug.Log($"[SettlerSpawner] Campfire prefab loaded OK: '{campfire.name}', " +
+                          $"renderers={campfire.GetComponentsInChildren<Renderer>().Length}");
             }
             else
             {
