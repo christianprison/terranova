@@ -2283,6 +2283,7 @@ namespace Terranova.Population
             int variantIndex = (_colorIndex / 2) % avatarPool.Length;
             string avatarPath = avatarPool[variantIndex];
 
+            Debug.Log($"[Settler] Loading avatar: {avatarPath} (colorIndex={_colorIndex})");
             var prefab = AssetPrefabRegistry.LoadPrefab(avatarPath);
             if (prefab != null)
             {
