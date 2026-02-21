@@ -257,9 +257,79 @@ namespace Terranova.Terrain
         // ─── Prefab cache ──────────────────────────────────────
 
         private static readonly Dictionary<string, GameObject> _prefabCache = new();
+        private static int _loadSuccessCount;
+        private static int _loadFailCount;
+        private static bool _validated;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        private static void ResetStatics() { _prefabCache.Clear(); }
+        private static void ResetStatics()
+        {
+            _prefabCache.Clear();
+            _loadSuccessCount = 0;
+            _loadFailCount = 0;
+            _validated = false;
+        }
+
+        /// <summary>
+        /// One-time validation: attempt to load a known prefab and log diagnostic info.
+        /// Called automatically on first LoadPrefab call.
+        /// </summary>
+        private static void ValidateAssetLoading()
+        {
+            _validated = true;
+
+            string testPath = "Vegetation/Trees/Pine_Tree_1A";
+            string fullTestPath = BASE + testPath + ".prefab";
+
+            Debug.Log($"[AssetPrefabRegistry] ═══ PREFAB LOADING VALIDATION ═══");
+#if UNITY_EDITOR
+            Debug.Log($"[AssetPrefabRegistry] Mode: UNITY_EDITOR (AssetDatabase)");
+            Debug.Log($"[AssetPrefabRegistry] Test path: {fullTestPath}");
+            var testPrefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(fullTestPath);
+            if (testPrefab != null)
+            {
+                Debug.Log($"[AssetPrefabRegistry] ✓ Validation PASSED — '{testPrefab.name}' loaded successfully");
+                // Check if it has renderers (would be invisible without them)
+                int rendererCount = testPrefab.GetComponentsInChildren<Renderer>(true).Length;
+                Debug.Log($"[AssetPrefabRegistry]   Renderers in prefab: {rendererCount}");
+            }
+            else
+            {
+                Debug.LogError($"[AssetPrefabRegistry] ✗ Validation FAILED — AssetDatabase returned null for: {fullTestPath}");
+                // Try to find the asset by name as diagnostic
+                string[] guids = UnityEditor.AssetDatabase.FindAssets("Pine_Tree_1A t:Prefab");
+                if (guids.Length > 0)
+                {
+                    string foundPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]);
+                    Debug.LogError($"[AssetPrefabRegistry]   FindAssets found it at: {foundPath}");
+                    Debug.LogError($"[AssetPrefabRegistry]   Expected path was:      {fullTestPath}");
+                    Debug.LogError($"[AssetPrefabRegistry]   → PATH MISMATCH! The asset exists but at a different location.");
+                }
+                else
+                {
+                    Debug.LogError($"[AssetPrefabRegistry]   FindAssets found NO prefab named 'Pine_Tree_1A' in the entire project!");
+                    Debug.LogError($"[AssetPrefabRegistry]   → The Explorer Stone Age asset pack may not be imported correctly.");
+                }
+            }
+#else
+            Debug.Log($"[AssetPrefabRegistry] Mode: RUNTIME (Resources.Load)");
+            Debug.Log($"[AssetPrefabRegistry] Test subPath: {testPath}");
+            var testPrefab = UnityEngine.Resources.Load<GameObject>(testPath);
+            if (testPrefab != null)
+            {
+                Debug.Log($"[AssetPrefabRegistry] ✓ Validation PASSED — '{testPrefab.name}' loaded from Resources");
+            }
+            else
+            {
+                Debug.LogError($"[AssetPrefabRegistry] ✗ Validation FAILED — Resources.Load returned null for: {testPath}");
+                Debug.LogError($"[AssetPrefabRegistry]   Prefabs must be in a 'Resources/' folder for runtime builds.");
+                Debug.LogError($"[AssetPrefabRegistry]   Expected: Assets/Resources/{testPath}.prefab");
+                Debug.LogError($"[AssetPrefabRegistry]   The Explorer Stone Age prefabs are NOT in a Resources folder.");
+                Debug.LogError($"[AssetPrefabRegistry]   → ALL prefab loading will fail. Props, trees, settlers will be missing.");
+            }
+#endif
+            Debug.Log($"[AssetPrefabRegistry] ═══════════════════════════════════");
+        }
 
         /// <summary>
         /// Load a prefab from the Explorer Stoneage asset pack.
@@ -268,6 +338,8 @@ namespace Terranova.Terrain
         /// </summary>
         public static GameObject LoadPrefab(string subPath)
         {
+            if (!_validated) ValidateAssetLoading();
+
             if (_prefabCache.TryGetValue(subPath, out var cached) && cached != null)
                 return cached;
 
@@ -275,20 +347,47 @@ namespace Terranova.Terrain
                 ? subPath
                 : BASE + subPath;
 
+            string assetPath = fullPath + ".prefab";
+
 #if UNITY_EDITOR
-            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(fullPath + ".prefab");
+            var prefab = UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
 #else
-            // At runtime, prefabs must be in a Resources folder or loaded via Addressables.
-            // Fallback: try loading without extension from Resources.
+            // Runtime: try Resources.Load (requires assets in a Resources/ folder)
             var prefab = UnityEngine.Resources.Load<GameObject>(subPath);
+            // Fallback: try just the filename
+            if (prefab == null)
+            {
+                string fileName = System.IO.Path.GetFileName(subPath);
+                prefab = UnityEngine.Resources.Load<GameObject>(fileName);
+            }
 #endif
 
             if (prefab != null)
+            {
                 _prefabCache[subPath] = prefab;
+                _loadSuccessCount++;
+            }
             else
-                Debug.LogWarning($"[AssetPrefabRegistry] Prefab not found: {fullPath}.prefab");
+            {
+                _loadFailCount++;
+                // Log first 5 failures as errors, then suppress to avoid console flood
+                if (_loadFailCount <= 5)
+                    Debug.LogError($"[AssetPrefabRegistry] LOAD FAILED ({_loadFailCount}): {assetPath}");
+                else if (_loadFailCount == 6)
+                    Debug.LogError($"[AssetPrefabRegistry] Suppressing further load errors. Total failures so far: {_loadFailCount}");
+            }
 
             return prefab;
+        }
+
+        /// <summary>Log summary of load attempts. Call after bulk loading is done.</summary>
+        public static void LogLoadSummary()
+        {
+            int total = _loadSuccessCount + _loadFailCount;
+            if (_loadFailCount > 0)
+                Debug.LogError($"[AssetPrefabRegistry] LOAD SUMMARY: {_loadSuccessCount}/{total} succeeded, {_loadFailCount} FAILED");
+            else
+                Debug.Log($"[AssetPrefabRegistry] LOAD SUMMARY: {_loadSuccessCount}/{total} succeeded — all OK");
         }
 
         /// <summary>
