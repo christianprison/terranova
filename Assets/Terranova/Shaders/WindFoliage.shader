@@ -1,11 +1,14 @@
 // URP foliage shader with alpha cutout and wind vertex displacement.
 // Used for tree canopies, bushes, and leafy vegetation.
-// Double-sided rendering, procedural leaf pattern, sine-wave wind sway.
+// Double-sided rendering, texture-based alpha cutout, sine-wave wind sway.
+// When _MainTex is set, uses texture alpha for cutout and texture color.
+// When _MainTex is white (default), falls back to procedural hash pattern.
 Shader "Terranova/WindFoliage"
 {
     Properties
     {
         _BaseColor    ("Color", Color) = (0.3, 0.6, 0.2, 1)
+        _MainTex      ("Texture", 2D) = "white" {}
         _Cutoff       ("Alpha Cutoff", Range(0, 1)) = 0.35
         _WindStrength ("Wind Strength", Float) = 0.08
         _WindSpeed    ("Wind Speed", Float) = 1.5
@@ -36,6 +39,11 @@ Shader "Terranova/WindFoliage"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+            float4 _MainTex_ST;
+            float4 _MainTex_TexelSize; // x=1/w, y=1/h, z=w, w=h
+
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
                 float  _Cutoff;
@@ -47,6 +55,7 @@ Shader "Terranova/WindFoliage"
             {
                 float4 positionOS : POSITION;
                 float3 normalOS   : NORMAL;
+                float2 uv         : TEXCOORD0;
             };
 
             struct Varyings
@@ -54,13 +63,8 @@ Shader "Terranova/WindFoliage"
                 float4 positionCS : SV_POSITION;
                 float3 normalWS   : TEXCOORD0;
                 float3 positionWS : TEXCOORD1;
+                float2 uv         : TEXCOORD2;
             };
-
-            // Simple hash for procedural patterns
-            float hash(float2 p)
-            {
-                return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453);
-            }
 
             Varyings vert(Attributes input)
             {
@@ -79,16 +83,22 @@ Shader "Terranova/WindFoliage"
                 output.positionCS = TransformObjectToHClip(input.positionOS.xyz);
                 output.normalWS = TransformObjectToWorldNormal(input.normalOS);
                 output.positionWS = worldPos;
+                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 return output;
             }
 
             half4 frag(Varyings input) : SV_Target
             {
-                // Procedural leaf pattern — creates organic cutout shape
-                float2 cellPos = input.positionWS.xz * 3.0 + input.positionWS.y * 1.5;
-                float h = hash(floor(cellPos));
-                float leafMask = smoothstep(_Cutoff - 0.1, _Cutoff + 0.1, h);
-                clip(leafMask - 0.5);
+                // Sample texture
+                float4 texColor = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv);
+
+                // Use texture alpha for cutout (EXPLORER assets have leaf alpha maps).
+                // If no texture is assigned (_MainTex = white, alpha = 1), the clip
+                // has no effect and the full mesh renders (solid foliage canopy).
+                clip(texColor.a - _Cutoff);
+
+                // Combine texture color with tint
+                float3 leafColor = texColor.rgb * _BaseColor.rgb;
 
                 // Lighting with translucency
                 float3 normalWS = normalize(input.normalWS);
@@ -99,10 +109,6 @@ Shader "Terranova/WindFoliage"
                 float frontLight = saturate(NdotL);
                 float backLight = saturate(-NdotL) * 0.3; // Subsurface scatter
                 float totalLight = frontLight + backLight;
-
-                // Color variation based on position
-                float colorVar = hash(floor(input.positionWS.xz * 0.5)) * 0.15;
-                float3 leafColor = _BaseColor.rgb + float3(-colorVar, colorVar * 0.5, -colorVar * 0.5);
 
                 // Ambient from spherical harmonics (environment lighting)
                 float3 ambient = SampleSH(normalWS) * leafColor;
@@ -132,7 +138,9 @@ Shader "Terranova/WindFoliage"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
-            float3 _LightDirection;
+            TEXTURE2D(_MainTex);
+            SAMPLER(sampler_MainTex);
+            float4 _MainTex_ST;
 
             CBUFFER_START(UnityPerMaterial)
                 float4 _BaseColor;
@@ -141,10 +149,18 @@ Shader "Terranova/WindFoliage"
                 float  _WindSpeed;
             CBUFFER_END
 
-            struct Attributes { float4 positionOS : POSITION; float3 normalOS : NORMAL; };
-            struct Varyings  { float4 positionCS : SV_POSITION; float3 positionWS : TEXCOORD0; };
+            struct Attributes
+            {
+                float4 positionOS : POSITION;
+                float3 normalOS   : NORMAL;
+                float2 uv         : TEXCOORD0;
+            };
 
-            float hash(float2 p) { return frac(sin(dot(p, float2(127.1, 311.7))) * 43758.5453); }
+            struct Varyings
+            {
+                float4 positionCS : SV_POSITION;
+                float2 uv         : TEXCOORD0;
+            };
 
             Varyings ShadowVert(Attributes input)
             {
@@ -156,16 +172,15 @@ Shader "Terranova/WindFoliage"
 
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
-                output.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, normalWS, _LightDirection));
-                output.positionWS = posWS;
+                output.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, normalWS, GetMainLight().direction));
+                output.uv = TRANSFORM_TEX(input.uv, _MainTex);
                 return output;
             }
 
             half4 ShadowFrag(Varyings input) : SV_Target
             {
-                float2 cellPos = input.positionWS.xz * 3.0 + input.positionWS.y * 1.5;
-                float h = hash(floor(cellPos));
-                clip(h - _Cutoff);
+                float alpha = SAMPLE_TEXTURE2D(_MainTex, sampler_MainTex, input.uv).a;
+                clip(alpha - _Cutoff);
                 return 0;
             }
             ENDHLSL

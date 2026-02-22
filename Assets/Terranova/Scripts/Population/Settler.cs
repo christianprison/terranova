@@ -363,6 +363,9 @@ namespace Terranova.Population
         private MeshRenderer _headRenderer;
         private SkinnedMeshRenderer _skinnedRenderer; // v0.5.2: For prefab avatars with skinned meshes
         private Animator _animator; // v0.5.3: Avatar animation controller
+        private RuntimeAnimatorController _idleController;  // Original idle controller from prefab
+        private RuntimeAnimatorController _walkController;  // Walk controller loaded from Resources
+        private bool _isPlayingWalk; // Track current animation state
         private int _colorIndex;
         private bool _isDeathPending;       // Prevent double-death
         private bool _isSick;               // Poison sickness flag
@@ -691,41 +694,27 @@ namespace Terranova.Population
         }
 
         /// <summary>
-        /// v0.5.3: Cross-fade the avatar animation based on current state.
-        /// Walk_1 when moving, Work_1/Work_2 when gathering, Idle_1 otherwise.
-        /// The EXPLORER prefab Animator already has clips embedded from the FBX.
+        /// v0.5.4: Swap AnimatorController between idle and walk based on movement.
+        /// Each controller plays a single looping clip (Idle_1 or Walk_1).
+        /// Controllers are loaded from Resources to ensure walk clips are in the build.
         /// </summary>
         private void UpdateAnimation()
         {
             if (_animator == null || !_animator.isActiveAndEnabled) return;
+            if (_idleController == null) return; // No animation setup
 
             bool isMoving = _agent != null && _agent.velocity.sqrMagnitude > 0.1f;
 
-            // Determine desired animation clip name
-            string desiredClip;
-            if (isMoving)
+            if (isMoving && !_isPlayingWalk && _walkController != null)
             {
-                desiredClip = (_colorIndex % 2 == 0)
-                    ? "Prehistoric_Male_Walk_1"
-                    : "Prehistoric_Female_Walk_1";
+                _animator.runtimeAnimatorController = _walkController;
+                _isPlayingWalk = true;
             }
-            else if (_state == SettlerState.Working || _state == SettlerState.GatheringFood)
+            else if (!isMoving && _isPlayingWalk)
             {
-                desiredClip = (_colorIndex % 2 == 0)
-                    ? "Prehistoric_Male_Work_1"
-                    : "Prehistoric_Female_Sitting_1"; // females don't have Work clips
+                _animator.runtimeAnimatorController = _idleController;
+                _isPlayingWalk = false;
             }
-            else
-            {
-                desiredClip = (_colorIndex % 2 == 0)
-                    ? "Prehistoric_Male_Idle_1"
-                    : "Prehistoric_Female_Idle_1";
-            }
-
-            // Only cross-fade if clip changed
-            var stateInfo = _animator.GetCurrentAnimatorStateInfo(0);
-            if (!stateInfo.IsName(desiredClip))
-                _animator.CrossFadeInFixedTime(desiredClip, 0.25f);
         }
 
         /// <summary>
@@ -2364,6 +2353,14 @@ namespace Terranova.Population
                 {
                     _animator.applyRootMotion = false;
                     _animator.cullingMode = AnimatorCullingMode.CullUpdateTransforms;
+
+                    // Cache the idle controller that came with the prefab
+                    _idleController = _animator.runtimeAnimatorController;
+
+                    // Load walk controller from Resources (male = even colorIndex)
+                    bool isMale = (_colorIndex % 2 == 0);
+                    string walkRes = isMale ? "MaleWalkController" : "FemaleWalkController";
+                    _walkController = Resources.Load<RuntimeAnimatorController>(walkRes);
                 }
 
                 // Remove any colliders from the prefab (we add our own)

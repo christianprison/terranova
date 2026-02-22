@@ -127,8 +127,6 @@ Shader "Terranova/TerrainSplat"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
 
-            float3 _LightDirection;
-
             struct Attributes
             {
                 float4 positionOS : POSITION;
@@ -145,7 +143,7 @@ Shader "Terranova/TerrainSplat"
                 Varyings output;
                 float3 posWS = TransformObjectToWorld(input.positionOS.xyz);
                 float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
-                output.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, normalWS, _LightDirection));
+                output.positionCS = TransformWorldToHClip(ApplyShadowBias(posWS, normalWS, GetMainLight().direction));
                 return output;
             }
 
