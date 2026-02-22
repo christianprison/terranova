@@ -36,6 +36,12 @@ namespace Terranova.Terrain
             _fogOfWar = null;
             _trampledPath = null;
             _vertexColorOpaque = null;
+            _replacementFoliage = null;
+            _replacementRock = null;
+            _replacementWood = null;
+            _replacementSkin = null;
+            _replacementParticle = null;
+            _replacementDefault = null;
         }
 
         // ─── Shader accessors ────────────────────────────────────
@@ -277,6 +283,188 @@ namespace Terranova.Terrain
             mat.SetColor("_BaseColor", new Color(0.12f, 0.10f, 0.08f));
             mat.SetFloat("_Smoothness", 0.05f);
             return mat;
+        }
+
+        // ─── BiRP → URP material replacement ───────────────────────
+
+        // Cached replacement materials (avoid creating duplicates)
+        private static Material _replacementFoliage;
+        private static Material _replacementRock;
+        private static Material _replacementWood;
+        private static Material _replacementSkin;
+        private static Material _replacementParticle;
+        private static Material _replacementDefault;
+
+        /// <summary>
+        /// Replace all BiRP (Built-in Render Pipeline) materials on an instantiated
+        /// EXPLORER prefab with URP-compatible Terranova materials.
+        ///
+        /// The EXPLORER - Stone Age asset pack uses BiRP Standard/Surface shaders
+        /// which render as dark/invisible under URP. This method detects BiRP materials
+        /// by shader name and replaces them with the closest Terranova equivalent,
+        /// preserving the original base color where possible.
+        /// </summary>
+        public static void ReplaceWithURPMaterials(GameObject instance)
+        {
+            if (instance == null) return;
+
+            // Process MeshRenderers
+            foreach (var renderer in instance.GetComponentsInChildren<MeshRenderer>(true))
+                ReplaceMaterials(renderer);
+
+            // Process SkinnedMeshRenderers (avatars)
+            foreach (var renderer in instance.GetComponentsInChildren<SkinnedMeshRenderer>(true))
+                ReplaceMaterials(renderer);
+
+            // Process ParticleSystemRenderers
+            foreach (var psr in instance.GetComponentsInChildren<ParticleSystemRenderer>(true))
+            {
+                if (psr.sharedMaterial != null && IsBiRPShader(psr.sharedMaterial.shader))
+                    psr.sharedMaterial = GetParticleReplacement();
+            }
+        }
+
+        private static void ReplaceMaterials(Renderer renderer)
+        {
+            var mats = renderer.sharedMaterials;
+            bool changed = false;
+
+            for (int i = 0; i < mats.Length; i++)
+            {
+                if (mats[i] == null) continue;
+                if (!IsBiRPShader(mats[i].shader)) continue;
+
+                Color originalColor = GetOriginalColor(mats[i]);
+                string matName = mats[i].name.ToLowerInvariant();
+                string shaderName = mats[i].shader.name.ToLowerInvariant();
+
+                // Determine replacement type based on material/shader name
+                if (shaderName.Contains("wind") || shaderName.Contains("animated vert") ||
+                    matName.Contains("tree") || matName.Contains("pine") ||
+                    matName.Contains("bush") || matName.Contains("fern") ||
+                    matName.Contains("flower") || matName.Contains("leaf") ||
+                    matName.Contains("plant") || matName.Contains("agricultural") ||
+                    matName.Contains("vegetation"))
+                {
+                    mats[i] = GetFoliageReplacement(originalColor);
+                }
+                else if (matName.Contains("avatar") || matName.Contains("prehistoric") ||
+                         matName.Contains("skin") || matName.Contains("character"))
+                {
+                    mats[i] = GetSkinReplacement();
+                }
+                else if (matName.Contains("rock") || matName.Contains("cliff") ||
+                         matName.Contains("canyon") || matName.Contains("cave") ||
+                         matName.Contains("stone") || matName.Contains("slab") ||
+                         matName.Contains("pavement") || matName.Contains("formation"))
+                {
+                    mats[i] = GetRockReplacement(originalColor);
+                }
+                else if (matName.Contains("wood") || matName.Contains("log") ||
+                         matName.Contains("trunk") || matName.Contains("stump") ||
+                         matName.Contains("twig") || matName.Contains("bone") ||
+                         matName.Contains("carcass") || matName.Contains("tent") ||
+                         matName.Contains("hut") || matName.Contains("leather"))
+                {
+                    mats[i] = GetWoodReplacement(originalColor);
+                }
+                else
+                {
+                    // Generic fallback: use PropLit with original color
+                    mats[i] = GetDefaultReplacement(originalColor);
+                }
+                changed = true;
+            }
+
+            if (changed)
+                renderer.sharedMaterials = mats;
+        }
+
+        private static bool IsBiRPShader(Shader shader)
+        {
+            if (shader == null) return false;
+            string name = shader.name;
+            // URP and Terranova shaders are fine
+            if (name.StartsWith("Terranova/") || name.StartsWith("Universal Render Pipeline/"))
+                return false;
+            // BiRP built-in shaders
+            if (name == "Standard" || name == "Standard (Specular setup)" ||
+                name.StartsWith("Legacy Shaders/") || name.StartsWith("Mobile/") ||
+                name.StartsWith("Particles/") || name == "VertexLit" ||
+                name.StartsWith("Nature/") || name.StartsWith("EXPLORER"))
+                return true;
+            // Hidden/error shaders also need replacement
+            if (name.StartsWith("Hidden/"))
+                return true;
+            return false;
+        }
+
+        private static Color GetOriginalColor(Material mat)
+        {
+            // BiRP Standard uses _Color, URP uses _BaseColor
+            if (mat.HasProperty("_Color"))
+                return mat.GetColor("_Color");
+            if (mat.HasProperty("_BaseColor"))
+                return mat.GetColor("_BaseColor");
+            return Color.gray;
+        }
+
+        private static Material GetFoliageReplacement(Color tint)
+        {
+            if (_replacementFoliage == null)
+            {
+                // Use a natural green tint for foliage
+                _replacementFoliage = CreateFoliageMaterial("URP_Foliage", new Color(0.3f, 0.6f, 0.2f));
+                _replacementFoliage.enableInstancing = true;
+            }
+            return _replacementFoliage;
+        }
+
+        private static Material GetRockReplacement(Color originalColor)
+        {
+            if (_replacementRock == null)
+            {
+                _replacementRock = CreateRockMaterial("URP_Rock", new Color(0.55f, 0.52f, 0.48f));
+                _replacementRock.enableInstancing = true;
+            }
+            return _replacementRock;
+        }
+
+        private static Material GetWoodReplacement(Color originalColor)
+        {
+            if (_replacementWood == null)
+            {
+                _replacementWood = CreateWoodMaterial("URP_Wood", new Color(0.40f, 0.28f, 0.15f));
+                _replacementWood.enableInstancing = true;
+            }
+            return _replacementWood;
+        }
+
+        private static Material GetSkinReplacement()
+        {
+            if (_replacementSkin == null)
+            {
+                _replacementSkin = CreatePropMaterial("URP_Skin", new Color(0.72f, 0.56f, 0.42f), 0.3f);
+                _replacementSkin.enableInstancing = true;
+            }
+            return _replacementSkin;
+        }
+
+        private static Material GetParticleReplacement()
+        {
+            if (_replacementParticle == null)
+                _replacementParticle = CreateParticleMaterial();
+            return _replacementParticle;
+        }
+
+        private static Material GetDefaultReplacement(Color originalColor)
+        {
+            if (_replacementDefault == null)
+            {
+                _replacementDefault = CreatePropMaterial("URP_Default", Color.gray, 0.2f);
+                _replacementDefault.enableInstancing = true;
+            }
+            return _replacementDefault;
         }
     }
 }

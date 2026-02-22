@@ -100,7 +100,7 @@ Shader "Terranova/FogOfWar"
 
             half4 frag(Varyings input) : SV_Target
             {
-                float baseFogAlpha = input.color.a / 255.0;
+                float baseFogAlpha = input.color.a;
 
                 // Fully explored areas: no fog at all
                 if (baseFogAlpha < 0.02)

@@ -1,0 +1,467 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fabad6fac6ebf49aab89a736cfe77bbf, type: 3}
+  m_Name: PrefabDatabase
+  m_EditorClassIdentifier: 
+  _entries:
+  - key: Assets/EXPLORER - Stone Age/Particles/Fire_1A
+    prefab: {fileID: 1036604718777162, guid: 70b3acaa2f9504a448d3876139707073, type: 3}
+  - key: Assets/EXPLORER - Stone Age/Particles/Fireflies_1A
+    prefab: {fileID: 1752014601612544, guid: d1506e770f9e37c44a8f16595d3b8518, type: 3}
+  - key: Assets/EXPLORER - Stone Age/Particles/Fog_1A
+    prefab: {fileID: 159832, guid: 02627a97a6a9549079b03b0a282d6a04, type: 3}
+  - key: Assets/EXPLORER - Stone Age/Particles/Sun_Shaft_1A
+    prefab: {fileID: 150522, guid: 2c9bec559f44ee54b91dea34bc1fb0ce, type: 3}
+  - key: Avatars/Prehistoric_Female_Avatar_V1
+    prefab: {fileID: 1003440412782904, guid: 210324c8e27b66c4c80a94e274e89206, type: 3}
+  - key: Avatars/Prehistoric_Female_Avatar_V2
+    prefab: {fileID: 1001918468967744, guid: 35785a9098495ab468bfca95bd848268, type: 3}
+  - key: Avatars/Prehistoric_Female_Avatar_V3
+    prefab: {fileID: 1010659707492350, guid: e1d8138120a806446a94522f048ad894, type: 3}
+  - key: Avatars/Prehistoric_Female_Avatar_V4
+    prefab: {fileID: 1010505623550828, guid: 27cdb8ae10095504da38de1979bad171, type: 3}
+  - key: Avatars/Prehistoric_Male_Avatar_V1
+    prefab: {fileID: 1000964669121488, guid: c7bb2451c4f7d1a4e95afd37c2e4925a, type: 3}
+  - key: Avatars/Prehistoric_Male_Avatar_V2
+    prefab: {fileID: 1001804148354294, guid: e6aec220995f53b4684c3d7d8515314e, type: 3}
+  - key: Avatars/Prehistoric_Male_Avatar_V3
+    prefab: {fileID: 1012181900360686, guid: cd6d59dfb07d4294785b70d9c601dde3, type: 3}
+  - key: Avatars/Prehistoric_Male_Avatar_V4
+    prefab: {fileID: 1015606027387676, guid: 5da2dc692bfaffd4488559b253f616b6, type: 3}
+  - key: Props/Animal_Carcass_1A
+    prefab: {fileID: 1156430139686184, guid: 47606de981edd6148ae20f415cebcb78, type: 3}
+  - key: Props/Animal_Carcass_1B
+    prefab: {fileID: 1066862773741060, guid: bb8330a3f0e562942a56db6eda516c1d, type: 3}
+  - key: Props/Animal_Carcass_2A
+    prefab: {fileID: 1320680203421836, guid: 36729ad79da713b4581000ca21f77647, type: 3}
+  - key: Props/Bone_1A
+    prefab: {fileID: 1011963725905632, guid: c3b85c1b57425e846a3f11237f728c85, type: 3}
+  - key: Props/Bone_1B
+    prefab: {fileID: 1285602841645284, guid: c42e978f6e7cc844fa2f8f8a23636e6b, type: 3}
+  - key: Props/Bone_2A
+    prefab: {fileID: 1090736905843776, guid: 7bc929df936de5c44920203b96f5e77a, type: 3}
+  - key: Props/Camp_Fire_1A
+    prefab: {fileID: 1284827116509168, guid: 7e02c3f8589ce0245bf64cc60057722b, type: 3}
+  - key: Props/Camp_Fire_1B
+    prefab: {fileID: 1549443270634314, guid: c76ba9811c643614f8f14150ede35029, type: 3}
+  - key: Props/Twigs_1A
+    prefab: {fileID: 1487548473221954, guid: 4b3181c87656a4b0795657436d44bdb4, type: 3}
+  - key: Props/Twigs_1B
+    prefab: {fileID: 1053980552979168, guid: 1d91cfe812d9c47b399e70b91bef45df, type: 3}
+  - key: Rocks/Canyon_Overpass_1A
+    prefab: {fileID: 1338876816481610, guid: cde14b58fdbb99f4b9b4090ac6b7b5fb, type: 3}
+  - key: Rocks/Canyon_Overpass_1B
+    prefab: {fileID: 1173556608670646, guid: e21e9964985906040ad1b6a62d9ef15a, type: 3}
+  - key: Rocks/Canyon_Overpass_1C
+    prefab: {fileID: 1905899898869004, guid: d403a0dc02e081345ab7e2542189c0c9, type: 3}
+  - key: Rocks/Canyon_Wall_1A
+    prefab: {fileID: 1776911329921236, guid: 4c7078795d512da43bae968d18ca146e, type: 3}
+  - key: Rocks/Canyon_Wall_1B
+    prefab: {fileID: 1396806460547060, guid: 284305a9476f94c4c81420e4549cab23, type: 3}
+  - key: Rocks/Canyon_Wall_1C
+    prefab: {fileID: 1020258104324426, guid: 35d6f0bb61d03e84b8f86c031e060347, type: 3}
+  - key: Rocks/Canyon_Wall_2A
+    prefab: {fileID: 1734602675029442, guid: e55544573de1f924e9e8790a97176c6e, type: 3}
+  - key: Rocks/Canyon_Wall_2B
+    prefab: {fileID: 1200193926323716, guid: 93363d513e030784789016d0f7b03994, type: 3}
+  - key: Rocks/Canyon_Wall_2C
+    prefab: {fileID: 1789476410449060, guid: 24e29205bf6714b42a61134436965e44, type: 3}
+  - key: Rocks/Canyon_Wall_3A
+    prefab: {fileID: 1628458273223842, guid: 6e742d9b2e8748b468d53ea218904008, type: 3}
+  - key: Rocks/Canyon_Wall_3B
+    prefab: {fileID: 1239042623114760, guid: 9b9181941eeee1448b796ac164d4eed5, type: 3}
+  - key: Rocks/Canyon_Wall_3C
+    prefab: {fileID: 1839542989952416, guid: 780104eb7bfafdb40a3870ae5018373c, type: 3}
+  - key: Rocks/Canyon_Wall_4A
+    prefab: {fileID: 1212569215338030, guid: 805f9c17dd3159946a6d911d4bb25898, type: 3}
+  - key: Rocks/Canyon_Wall_4B
+    prefab: {fileID: 1982598976072686, guid: 7dfe339f739b9824aa34f5ed0307601a, type: 3}
+  - key: Rocks/Canyon_Wall_4C
+    prefab: {fileID: 1647231317094764, guid: 5aea64edda927dd4cab6bdd123f61957, type: 3}
+  - key: Rocks/Cave_Entrance_1A
+    prefab: {fileID: 1209084492613424, guid: 377fbb07ef15a4f568693041a69c5839, type: 3}
+  - key: Rocks/Cave_Entrance_2A
+    prefab: {fileID: 1013128766640582, guid: 744b692485909492ba484e0e6a750d38, type: 3}
+  - key: Rocks/Cliff_Formation_1A
+    prefab: {fileID: 1465423860483286, guid: b59a2ae3c3929400c8c8082084a5acea, type: 3}
+  - key: Rocks/Cliff_Formation_2A
+    prefab: {fileID: 1430465709459638, guid: 487170c405a974d988bb132083ea3790, type: 3}
+  - key: Rocks/Cliff_Formation_3A
+    prefab: {fileID: 1576750101172840, guid: cf689f08cc5b54d00a23a9a4d34e86d2, type: 3}
+  - key: Rocks/Cliff_Formation_4A
+    prefab: {fileID: 1032843442492712, guid: fbceae9ac36314422a11d2e2974e2266, type: 3}
+  - key: Rocks/Cliff_Formation_5A
+    prefab: {fileID: 1984572254871776, guid: 5dc9fb9e9b94f44919caee1739302ebd, type: 3}
+  - key: Rocks/Cliff_Formation_5B
+    prefab: {fileID: 1263888563121490, guid: 6731de6a98407411cb23443c9c677767, type: 3}
+  - key: Rocks/Cliff_Formation_6A
+    prefab: {fileID: 1795061302585114, guid: d15aaeb55f2154cf899a26d779798efe, type: 3}
+  - key: Rocks/Cliff_Formation_6B
+    prefab: {fileID: 1579824411547390, guid: 4dfac5d38baa7447eb4a2c1d40b79335, type: 3}
+  - key: Rocks/Cliff_Formation_6C
+    prefab: {fileID: 1933422447957090, guid: c4e67d2f77d5248c2893876fd144757d, type: 3}
+  - key: Rocks/Cliff_Formation_7A
+    prefab: {fileID: 1893446105335702, guid: d6746fe4d69674ba2bfffd6e9f5714a5, type: 3}
+  - key: Rocks/Cliff_Formation_7B
+    prefab: {fileID: 1824009326799776, guid: bdf9be474b2fe4dc294766b4aead0839, type: 3}
+  - key: Rocks/Cliff_Formation_7C
+    prefab: {fileID: 1664372648995816, guid: a90bdff6454674d2baff7b035ce97ba9, type: 3}
+  - key: Rocks/Cliff_Formation_7D
+    prefab: {fileID: 1320653224015424, guid: 459b412ab42064927a6cb85f8df93527, type: 3}
+  - key: Rocks/Cliff_Formation_7E
+    prefab: {fileID: 1982308709321528, guid: 726ab1d77868d4d0fad51b6500153925, type: 3}
+  - key: Rocks/Cliff_Formation_7F
+    prefab: {fileID: 1912541427632014, guid: 99e900773a7604a3199dbbf78d8a8cda, type: 3}
+  - key: Rocks/Cliff_Formation_8A
+    prefab: {fileID: 1460448946734520, guid: 28e5d93d2c4120d4fb6ac5a005ee9fa4, type: 3}
+  - key: Rocks/Rock_Cluster_1A
+    prefab: {fileID: 1833730615099372, guid: 77b924e2fb58bb047a626d72d86e32ac, type: 3}
+  - key: Rocks/Rock_Cluster_2A
+    prefab: {fileID: 1024488925044280, guid: 2e70cb820aa7a014993037ab2b357339, type: 3}
+  - key: Rocks/Rock_Cluster_3A
+    prefab: {fileID: 1568413825538328, guid: b836244bc6adcff42a1ea3b31e0aadb3, type: 3}
+  - key: Rocks/Rock_Cluster_4A
+    prefab: {fileID: 1661425039128278, guid: d9c874336549ef0438ceb7d64e1d3a9c, type: 3}
+  - key: Rocks/Rock_Cluster_5A
+    prefab: {fileID: 1609107271765586, guid: 1349eba30009cab4189ebd8a88434252, type: 3}
+  - key: Rocks/Rock_Cluster_6A
+    prefab: {fileID: 1953614214550410, guid: 01a9a126820bfdb4aad1cdba19c9760c, type: 3}
+  - key: Rocks/Rock_Cluster_7A
+    prefab: {fileID: 1210615661937668, guid: b480106a3733c6542921fab650b71829, type: 3}
+  - key: Rocks/Rock_Cluster_8A
+    prefab: {fileID: 1684518937349136, guid: f0701965ab4b10d4698930b8d3e98c84, type: 3}
+  - key: Rocks/Rock_Formation_1A
+    prefab: {fileID: 1271394710712506, guid: 481d1420bfc9c4942b390f45efb16cbf, type: 3}
+  - key: Rocks/Rock_Formation_2A
+    prefab: {fileID: 1515142093711124, guid: 33056b3f684730f4fb84cec2ab18be4b, type: 3}
+  - key: Rocks/Rock_Large_1A
+    prefab: {fileID: 1774335621616758, guid: 3b2076f3e74b1ad498c6635ff8acf195, type: 3}
+  - key: Rocks/Rock_Large_1B
+    prefab: {fileID: 1073939349572896, guid: 8ded1aaf8fb130f43bdb747d711b75b9, type: 3}
+  - key: Rocks/Rock_Large_2A
+    prefab: {fileID: 1533460318667608, guid: a93c18abdb37d5649a6bbf59e72b6684, type: 3}
+  - key: Rocks/Rock_Large_2B
+    prefab: {fileID: 1451594912323308, guid: 613585629b978d94ea0495eebf8d5b26, type: 3}
+  - key: Rocks/Rock_Large_3A
+    prefab: {fileID: 1436857443434312, guid: 42dbcd29107b3444c9b841f0f56ed45f, type: 3}
+  - key: Rocks/Rock_Large_3B
+    prefab: {fileID: 1753876614919680, guid: d5734a77209a24c4bbaef42b971884da, type: 3}
+  - key: Rocks/Rock_Medium_1A
+    prefab: {fileID: 1902157615448976, guid: 55fb4809db288eb4487d912267d1de04, type: 3}
+  - key: Rocks/Rock_Medium_1B
+    prefab: {fileID: 1470500028123092, guid: 4e31dc055bf0db043ba34211e559e788, type: 3}
+  - key: Rocks/Rock_Medium_2A
+    prefab: {fileID: 1194538251874760, guid: 725300108981606408f6788c3f7814a6, type: 3}
+  - key: Rocks/Rock_Medium_2B
+    prefab: {fileID: 1260613497744368, guid: 6586415ab2fc41c4a9e919808460bf7e, type: 3}
+  - key: Rocks/Rock_Medium_3A
+    prefab: {fileID: 1796834531099970, guid: 477fbf6010e07a44bbb1c690e09297d0, type: 3}
+  - key: Rocks/Rock_Medium_3B
+    prefab: {fileID: 1503367851850906, guid: 11fc81b180a989e4d9b3db7ea18414eb, type: 3}
+  - key: Rocks/Rock_Medium_3C
+    prefab: {fileID: 1982019624468058, guid: f1ce51d219e0ace40b22af70d6ba42f6, type: 3}
+  - key: Rocks/Rock_Medium_3D
+    prefab: {fileID: 1588678731263480, guid: 7ed1deccaa8df19438a37731adf25055, type: 3}
+  - key: Rocks/Rock_Medium_3E
+    prefab: {fileID: 1231313888932858, guid: 9134a9f5b925c30498eb2164829df0bf, type: 3}
+  - key: Rocks/Rock_Medium_3F
+    prefab: {fileID: 1473412790542346, guid: 53b02743988a6114780b8fdddf5a8b21, type: 3}
+  - key: Rocks/Rock_Pavement_1A
+    prefab: {fileID: 1480733010271776, guid: 54eaa62dc0ca9b742950141d45ddf723, type: 3}
+  - key: Rocks/Rock_Pavement_1B
+    prefab: {fileID: 1334359971540566, guid: 37cdcf7a441f5624593d8f26feed6cc7, type: 3}
+  - key: Rocks/Rock_Pavement_1C
+    prefab: {fileID: 1996445265689696, guid: 33eb976d1fed9574194493593c4021d4, type: 3}
+  - key: Rocks/Rock_Sharp_1A
+    prefab: {fileID: 1040751626095004, guid: 84f5ea79ca1392b4287e5462c3d5614c, type: 3}
+  - key: Rocks/Rock_Sharp_1B
+    prefab: {fileID: 1928708899358156, guid: 745a48377b0dad0428e7d90a0326bf2c, type: 3}
+  - key: Rocks/Rock_Sharp_2A
+    prefab: {fileID: 1667106309398296, guid: 9fbab6eee9e2b884692bc4bc41d888d9, type: 3}
+  - key: Rocks/Rock_Sharp_2B
+    prefab: {fileID: 1597329944367756, guid: cea96910a91f41646ae98c1a60dcd61c, type: 3}
+  - key: Rocks/Rock_Sharp_3A
+    prefab: {fileID: 1123253816424774, guid: 7284c20e6e17e5c4399de6ff6bec5438, type: 3}
+  - key: Rocks/Rock_Sharp_3B
+    prefab: {fileID: 1799958640206904, guid: d17039d03cc493b4fbb496528e74c72d, type: 3}
+  - key: Rocks/Rock_Slab_1A
+    prefab: {fileID: 1225036193198682, guid: e211b6224ea5bfb4996a15d896b6d655, type: 3}
+  - key: Rocks/Rock_Slab_2A
+    prefab: {fileID: 1970248972738932, guid: 08ef8f6b2754a9b4daad3c3c89602033, type: 3}
+  - key: Rocks/Rock_Slab_3A
+    prefab: {fileID: 1154817546307434, guid: 07c409b3a9af9f247ae081dbec89efad, type: 3}
+  - key: Rocks/Rock_Slab_4A
+    prefab: {fileID: 1642875927708924, guid: 4d3e14399475fa140b354336c7231ab4, type: 3}
+  - key: Rocks/Rock_Slab_5A
+    prefab: {fileID: 1660394939892760, guid: 9bd3426b76790234383a665f50f1da41, type: 3}
+  - key: Rocks/Rock_Slab_6A
+    prefab: {fileID: 1558065690979110, guid: ee45a04fb8a3b9c4595112b374810092, type: 3}
+  - key: Rocks/Rock_Small_1A
+    prefab: {fileID: 1464152839607980, guid: ad0a1831069ffb149847b5f39de7a6f3, type: 3}
+  - key: Rocks/Rock_Small_1B
+    prefab: {fileID: 1144228125443782, guid: 27c99e57616df6f4493494f9fa386c55, type: 3}
+  - key: Rocks/Rock_Small_1C
+    prefab: {fileID: 1371650177579804, guid: 44638a5c2278bf54496de1652c0a4e37, type: 3}
+  - key: Rocks/Rock_Small_1D
+    prefab: {fileID: 1015609565470454, guid: 7f7c888532a50f542a78b0b939cdfdf9, type: 3}
+  - key: Rocks/Rock_Small_1E
+    prefab: {fileID: 1608232303742094, guid: 652b9f238e518084ba7ee5c52251ba50, type: 3}
+  - key: Rocks/Rock_Small_1F
+    prefab: {fileID: 1629987760149724, guid: 9c8c916cdc32ca946a0ee7f19e64644c, type: 3}
+  - key: Vegetation/Plants/Bush_10A
+    prefab: {fileID: 1717021470096888, guid: d030e6e32654b3d43a959ba46c77f5be, type: 3}
+  - key: Vegetation/Plants/Bush_10B
+    prefab: {fileID: 1160954385975110, guid: fc89852e2edd6414b8b4a70d509e9d1f, type: 3}
+  - key: Vegetation/Plants/Bush_11A
+    prefab: {fileID: 1769070556350810, guid: a1107d9bb2076f94289b4ff5403bdcf4, type: 3}
+  - key: Vegetation/Plants/Bush_11B
+    prefab: {fileID: 1868547605768780, guid: 3845e6271b221ec408c3e064359e0c15, type: 3}
+  - key: Vegetation/Plants/Bush_11C
+    prefab: {fileID: 1321917297870592, guid: 32d86739687cc8f48aca6f51670deab7, type: 3}
+  - key: Vegetation/Plants/Bush_12A
+    prefab: {fileID: 1321654596395118, guid: 29246ce8d1ea9a34aab1bba7e53aa49b, type: 3}
+  - key: Vegetation/Plants/Bush_12B
+    prefab: {fileID: 1031090671271476, guid: f4f38250f524e56489f102b95dd70809, type: 3}
+  - key: Vegetation/Plants/Bush_13A
+    prefab: {fileID: 1580732491155612, guid: 69a65a1599f5bcc4fb2766a0c3330426, type: 3}
+  - key: Vegetation/Plants/Bush_13B
+    prefab: {fileID: 1207096726640838, guid: 1db36d3327e07984993a5ecf614d01c4, type: 3}
+  - key: Vegetation/Plants/Bush_1A
+    prefab: {fileID: 1851878613362284, guid: 8a6ba5d418531714bbe05cc4de2e7172, type: 3}
+  - key: Vegetation/Plants/Bush_1B
+    prefab: {fileID: 1254025949028860, guid: 6c3584dcf0c300d4fad4f4dc240bead7, type: 3}
+  - key: Vegetation/Plants/Bush_1C
+    prefab: {fileID: 1122287485577368, guid: 47135939912db9542872947e552944d5, type: 3}
+  - key: Vegetation/Plants/Bush_2A
+    prefab: {fileID: 1030187527471556, guid: 3d6f6b3f8c46d5c469a8e45da5fbc59c, type: 3}
+  - key: Vegetation/Plants/Bush_2B
+    prefab: {fileID: 1550956391045344, guid: 4c4d719799b983a4a8ef9813f7c56a8e, type: 3}
+  - key: Vegetation/Plants/Bush_2C
+    prefab: {fileID: 1151375817875318, guid: 8ec55bb85cf3d684aaa3474356c7bbd1, type: 3}
+  - key: Vegetation/Plants/Bush_2D
+    prefab: {fileID: 1805580899513930, guid: 1cd9ab10a3f8e49468382a04d24bdd1e, type: 3}
+  - key: Vegetation/Plants/Bush_3A_Corner
+    prefab: {fileID: 1263045530157276, guid: f314511d9427f9e4fb3c0245684b4c76, type: 3}
+  - key: Vegetation/Plants/Bush_3B_Corner
+    prefab: {fileID: 1486579958624832, guid: f88962d09307a0b4a9af1c2051df3721, type: 3}
+  - key: Vegetation/Plants/Bush_4A
+    prefab: {fileID: 1088872335587516, guid: e9c57e4793c83844684a5d09ce0c8dd0, type: 3}
+  - key: Vegetation/Plants/Bush_4B
+    prefab: {fileID: 1736853192229972, guid: 109e8b5a9f57bcb4dae3c30d13b1bbe8, type: 3}
+  - key: Vegetation/Plants/Bush_4C
+    prefab: {fileID: 1141019369798852, guid: 048afc8c35e22c84da514a6273189aa7, type: 3}
+  - key: Vegetation/Plants/Bush_5A
+    prefab: {fileID: 1145875145729040, guid: 9ade3478267c8034c85de668bd046008, type: 3}
+  - key: Vegetation/Plants/Bush_5B
+    prefab: {fileID: 1910772341050216, guid: 2ae7dfd2e0da95f4ab84caade0109042, type: 3}
+  - key: Vegetation/Plants/Bush_5C
+    prefab: {fileID: 1405486549400660, guid: 699e092c54ba84740b62ceec563fd083, type: 3}
+  - key: Vegetation/Plants/Bush_6A
+    prefab: {fileID: 1188006713866424, guid: 033d5b7738b24e541acf16c197cb89c1, type: 3}
+  - key: Vegetation/Plants/Bush_6B
+    prefab: {fileID: 1447298515398898, guid: 6eae3b654acf072458155b3ea7043d06, type: 3}
+  - key: Vegetation/Plants/Bush_7A
+    prefab: {fileID: 1716792039992950, guid: 057415ed76dab794db92ab4ef874a4cf, type: 3}
+  - key: Vegetation/Plants/Bush_7B
+    prefab: {fileID: 1241891174853624, guid: 350c6f932f66cc14d97bf1da921438aa, type: 3}
+  - key: Vegetation/Plants/Bush_7C
+    prefab: {fileID: 1825443918351430, guid: 106f5c061f92cc14fa40b0304a4afdb1, type: 3}
+  - key: Vegetation/Plants/Bush_8A
+    prefab: {fileID: 1550939935189898, guid: 470c658e6e01fff4a99608085155cbce, type: 3}
+  - key: Vegetation/Plants/Bush_8B
+    prefab: {fileID: 1082808820966488, guid: 00eab2d15298e794abf80b8e21932eca, type: 3}
+  - key: Vegetation/Plants/Bush_8C
+    prefab: {fileID: 1790311662357912, guid: 2a4cd29f047cbb0419980009dd6603dc, type: 3}
+  - key: Vegetation/Plants/Bush_9A
+    prefab: {fileID: 1106237610206962, guid: 92b11200798aea54180621fb74a3148b, type: 3}
+  - key: Vegetation/Plants/Bush_9B
+    prefab: {fileID: 1323572772032212, guid: e42c544c8469abf43bdba2e84b376b7a, type: 3}
+  - key: Vegetation/Plants/Fern_1A
+    prefab: {fileID: 1799004077957144, guid: 7054cca3537c48941a2e9040679db7f3, type: 3}
+  - key: Vegetation/Plants/Fern_1B
+    prefab: {fileID: 1620395197826316, guid: 3e0e6a1d0c236ee4d9cfb57a38475f7b, type: 3}
+  - key: Vegetation/Plants/Fern_2A
+    prefab: {fileID: 1688285442463978, guid: 437184318bd7e4448b0132d4a1d1b3f5, type: 3}
+  - key: Vegetation/Plants/Fern_2B
+    prefab: {fileID: 1276016610861194, guid: c6c12001f9e08db46b40bdfb0337672f, type: 3}
+  - key: Vegetation/Plants/Flower_1A
+    prefab: {fileID: 1586298537188418, guid: 64951a1e63f9ded4c8d9e71dcde8a96d, type: 3}
+  - key: Vegetation/Plants/Flower_1B
+    prefab: {fileID: 1855996438596472, guid: d373a808270b090469a54c5c5c493aac, type: 3}
+  - key: Vegetation/Plants/Flower_1C
+    prefab: {fileID: 1812052275632174, guid: 75b2afa0ddfb5f544b64774210fc864f, type: 3}
+  - key: Vegetation/Plants/Flower_1D
+    prefab: {fileID: 1638511933381882, guid: 995d3b3ec3fc8474c9a5e93a49ba477c, type: 3}
+  - key: Vegetation/Plants/Mushroom_1A
+    prefab: {fileID: 1410849144642020, guid: ba1fc0c45e3f06c48bf2e5b726d6e0eb, type: 3}
+  - key: Vegetation/Plants/Mushroom_1B
+    prefab: {fileID: 1799195869992410, guid: b335ec3a45450b54a908b9e6f482c1de, type: 3}
+  - key: Vegetation/Plants/Mushroom_2A
+    prefab: {fileID: 1083205162459028, guid: dec0a103fd0c76648a586541de89288b, type: 3}
+  - key: Vegetation/Plants/Mushroom_2B
+    prefab: {fileID: 1163874354478146, guid: 34eae82938ef869429d2e0999628199b, type: 3}
+  - key: Vegetation/Plants/Mushroom_3A
+    prefab: {fileID: 1193822680232946, guid: 18a8c48175a11e948b2c174fdc5d6634, type: 3}
+  - key: Vegetation/Plants/Mushroom_3B
+    prefab: {fileID: 1730370802318012, guid: e5fa4e9e861046147ad40c193cf729b5, type: 3}
+  - key: Vegetation/Plants/Mushroom_4A
+    prefab: {fileID: 1999273968990628, guid: 6c7e97b757e4e3a4696b9b789d1b564f, type: 3}
+  - key: Vegetation/Plants/Mushroom_4B
+    prefab: {fileID: 1457348929762282, guid: d2b2625a2b128944cb676c79b8a5c97d, type: 3}
+  - key: Vegetation/Plants/Mushroom_5A
+    prefab: {fileID: 1152082593732872, guid: 3e3261b2f71a1ea4a98caecf84f7a38f, type: 3}
+  - key: Vegetation/Plants/Mushroom_5B
+    prefab: {fileID: 1142496651899428, guid: 862817ed7c5d2ec4a81b54de5562dc3a, type: 3}
+  - key: Vegetation/Plants/Mushroom_6A
+    prefab: {fileID: 1180599130921528, guid: d2e0380d329704046badc04d8c76bcf0, type: 3}
+  - key: Vegetation/Plants/Mushroom_6B
+    prefab: {fileID: 1704734097565666, guid: 97e95932049eaa24e8d180ad6e979a31, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1A
+    prefab: {fileID: 1561102114239076, guid: 7d6fefa52f30f7a439e43f93bbf381bc, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1B
+    prefab: {fileID: 1953845955004296, guid: 85b5270a0dbba044ca78a51b40830fc1, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1C
+    prefab: {fileID: 1178307829923580, guid: 713d08f3c51ccb845a6929cff016d82e, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1D
+    prefab: {fileID: 1532038685377546, guid: a66cb0c9c9a4e4a418126cad8aea87f2, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1E
+    prefab: {fileID: 1736247038594564, guid: bf00fa9349a84a448b8b93b44b64ee73, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1F
+    prefab: {fileID: 1592777027393598, guid: b7aad281dcf654d418a140fa28f497dc, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1G
+    prefab: {fileID: 1032755331664016, guid: 14c9d38a80993ef479a550a82c77c8de, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_1H
+    prefab: {fileID: 1220619398850750, guid: 9d96c683f7d9e95408da400d0b9d6488, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2A
+    prefab: {fileID: 1247317076820914, guid: 1c92cdc6f2b3c3b489d5cf3aefda8e5c, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2B
+    prefab: {fileID: 1531836933487624, guid: f58d68b0055aa47418983023d6c66ea0, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2C
+    prefab: {fileID: 1374019262992046, guid: 10f22be0fa9283646802b4451d3d879b, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2D
+    prefab: {fileID: 1235557145758766, guid: 2e9f243511264c34bb4d6eec29ec05be, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2E
+    prefab: {fileID: 1027438740499588, guid: ef187aeaf22da994b916c94b7805d480, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2F
+    prefab: {fileID: 1032913765619512, guid: ffb26de52b6a2ef498540cad8b4304b9, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2G
+    prefab: {fileID: 1093373301920042, guid: 7fd34c6bff2cdb64183bd0ad8c0942fa, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_2H
+    prefab: {fileID: 1043929377999296, guid: 283958b9982338c4e94eb8a4be476550, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3A
+    prefab: {fileID: 1600643610811920, guid: 51b804f02caeb104498ec292d491a271, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3B
+    prefab: {fileID: 1663826972408768, guid: c81ac407e3c736249bc0809ec99c62d5, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3C
+    prefab: {fileID: 1414085165723418, guid: 69f7f9db6e69d874098b25410f9ddfcc, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3D
+    prefab: {fileID: 1543322853562236, guid: a20e22554a23d0f42b7f8a37e8fd5177, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3E
+    prefab: {fileID: 1799249811551952, guid: 30ad76ed000901741abd56a1358a763f, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3F
+    prefab: {fileID: 1008000899405700, guid: f93ffb3c11c5a8849abb8df9aa12df52, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3G
+    prefab: {fileID: 1799917846717572, guid: c9bb170ebfd45b549b581c76c7976cf5, type: 3}
+  - key: Vegetation/Trees/Pine_Tree_3H
+    prefab: {fileID: 1550165086758454, guid: 7c4de652f45a2d2438f90c4aa136c8c3, type: 3}
+  - key: Vegetation/Trees/Tree_1A
+    prefab: {fileID: 1945516777562906, guid: e778b4b5c2fd442488f8ec8f9f0b042f, type: 3}
+  - key: Vegetation/Trees/Tree_1B
+    prefab: {fileID: 1521252470093948, guid: 8b465a80483786449b9bfa69c359d63c, type: 3}
+  - key: Vegetation/Trees/Tree_1C
+    prefab: {fileID: 1277324597910286, guid: ad19a17675ad0114789bcc80e3c83368, type: 3}
+  - key: Vegetation/Trees/Tree_1D
+    prefab: {fileID: 1594613521594584, guid: 16370e0d68b343f489abeb086030804e, type: 3}
+  - key: Vegetation/Trees/Tree_1E
+    prefab: {fileID: 1073209608649774, guid: f862386fbeda8d549a459464dfa2e214, type: 3}
+  - key: Vegetation/Trees/Tree_2A
+    prefab: {fileID: 1077071158437106, guid: 6322a58f82d324844981848133de9dcb, type: 3}
+  - key: Vegetation/Trees/Tree_2B
+    prefab: {fileID: 1003482579535842, guid: b72816469d1de7b49b95e3ea8274cb48, type: 3}
+  - key: Vegetation/Trees/Tree_2C
+    prefab: {fileID: 1179688513846272, guid: 75196e5b6555b6d469bf594115e29ce7, type: 3}
+  - key: Vegetation/Trees/Tree_2D
+    prefab: {fileID: 1336008749544144, guid: 2699e63eef2cde54493add729bcf9704, type: 3}
+  - key: Vegetation/Trees/Tree_2E
+    prefab: {fileID: 1687727722671642, guid: 8e9d8ad1352d63a438775e4da0712432, type: 3}
+  - key: Vegetation/Trees/Tree_2F
+    prefab: {fileID: 1943777195645034, guid: 1b1efee26e5d0e640aac99bd5e023296, type: 3}
+  - key: Vegetation/Trees/Tree_3A
+    prefab: {fileID: 1578432783150424, guid: 3c8f84ce431332b47b59f0bffe5de1df, type: 3}
+  - key: Vegetation/Trees/Tree_3B
+    prefab: {fileID: 1713916141111292, guid: 606b8d61221105c409a0ddb5cc2c0929, type: 3}
+  - key: Vegetation/Trees/Tree_3C
+    prefab: {fileID: 1710590345124640, guid: ed78db20f70dc344d8f78b755a822fd0, type: 3}
+  - key: Vegetation/Trees/Tree_3D
+    prefab: {fileID: 1188391342396346, guid: fb78df2a66b794a4ebf6f6b306805b68, type: 3}
+  - key: Vegetation/Trees/Tree_3E
+    prefab: {fileID: 1158609041702358, guid: b75c89e20839d4f43ac8276aaaf4e8d2, type: 3}
+  - key: Vegetation/Trees/Tree_4A
+    prefab: {fileID: 1481299160440730, guid: 097f1d4139ad6d841a450c1309f1875e, type: 3}
+  - key: Vegetation/Trees/Tree_4B
+    prefab: {fileID: 1344054919631744, guid: 3cb72174420d71446bfce5b8c6a01a98, type: 3}
+  - key: Vegetation/Trees/Tree_4C
+    prefab: {fileID: 1878136930674622, guid: 6fcb9f684cce9044e9f8fb1f5d791c56, type: 3}
+  - key: Vegetation/Trees/Tree_5A
+    prefab: {fileID: 1099152394143508, guid: 148b0c1ac2ac4aa4cb7b21104d091a67, type: 3}
+  - key: Vegetation/Trees/Tree_5B
+    prefab: {fileID: 1889303318346518, guid: 471617a8bd94e9540b168990d836c37d, type: 3}
+  - key: Vegetation/Trees/Tree_5C
+    prefab: {fileID: 1265553965047088, guid: 02385c2efa75c7e4a90ecf5ff9c3f7a7, type: 3}
+  - key: Vegetation/Trees/Tree_6A
+    prefab: {fileID: 1892053076351362, guid: 51ef452f7f3a90c418aee138c02951a1, type: 3}
+  - key: Vegetation/Trees/Tree_6B
+    prefab: {fileID: 1416435225924202, guid: 36e4596cf8fe95446a3db0e7c372e54c, type: 3}
+  - key: Vegetation/Trees/Tree_6C
+    prefab: {fileID: 1130464973974362, guid: 5d85d0dfdeed21e498b403ecea1238a6, type: 3}
+  - key: Vegetation/Trees/Tree_6D
+    prefab: {fileID: 1397432188267010, guid: 37359d7ce01736841af97fd3c2684486, type: 3}
+  - key: Vegetation/Trees/Tree_7A
+    prefab: {fileID: 1455386361732782, guid: 8bda28a3787fa844e804d2ac655dac8e, type: 3}
+  - key: Vegetation/Trees/Tree_7B
+    prefab: {fileID: 1492530171821720, guid: eda9ecce6c1269244a12c657f0e4e852, type: 3}
+  - key: Vegetation/Trees/Tree_7C
+    prefab: {fileID: 1001684166184878, guid: cac301f59144d924383b5e6b7f4a9fbe, type: 3}
+  - key: Vegetation/Trees/Tree_8A
+    prefab: {fileID: 1167244006769824, guid: cff7eeb3977b9fc4ba55ba7e2a02da26, type: 3}
+  - key: Vegetation/Trees/Tree_8B
+    prefab: {fileID: 1177238588474178, guid: 17cd34982da2541429a5769961ec5ce3, type: 3}
+  - key: Vegetation/Trees/Tree_8C
+    prefab: {fileID: 1692101133598390, guid: a5ceee1faced5c54a9864ec270322d38, type: 3}
+  - key: Vegetation/Trees/Tree_8D
+    prefab: {fileID: 1192791741188028, guid: b7f9a50f1d375d04099d4a9ed87b0fb8, type: 3}
+  - key: Vegetation/Trees/Tree_8E
+    prefab: {fileID: 1598965762161664, guid: 3e50479cf98b95f4bb00ce0999a56cc6, type: 3}
+  - key: Vegetation/Trees/Tree_Log_1A
+    prefab: {fileID: 1391644381382700, guid: 954ec231f099ee74eb1b57c51cf75471, type: 3}
+  - key: Vegetation/Trees/Tree_Log_1B
+    prefab: {fileID: 1685459114817744, guid: 5855b8a51c38e74409f80ee5562e492c, type: 3}
+  - key: Vegetation/Trees/Tree_Log_1C
+    prefab: {fileID: 1611430606293214, guid: e5214a88a580b4b4582c793421da0c76, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2A
+    prefab: {fileID: 1725758981662614, guid: 61002c718011fe646b8d226594c1ace7, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2B
+    prefab: {fileID: 1410957784402554, guid: fbf3f25857c3a4d48b89e3486c49e8ea, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2C
+    prefab: {fileID: 1219604398604668, guid: 0283a8cea09420a4c9c884f8f35e52da, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2D
+    prefab: {fileID: 1472639401298272, guid: 8a766f796e374a14fa6eee65f85c322f, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2E
+    prefab: {fileID: 1737952993146066, guid: 81f619592c2c57b4db5c89b1054cf56b, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2F
+    prefab: {fileID: 1885651564949614, guid: c298009bf3b776840a19b23b4fbaada3, type: 3}
+  - key: Vegetation/Trees/Tree_Log_2G
+    prefab: {fileID: 1810235143579686, guid: d4f06a2d7b153224e8a4879be8100974, type: 3}
+  - key: Vegetation/Trees/Tree_Trunk_1A
+    prefab: {fileID: 1456459636940202, guid: d7806e96b1d1b83408dbc3a6cadcb87a, type: 3}
+  - key: Vegetation/Trees/Tree_Trunk_1B
+    prefab: {fileID: 1051248008247640, guid: 3c6c475fdf0421a41ba9fff0d4a3e45d, type: 3}
