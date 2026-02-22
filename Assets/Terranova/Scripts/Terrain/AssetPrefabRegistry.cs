@@ -382,6 +382,9 @@ namespace Terranova.Terrain
             float scale = minScale + (float)(rng.NextDouble() * (maxScale - minScale));
             instance.transform.localScale = prefab.transform.localScale * scale;
 
+            // Replace BiRP materials with URP-compatible Terranova materials
+            TerrainShaderLibrary.ReplaceWithURPMaterials(instance);
+
             return instance;
         }
 
@@ -398,6 +401,9 @@ namespace Terranova.Terrain
             var instance = Object.Instantiate(prefab, position, rotation, parent);
             if (!Mathf.Approximately(scale, 1f))
                 instance.transform.localScale = prefab.transform.localScale * scale;
+
+            // Replace BiRP materials with URP-compatible Terranova materials
+            TerrainShaderLibrary.ReplaceWithURPMaterials(instance);
 
             return instance;
         }

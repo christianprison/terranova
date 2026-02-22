@@ -2292,6 +2292,13 @@ namespace Terranova.Population
                 avatar.transform.localPosition = Vector3.zero;
                 avatar.transform.localRotation = Quaternion.identity;
 
+                // Replace BiRP materials with URP-compatible Terranova materials
+                TerrainShaderLibrary.ReplaceWithURPMaterials(avatar);
+
+                // Apply shared PropLit material for consistent settler rendering
+                foreach (var r in avatar.GetComponentsInChildren<Renderer>(true))
+                    r.sharedMaterial = _sharedMaterial;
+
                 // Find renderers for color tinting (hunger/thirst state)
                 _bodyRenderer = avatar.GetComponentInChildren<MeshRenderer>();
                 if (_bodyRenderer == null)
