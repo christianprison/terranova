@@ -555,7 +555,7 @@ namespace Terranova.Terrain
         ///
         /// Story 0.6: Flatten terrain before placing objects
         /// </summary>
-        public void FlattenTerrain(int centerX, int centerZ, int radius)
+        public void FlattenTerrain(int centerX, int centerZ, int radius, bool rebakeNavMesh = true)
         {
             int targetHeight = GetHeightAtWorldPos(centerX, centerZ);
             if (targetHeight < 0)
@@ -598,7 +598,7 @@ namespace Terranova.Terrain
             }
 
             // Rebake NavMesh after terrain modification (Story 2.0)
-            if (IsNavMeshReady)
+            if (rebakeNavMesh && IsNavMeshReady)
                 BakeNavMesh();
         }
 

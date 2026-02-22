@@ -245,7 +245,7 @@ namespace Terranova.Resources
                 // Must be on solid ground (or sand for near-water nodes)
                 if (!surface.IsSolid()) continue;
 
-                world.FlattenTerrain(blockX, blockZ, 1);
+                world.FlattenTerrain(blockX, blockZ, 1, rebakeNavMesh: false);
                 float y = world.GetSmoothedHeightAtWorldPos(x, z);
                 Vector3 pos = new Vector3(x, y, z);
 
@@ -258,6 +258,9 @@ namespace Terranova.Resources
 
                 distributed++;
             }
+
+            // Single NavMesh rebake after all terrain modifications
+            world.BakeNavMesh();
 
             Debug.Log($"[ResourceSpawner] Biome={biome}, Seed={GameState.Seed}: " +
                       $"Placed {distributed} resource nodes ({startSpawned} guaranteed start).");
@@ -335,7 +338,7 @@ namespace Terranova.Resources
                 if (!surface.IsSolid()) continue;
                 if (requireWater && !IsNearWater(world, blockX, blockZ)) continue;
 
-                world.FlattenTerrain(blockX, blockZ, 1);
+                world.FlattenTerrain(blockX, blockZ, 1, rebakeNavMesh: false);
                 float y = world.GetSmoothedHeightAtWorldPos(x, z);
                 Vector3 pos = new Vector3(x, y, z);
 

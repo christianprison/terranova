@@ -50,7 +50,7 @@ namespace Terranova.Terrain
         public static Shader WaterSurface => _waterSurface ??= FindShader("Terranova/WaterSurface");
 
         /// <summary>Get the FogOfWar shader (transparent + noise).</summary>
-        public static Shader FogOfWarShader => _fogOfWar ??= FindShader("Terranova/FogOfWar");
+        public static Shader FogOfWarShader => _fogOfWar ??= FindTransparentShader("Terranova/FogOfWar");
 
         /// <summary>Get the TrampledPath shader (transparent decal).</summary>
         public static Shader TrampledPath => _trampledPath ??= FindShader("Terranova/TrampledPath");
@@ -63,8 +63,20 @@ namespace Terranova.Terrain
             var shader = Shader.Find(name);
             if (shader == null)
             {
-                Debug.LogWarning($"[TerrainShaderLibrary] Shader '{name}' not found, using fallback.");
+                Debug.LogWarning($"[TerrainShaderLibrary] Shader '{name}' not found, using opaque fallback.");
                 shader = Shader.Find("Terranova/VertexColorOpaque")
+                      ?? Shader.Find("Sprites/Default");
+            }
+            return shader;
+        }
+
+        private static Shader FindTransparentShader(string name)
+        {
+            var shader = Shader.Find(name);
+            if (shader == null)
+            {
+                Debug.LogWarning($"[TerrainShaderLibrary] Shader '{name}' not found, using transparent fallback.");
+                shader = Shader.Find("Terranova/VertexColorTransparent")
                       ?? Shader.Find("Sprites/Default");
             }
             return shader;
@@ -154,14 +166,24 @@ namespace Terranova.Terrain
         /// <summary>Create the fog of war overlay material.</summary>
         public static Material CreateFogMaterial()
         {
-            var mat = new Material(FogOfWarShader);
+            var shader = FogOfWarShader;
+            var mat = new Material(shader);
             mat.name = "FogOfWar_Mat";
-            mat.SetColor("_FogColor", new Color(0.03f, 0.04f, 0.03f, 0.85f));
-            mat.SetFloat("_NoiseScale", 8f);
-            mat.SetFloat("_NoiseSpeed", 0.3f);
-            mat.SetFloat("_NoiseAmount", 0.15f);
-            mat.SetFloat("_EdgeSoftness", 0.2f);
             mat.renderQueue = 3100;
+
+            if (shader.name == "Terranova/FogOfWar")
+            {
+                mat.SetColor("_FogColor", new Color(0.03f, 0.04f, 0.03f, 0.85f));
+                mat.SetFloat("_NoiseScale", 8f);
+                mat.SetFloat("_NoiseSpeed", 0.3f);
+                mat.SetFloat("_NoiseAmount", 0.15f);
+                mat.SetFloat("_EdgeSoftness", 0.2f);
+            }
+            else
+            {
+                // Fallback: use vertex color alpha for transparency
+                mat.SetColor("_BaseColor", new Color(0.03f, 0.04f, 0.03f, 0.85f));
+            }
             return mat;
         }
 

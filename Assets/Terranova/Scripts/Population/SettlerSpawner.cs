@@ -69,6 +69,9 @@ namespace Terranova.Population
             // Brute-force freshwater pond — NOT tied to terrain generation
             SpawnFreshwaterPond(world, campfirePos);
 
+            // Single NavMesh rebake after pond terrain modifications
+            world.BakeNavMesh();
+
             // Progress: tribe arriving
             EventBus.Publish(new WorldGenerationProgressEvent
             {
@@ -276,10 +279,10 @@ namespace Terranova.Population
                 pondX = Mathf.Clamp(pondX, 4f, world.WorldBlocksX - 5f);
                 pondZ = Mathf.Clamp(pondZ, 4f, world.WorldBlocksZ - 5f);
 
-                // Flatten terrain under pond area
+                // Flatten terrain under pond area (defer NavMesh rebake)
                 int blockX = Mathf.FloorToInt(pondX);
                 int blockZ = Mathf.FloorToInt(pondZ);
-                world.FlattenTerrain(blockX, blockZ, 3);
+                world.FlattenTerrain(blockX, blockZ, 3, rebakeNavMesh: false);
 
                 // Snap to terrain surface
                 float pondY = world.GetSmoothedHeightAtWorldPos(pondX, pondZ);
