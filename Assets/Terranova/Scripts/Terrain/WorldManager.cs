@@ -30,10 +30,6 @@ namespace Terranova.Terrain
         [Tooltip("Number of chunks along Z axis.")]
         [SerializeField] private int _worldSizeZ = 8;
 
-        [Header("Generation")]
-        [Tooltip("Seed for terrain generation. Same seed = same world.")]
-        [SerializeField] private int _seed = 42;
-
         [Header("Materials")]
         [Tooltip("Material for solid blocks (opaque, vertex colors). Auto-created if not assigned.")]
         [SerializeField] private Material _solidMaterial;
